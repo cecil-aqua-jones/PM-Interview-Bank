@@ -20,8 +20,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // At this point, supabase is guaranteed to be non-null
+    const client = supabase;
+
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await client.auth.getSession();
       
       if (session) {
         setStatus("authenticated");
@@ -32,11 +35,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     };
 
     // Listen for auth state changes (handles magic link callback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = client.auth.onAuthStateChange(
       (event, session) => {
         if (event === "SIGNED_IN" && session) {
           setStatus("authenticated");
-        } else if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED" && !session) {
+        } else if (event === "SIGNED_OUT" || (event === "TOKEN_REFRESHED" && !session)) {
           setStatus("unauthenticated");
           router.push("/login");
         }

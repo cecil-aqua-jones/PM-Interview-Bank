@@ -1,6 +1,9 @@
 import { getCompanies } from "@/lib/airtable";
 import CompanyGridClient from "./components/CompanyGridClient";
 
+// Force dynamic rendering - don't pre-render during build
+export const dynamic = "force-dynamic";
+
 export default async function AppHome() {
   const companies = await getCompanies();
 

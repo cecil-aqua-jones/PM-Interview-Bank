@@ -17,3 +17,4 @@ build
 *.swo
 .idea
 .vscode
+.vercel

@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { getCompanyBySlug, getQuestionsByCompany } from "@/lib/airtable";
 import CompanyQuestionsClient from "../../components/CompanyQuestionsClient";
 
+// Force dynamic rendering - don't pre-render during build
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: { slug: string };
 };

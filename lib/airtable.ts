@@ -16,9 +16,8 @@ const airtableFetch = async (path: string) => {
     headers: {
       Authorization: `Bearer ${AIRTABLE_API_KEY}`
     },
-    // Disable caching in development, 60s in production
-    cache: process.env.NODE_ENV === "development" ? "no-store" : "default",
-    next: process.env.NODE_ENV === "development" ? undefined : { revalidate: 60 }
+    // Use Next.js revalidation (ISR) - revalidate every 60 seconds
+    next: { revalidate: 60 }
   });
 
   if (!response.ok) {
