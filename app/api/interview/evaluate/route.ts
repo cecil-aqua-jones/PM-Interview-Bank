@@ -1,25 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildEvaluationPrompt, EvaluationResult } from "@/lib/pmRubric";
+import { sanitizeForLLM, validateLength } from "@/lib/security";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 export async function POST(request: NextRequest) {
   if (!OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: "OpenAI API key not configured" },
-      { status: 500 }
+      { error: "Service temporarily unavailable" },
+      { status: 503 }
     );
   }
 
   try {
     const body = await request.json();
-    const { question, transcript, tags = [], difficulty } = body;
+    let { question, transcript, tags = [], difficulty } = body;
 
     if (!question || !transcript) {
       return NextResponse.json(
         { error: "Question and transcript are required" },
         { status: 400 }
       );
+    }
+
+    // Sanitize inputs to prevent prompt injection
+    question = sanitizeForLLM(question);
+    transcript = sanitizeForLLM(transcript);
+    difficulty = typeof difficulty === "string" ? sanitizeForLLM(difficulty) : undefined;
+    tags = Array.isArray(tags) 
+      ? tags.slice(0, 10).map((t: unknown) => typeof t === "string" ? sanitizeForLLM(t) : "").filter(Boolean)
+      : [];
+
+    // Validate lengths
+    const questionValidation = validateLength(question, 10, 1000);
+    if (!questionValidation.valid) {
+      return NextResponse.json({ error: questionValidation.error }, { status: 400 });
+    }
+
+    const transcriptValidation = validateLength(transcript, 20, 10000);
+    if (!transcriptValidation.valid) {
+      return NextResponse.json({ error: transcriptValidation.error }, { status: 400 });
     }
 
     // Build the evaluation prompt

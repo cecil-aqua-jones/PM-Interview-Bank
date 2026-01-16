@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sanitizeForLLM, validateLength } from "@/lib/security";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -42,20 +43,30 @@ function buildInterviewPrompt(question: string, category?: string): string {
 export async function POST(request: NextRequest) {
   if (!OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: "OpenAI API key not configured" },
-      { status: 500 }
+      { error: "Service temporarily unavailable" },
+      { status: 503 }
     );
   }
 
   try {
     const body = await request.json();
-    const { question, category } = body;
+    let { question, category } = body;
 
     if (!question) {
       return NextResponse.json(
         { error: "Question is required" },
         { status: 400 }
       );
+    }
+
+    // Sanitize inputs
+    question = sanitizeForLLM(question);
+    category = typeof category === "string" ? sanitizeForLLM(category) : undefined;
+
+    // Validate length
+    const questionValidation = validateLength(question, 10, 1000);
+    if (!questionValidation.valid) {
+      return NextResponse.json({ error: questionValidation.error }, { status: 400 });
     }
 
     // Build the natural interview prompt
