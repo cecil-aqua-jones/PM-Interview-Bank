@@ -1,3 +1,19 @@
+# Dependencies
 node_modules
-.env.local
+
+# Environment
 .env
+.env.local
+.env*.local
+
+# Next.js
+.next
+out
+build
+
+# Misc
+.DS_Store
+*.swp
+*.swo
+.idea
+.vscode

@@ -4,14 +4,14 @@ import { Company, Question } from "./types";
 
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
-const AIRTABLE_COMPANIES_TABLE =
-  process.env.AIRTABLE_COMPANIES_TABLE || "Companies";
 const AIRTABLE_QUESTIONS_TABLE =
   process.env.AIRTABLE_QUESTIONS_TABLE || "Questions";
 
 const hasAirtableConfig = Boolean(AIRTABLE_API_KEY && AIRTABLE_BASE_ID);
 
 const airtableFetch = async (path: string) => {
+  console.log("[Airtable] Fetching:", path);
+
   const response = await fetch(path, {
     headers: {
       Authorization: `Bearer ${AIRTABLE_API_KEY}`
@@ -20,11 +20,16 @@ const airtableFetch = async (path: string) => {
   });
 
   if (!response.ok) {
-    throw new Error(`Airtable request failed: ${response.status}`);
+    const errorBody = await response.text();
+    console.error("[Airtable] Error response:", response.status, errorBody);
+    throw new Error(`Airtable request failed: ${response.status} - ${errorBody}`);
   }
 
   return response.json();
 };
+
+const toSlug = (name: string): string =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 const normalizeTags = (value: unknown): string[] => {
   if (Array.isArray(value)) {
@@ -36,74 +41,100 @@ const normalizeTags = (value: unknown): string[] => {
   return [];
 };
 
-const toCompany = (record: any): Company => ({
-  id: record.id,
-  name: record.fields?.Name ?? "Unknown",
-  slug: record.fields?.Slug ?? "unknown",
-  questionCount: record.fields?.QuestionCount
+// Map your Airtable fields to our Question type
+const toQuestion = (record: any): Question => {
+  const fields = record.fields ?? {};
+  const category = fields.Category;
+  const subcategory = fields.Subcategory;
+  
+  // Combine Category + Subcategory into tags
+  const tags: string[] = [];
+  if (category) tags.push(...normalizeTags(category));
+  if (subcategory) tags.push(...normalizeTags(subcategory));
+
+  return {
+    id: record.id,
+    title: fields.Question ?? "Untitled",
+    prompt: fields.Question ?? "", // Using Question as both title and prompt
+    tags,
+    difficultyLabel: fields["Frequent?"] ? "Frequent" : undefined,
+    companySlug: fields.Company ? toSlug(fields.Company) : undefined,
+    companyName: fields.Company,
+    lastVerified: fields["Last verified"]
+  };
+};
+
+// Fetch all questions and derive companies from them
+const fetchAllQuestions = cache(async (): Promise<Question[]> => {
+  if (!hasAirtableConfig) {
+    return mockQuestions;
+  }
+
+  const allQuestions: Question[] = [];
+  let offset: string | undefined;
+
+  // Paginate through all records
+  do {
+    const url = new URL(
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_QUESTIONS_TABLE}`
+    );
+    if (offset) {
+      url.searchParams.set("offset", offset);
+    }
+
+    const data = await airtableFetch(url.toString());
+    allQuestions.push(...data.records.map(toQuestion));
+    offset = data.offset;
+  } while (offset);
+
+  return allQuestions;
 });
 
-const toQuestion = (record: any): Question => ({
-  id: record.id,
-  title: record.fields?.Title ?? "Untitled",
-  prompt: record.fields?.Prompt ?? "",
-  tags: normalizeTags(record.fields?.Tags),
-  difficultyLabel: record.fields?.DifficultyLabel,
-  difficultyScore: record.fields?.DifficultyScore,
-  companySlug: record.fields?.CompanySlug,
-  requirements: normalizeTags(record.fields?.Requirements)
-});
-
+// Derive companies from questions (no separate Companies table needed)
 export const getCompanies = cache(async (): Promise<Company[]> => {
   if (!hasAirtableConfig) {
     return mockCompanies;
   }
 
-  const url = new URL(
-    `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_COMPANIES_TABLE}`
-  );
+  const questions = await fetchAllQuestions();
+  const companyMap = new Map<string, { name: string; count: number }>();
 
-  const data = await airtableFetch(url.toString());
-  return data.records.map(toCompany);
+  for (const q of questions) {
+    if (q.companySlug && q.companyName) {
+      const existing = companyMap.get(q.companySlug);
+      if (existing) {
+        existing.count++;
+      } else {
+        companyMap.set(q.companySlug, { name: q.companyName, count: 1 });
+      }
+    }
+  }
+
+  return Array.from(companyMap.entries())
+    .map(([slug, { name, count }]) => ({
+      id: slug,
+      name,
+      slug,
+      questionCount: count
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 });
 
 export const getCompanyBySlug = cache(
   async (slug: string): Promise<Company | null> => {
-    if (!hasAirtableConfig) {
-      return mockCompanies.find((company) => company.slug === slug) ?? null;
-    }
-
-    const url = new URL(
-      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_COMPANIES_TABLE}`
-    );
-    url.searchParams.set("filterByFormula", `{Slug}='${slug}'`);
-
-    const data = await airtableFetch(url.toString());
-    if (!data.records.length) {
-      return null;
-    }
-
-    return toCompany(data.records[0]);
+    const companies = await getCompanies();
+    return companies.find((c) => c.slug === slug) ?? null;
   }
 );
 
 export const getQuestionsByCompany = cache(
   async (companySlug?: string): Promise<Question[]> => {
-    if (!hasAirtableConfig) {
-      return companySlug
-        ? mockQuestions.filter((question) => question.companySlug === companySlug)
-        : mockQuestions;
-    }
-
-    const url = new URL(
-      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_QUESTIONS_TABLE}`
-    );
+    const questions = await fetchAllQuestions();
 
     if (companySlug) {
-      url.searchParams.set("filterByFormula", `{CompanySlug}='${companySlug}'`);
+      return questions.filter((q) => q.companySlug === companySlug);
     }
 
-    const data = await airtableFetch(url.toString());
-    return data.records.map(toQuestion);
+    return questions;
   }
 );

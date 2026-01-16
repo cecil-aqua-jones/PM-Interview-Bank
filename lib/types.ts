@@ -13,5 +13,7 @@ export type Question = {
   difficultyLabel?: string;
   difficultyScore?: number;
   companySlug?: string;
+  companyName?: string;
   requirements?: string[];
+  lastVerified?: string;
 };

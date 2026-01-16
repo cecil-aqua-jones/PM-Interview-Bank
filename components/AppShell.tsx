@@ -1,59 +1,88 @@
+"use client";
+
 import Link from "next/link";
-import styles from "../app/(app)/app.module.css";
-import { Company } from "@/lib/types";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import styles from "../app/dashboard/app.module.css";
 
-type AppShellProps = {
-  companies: Company[];
-  children: React.ReactNode;
-};
+export default function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-export default function AppShell({ companies, children }: AppShellProps) {
+  const isActive = (path: string) => pathname === path;
+
   return (
     <div className={styles.shell}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarHeader}>
-          <span className={styles.brandIcon}>⚡</span>
-          <span className={styles.brandName}>GothamLoop</span>
-        </div>
-        <nav className={styles.sidebarNav}>
-          <Link href="/app" className={styles.navItem}>
-            Home
+      <nav className={styles.topNav}>
+        <div className={styles.topNavInner}>
+          <Link href="/dashboard" className={styles.brand}>
+            <div className={styles.brandMark}>PM</div>
+            <span className={styles.brandName}>Interview Bank</span>
           </Link>
-          <a className={styles.navItem} href="#">
-            Request Company
-          </a>
-          <a className={styles.navItem} href="#">
-            Billing
-          </a>
-        </nav>
-        <div className={styles.sidebarDivider} />
-        <div className={styles.companyList}>
-          {companies.map((company) => (
+
+          <div className={styles.navLinks}>
             <Link
-              key={company.slug}
-              href={`/app/company/${company.slug}`}
-              className={styles.companyItem}
+              href="/dashboard"
+              className={`${styles.navLink} ${
+                isActive("/dashboard") ? styles.navLinkActive : ""
+              }`}
             >
-              <span className={styles.companyDot} />
-              <span>{company.name}</span>
-              {company.questionCount ? (
-                <span className={styles.companyCount}>
-                  {company.questionCount}
-                </span>
-              ) : null}
+              Companies
             </Link>
-          ))}
-        </div>
-      </aside>
-      <div className={styles.main}>
-        <header className={styles.topBar}>
-          <div className={styles.breadcrumb}>Home</div>
-          <button className={styles.iconButton} type="button">
-            🌙
+            <a href="/#pricing" className={styles.navLink}>
+              Upgrade
+            </a>
+          </div>
+
+          <button
+            className={styles.mobileMenuBtn}
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
           </button>
-        </header>
-        <div className={styles.content}>{children}</div>
-      </div>
+        </div>
+      </nav>
+
+      {mobileMenuOpen && (
+        <div className={styles.mobileNav}>
+          <div className={styles.mobileNavHeader}>
+            <Link href="/dashboard" className={styles.brand} onClick={() => setMobileMenuOpen(false)}>
+              <div className={styles.brandMark}>PM</div>
+              <span className={styles.brandName}>Interview Bank</span>
+            </Link>
+            <button
+              className={styles.mobileMenuBtn}
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close menu"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className={styles.mobileNavLinks}>
+            <Link
+              href="/dashboard"
+              className={styles.mobileNavLink}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Companies
+            </Link>
+            <a
+              href="/#pricing"
+              className={styles.mobileNavLink}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Upgrade
+            </a>
+          </div>
+        </div>
+      )}
+
+      <main className={styles.main}>{children}</main>
     </div>
   );
 }
