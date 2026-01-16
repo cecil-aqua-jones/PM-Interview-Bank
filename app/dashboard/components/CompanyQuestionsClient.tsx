@@ -8,7 +8,6 @@ import styles from "../app.module.css";
 import { Question } from "@/lib/types";
 import { getBrandIcon } from "@/lib/brandfetch";
 import { getInterview, InterviewRecord } from "@/lib/interviewStorage";
-import PlayButton from "./PlayButton";
 import InterviewModal from "./InterviewModal";
 
 type CompanyQuestionsClientProps = {
@@ -311,18 +310,10 @@ export default function CompanyQuestionsClient({
                   </button>
                 </div>
 
-                {/* Title & Tags with Play Button */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 16 }}>
-                  <div style={{ flex: 1 }}>
-                    <h2 className={styles.questionCardTitle} style={{ marginBottom: 0 }}>
-                      {selectedQuestion.title}
-                    </h2>
-                  </div>
-                  <PlayButton
-                    onClick={() => setInterviewQuestion(selectedQuestion)}
-                    score={selectedRecord?.score}
-                  />
-                </div>
+                {/* Title */}
+                <h2 className={styles.questionCardTitle}>
+                  {selectedQuestion.title}
+                </h2>
 
                 <div className={styles.questionCardTags}>
                   {selectedQuestion.tags.map((tag, i) => (
@@ -348,36 +339,59 @@ export default function CompanyQuestionsClient({
                 {selectedRecord ? (
                   <div className={styles.previousFeedback}>
                     <div className={styles.previousFeedbackHeader}>
-                      <div className={styles.previousFeedbackScore}>
-                        <span className={styles.previousFeedbackScoreValue}>
-                          {selectedRecord.score}
-                        </span>
-                        <span className={styles.previousFeedbackScoreLabel}>/10</span>
+                      <div className={styles.previousFeedbackHeaderLeft}>
+                        <div className={styles.previousFeedbackScore}>
+                          {/* Circular progress ring */}
+                          <svg className={styles.previousFeedbackScoreRing} viewBox="0 0 36 36">
+                            <circle
+                              className={styles.previousFeedbackScoreRingBg}
+                              cx="18" cy="18" r="15.5"
+                            />
+                            <circle
+                              className={`${styles.previousFeedbackScoreRingFill} ${
+                                selectedRecord.score >= 7 ? styles.scoreHigh :
+                                selectedRecord.score >= 4 ? styles.scoreMid : styles.scoreLow
+                              }`}
+                              cx="18" cy="18" r="15.5"
+                              strokeDasharray={`${selectedRecord.score * 9.7} 97`}
+                            />
+                          </svg>
+                          <span className={styles.previousFeedbackScoreValue}>
+                            {selectedRecord.score}
+                          </span>
+                        </div>
+                        <div className={styles.previousFeedbackMeta}>
+                          <span className={styles.previousFeedbackTitle}>Last Attempt</span>
+                          <span className={styles.previousFeedbackDate}>
+                            {new Date(selectedRecord.timestamp).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric"
+                            })}
+                          </span>
+                        </div>
                       </div>
-                      <div className={styles.previousFeedbackMeta}>
-                        <span className={styles.previousFeedbackTitle}>Your Last Attempt</span>
-                        <span className={styles.previousFeedbackDate}>
-                          {new Date(selectedRecord.timestamp).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric"
-                          })}
-                        </span>
-                      </div>
+                      <span className={`${styles.previousFeedbackPerformance} ${
+                        selectedRecord.score >= 7 ? styles.performanceHigh :
+                        selectedRecord.score >= 4 ? styles.performanceMid : styles.performanceLow
+                      }`}>
+                        {selectedRecord.score >= 7 ? "Strong" :
+                         selectedRecord.score >= 4 ? "Developing" : "Needs Work"}
+                      </span>
                     </div>
                     
                     <div className={styles.previousFeedbackContent}>
                       <p className={styles.previousFeedbackSummary}>
-                        "{selectedRecord.evaluation.overallFeedback}"
+                        {selectedRecord.evaluation.overallFeedback}
                       </p>
                       
                       {selectedRecord.evaluation.improvements.length > 0 && (
                         <div className={styles.previousFeedbackSection}>
                           <span className={styles.previousFeedbackSectionTitle}>
-                            Focus areas for improvement:
+                            Areas to Focus On
                           </span>
                           <ul className={styles.previousFeedbackList}>
-                            {selectedRecord.evaluation.improvements.slice(0, 2).map((item, i) => (
+                            {selectedRecord.evaluation.improvements.slice(0, 3).map((item, i) => (
                               <li key={i}>{item}</li>
                             ))}
                           </ul>
@@ -385,12 +399,14 @@ export default function CompanyQuestionsClient({
                       )}
                     </div>
 
-                    <button
-                      className={styles.tryAgainBtn}
-                      onClick={() => setInterviewQuestion(selectedQuestion)}
-                    >
-                      Practice Again
-                    </button>
+                    <div className={styles.previousFeedbackActions}>
+                      <button
+                        className={styles.tryAgainBtn}
+                        onClick={() => setInterviewQuestion(selectedQuestion)}
+                      >
+                        Practice Again
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className={styles.noPractice}>

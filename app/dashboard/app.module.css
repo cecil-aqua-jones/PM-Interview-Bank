@@ -717,82 +717,141 @@
 .previousFeedback {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .previousFeedbackHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--smoke);
+}
+
+.previousFeedbackHeaderLeft {
   display: flex;
   align-items: center;
   gap: 16px;
 }
 
 .previousFeedbackScore {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
+  position: relative;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
 }
 
-.previousFeedbackScoreValue {
-  font-family: var(--font-playfair), serif;
-  font-size: 28px;
-  font-weight: 500;
-  color: var(--white);
+.previousFeedbackScoreRing {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
 }
 
-.previousFeedbackScoreLabel {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
+.previousFeedbackScoreRingBg {
+  fill: none;
+  stroke: var(--smoke);
+  stroke-width: 4;
+}
+
+.previousFeedbackScoreRingFill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.previousFeedbackScoreRingFill.scoreHigh {
+  stroke: #16a34a;
+}
+
+.previousFeedbackScoreRingFill.scoreMid {
+  stroke: var(--charcoal);
+}
+
+.previousFeedbackScoreRingFill.scoreLow {
+  stroke: #dc2626;
+}
+
+.previousFeedbackScoreValue {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-playfair), serif;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
 }
 
 .previousFeedbackMeta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .previousFeedbackTitle {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--ink);
+  letter-spacing: -0.01em;
 }
 
 .previousFeedbackDate {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--graphite);
+}
+
+.previousFeedbackPerformance {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.previousFeedbackPerformance.performanceHigh {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+}
+
+.previousFeedbackPerformance.performanceMid {
+  background: var(--pearl);
+  color: var(--charcoal);
+}
+
+.previousFeedbackPerformance.performanceLow {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
 }
 
 .previousFeedbackContent {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
 .previousFeedbackSummary {
   font-size: 15px;
-  font-style: italic;
   color: var(--charcoal);
   line-height: 1.7;
-  padding: 16px 20px;
-  background: var(--ivory);
-  border-radius: var(--radius-md);
-  border-left: 3px solid var(--accent);
+  padding: 0;
+  background: none;
+  border: none;
 }
 
 .previousFeedbackSection {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .previousFeedbackSectionTitle {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--graphite);
 }
@@ -801,27 +860,25 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding-left: 0;
+  margin: 0;
 }
 
 .previousFeedbackList li {
   font-size: 14px;
   color: var(--charcoal);
   line-height: 1.5;
-  padding-left: 16px;
+  padding: 12px 16px;
+  background: var(--pearl);
+  border-radius: var(--radius-sm);
   position: relative;
 }
 
-.previousFeedbackList li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 8px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+.previousFeedbackActions {
+  display: flex;
+  gap: 12px;
+  padding-top: 4px;
 }
 
 .tryAgainBtn {
@@ -1261,6 +1318,110 @@
   color: var(--graphite);
 }
 
+/* Speaking State - AI reading the question */
+.speakingArea {
+  text-align: center;
+  padding: 16px 0;
+}
+
+.speakingIcon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: var(--white);
+  animation: speakingPulse 2s ease-in-out infinite;
+}
+
+@keyframes speakingPulse {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(26, 25, 24, 0.2);
+    transform: scale(1);
+  }
+  50% { 
+    box-shadow: 0 0 0 16px rgba(26, 25, 24, 0);
+    transform: scale(1.02);
+  }
+}
+
+.speakingVisualizer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 50px;
+  margin-bottom: 20px;
+}
+
+.speakingBar {
+  width: 6px;
+  background: var(--ink);
+  border-radius: 3px;
+  animation: speakingWave 0.8s ease-in-out infinite;
+}
+
+.speakingBar:nth-child(1) { animation-delay: 0s; }
+.speakingBar:nth-child(2) { animation-delay: 0.1s; }
+.speakingBar:nth-child(3) { animation-delay: 0.2s; }
+.speakingBar:nth-child(4) { animation-delay: 0.3s; }
+.speakingBar:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes speakingWave {
+  0%, 100% { height: 12px; opacity: 0.5; }
+  50% { height: 35px; opacity: 1; }
+}
+
+.speakingStatus {
+  font-family: var(--font-playfair), serif;
+  font-size: 18px;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.speakingHint {
+  font-size: 14px;
+  color: var(--graphite);
+  margin-bottom: 20px;
+}
+
+.speakingProgress {
+  width: 100%;
+  max-width: 280px;
+  height: 4px;
+  background: var(--smoke);
+  border-radius: 2px;
+  margin: 0 auto 24px;
+  overflow: hidden;
+}
+
+.speakingProgressBar {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.skipButton {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--graphite);
+  background: transparent;
+  border: 1px solid var(--silver);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.skipButton:hover {
+  border-color: var(--charcoal);
+  color: var(--ink);
+}
+
 /* Error State */
 .errorState {
   text-align: center;
@@ -1509,72 +1670,6 @@
   gap: 12px;
   justify-content: center;
   padding-top: 8px;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PLAY BUTTON
-   Trigger for interview modal
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-.playButton {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2px solid var(--smoke);
-  background: var(--white);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition);
-  position: relative;
-  flex-shrink: 0;
-}
-
-.playButton:hover {
-  border-color: var(--ink);
-  background: var(--pearl);
-}
-
-.playButtonIcon {
-  width: 18px;
-  height: 18px;
-  color: var(--charcoal);
-  margin-left: 2px;
-}
-
-.playButton:hover .playButtonIcon {
-  color: var(--ink);
-}
-
-/* Score badge */
-.scoreBadge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 22px;
-  height: 22px;
-  border-radius: 11px;
-  background: var(--ink);
-  color: var(--white);
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-}
-
-.scoreBadgeGood {
-  background: #16a34a;
-}
-
-.scoreBadgeAverage {
-  background: #d97706;
-}
-
-.scoreBadgeLow {
-  background: #dc2626;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

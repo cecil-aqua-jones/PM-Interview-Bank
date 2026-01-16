@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAudioRecorder } from "@/lib/hooks/useAudioRecorder";
 import { saveInterview, getInterview } from "@/lib/interviewStorage";
 import { EvaluationResult } from "@/lib/pmRubric";
@@ -14,7 +14,7 @@ type InterviewModalProps = {
   onScoreUpdate?: (questionId: string, score: number) => void;
 };
 
-type ModalState = "idle" | "recording" | "processing" | "feedback";
+type ModalState = "speaking" | "ready" | "recording" | "processing" | "feedback";
 
 function MicIcon() {
   return (
@@ -54,6 +54,16 @@ function CloseIcon() {
   );
 }
 
+function SpeakerIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -65,10 +75,13 @@ export default function InterviewModal({
   onClose,
   onScoreUpdate,
 }: InterviewModalProps) {
-  const [modalState, setModalState] = useState<ModalState>("idle");
+  const [modalState, setModalState] = useState<ModalState>("speaking");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState("");
+  const [speakingProgress, setSpeakingProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const hasFetchedAudio = useRef(false);
 
   const {
     state: recorderState,
@@ -81,12 +94,76 @@ export default function InterviewModal({
     audioLevel,
   } = useAudioRecorder();
 
+  // Fetch and play the question audio on mount
+  useEffect(() => {
+    if (hasFetchedAudio.current) return;
+    hasFetchedAudio.current = true;
+
+    const fetchAndPlayAudio = async () => {
+      try {
+        const response = await fetch("/api/interview/speak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question: question.title,
+            category: question.tags[0],
+          }),
+        });
+
+        if (!response.ok) {
+          // If TTS fails, just skip to ready state
+          console.error("[TTS] Failed to generate speech");
+          setModalState("ready");
+          return;
+        }
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+
+        // Track progress
+        audio.addEventListener("timeupdate", () => {
+          if (audio.duration) {
+            setSpeakingProgress((audio.currentTime / audio.duration) * 100);
+          }
+        });
+
+        audio.addEventListener("ended", () => {
+          setModalState("ready");
+          URL.revokeObjectURL(audioUrl);
+        });
+
+        audio.addEventListener("error", () => {
+          console.error("[TTS] Audio playback error");
+          setModalState("ready");
+        });
+
+        // Start playing
+        await audio.play();
+      } catch (err) {
+        console.error("[TTS] Error:", err);
+        setModalState("ready");
+      }
+    };
+
+    fetchAndPlayAudio();
+
+    // Cleanup
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [question.title, question.tags]);
+
   // Check for previous interview
   useEffect(() => {
     const previous = getInterview(question.id);
     if (previous) {
       setEvaluation(previous.evaluation);
-      // Don't auto-show feedback, let user choose to record again
     }
   }, [question.id]);
 
@@ -163,7 +240,7 @@ export default function InterviewModal({
     } catch (err) {
       console.error("[Interview] Error:", err);
       setError(err instanceof Error ? err.message : "Something went wrong");
-      setModalState("idle");
+      setModalState("ready");
     }
   };
 
@@ -184,14 +261,24 @@ export default function InterviewModal({
   const handleTryAgain = () => {
     resetRecording();
     setEvaluation(null);
-    setModalState("idle");
+    setModalState("ready");
   };
 
   const handleClose = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
     if (modalState === "recording") {
       stopRecording();
     }
     onClose();
+  };
+
+  const skipSpeaking = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setModalState("ready");
   };
 
   // Generate audio bars for visualizer
@@ -201,6 +288,12 @@ export default function InterviewModal({
     const randomFactor = Math.sin(i * 0.5 + Date.now() * 0.005) * 0.5 + 0.5;
     const height = baseHeight + (maxHeight - baseHeight) * audioLevel * randomFactor;
     return height;
+  });
+
+  // Generate speaking visualizer bars
+  const speakingBars = Array.from({ length: 5 }, (_, i) => {
+    const phase = Date.now() * 0.003 + i * 0.8;
+    return 20 + Math.sin(phase) * 15;
   });
 
   return (
@@ -229,8 +322,40 @@ export default function InterviewModal({
             </div>
           )}
 
-          {/* Idle State */}
-          {modalState === "idle" && (
+          {/* Speaking State - AI reading the question */}
+          {modalState === "speaking" && (
+            <div className={styles.speakingArea}>
+              <div className={styles.speakingIcon}>
+                <SpeakerIcon />
+              </div>
+              <div className={styles.speakingVisualizer}>
+                {speakingBars.map((height, i) => (
+                  <div
+                    key={i}
+                    className={styles.speakingBar}
+                    style={{ height: `${height}px` }}
+                  />
+                ))}
+              </div>
+              <p className={styles.speakingStatus}>Interviewer is speaking...</p>
+              <p className={styles.speakingHint}>Listen to the question carefully</p>
+              <div className={styles.speakingProgress}>
+                <div 
+                  className={styles.speakingProgressBar} 
+                  style={{ width: `${speakingProgress}%` }}
+                />
+              </div>
+              <button
+                className={styles.skipButton}
+                onClick={skipSpeaking}
+              >
+                Skip to answer
+              </button>
+            </div>
+          )}
+
+          {/* Ready State - User ready to record */}
+          {modalState === "ready" && (
             <div className={styles.recordingArea}>
               <button
                 className={styles.micButton}
@@ -239,11 +364,11 @@ export default function InterviewModal({
                 <MicIcon />
               </button>
               <p className={styles.recordingStatus}>
-                Click to start recording
+                Your turn — click to record your answer
               </p>
               <p className={styles.recordingHint}>
-                Speak your answer clearly. Take your time to structure your
-                response using frameworks like STAR or CIRCLES.
+                Structure your response using frameworks like STAR or CIRCLES.
+                Take a moment to gather your thoughts.
               </p>
               {evaluation && (
                 <div className={styles.recordingActions}>
@@ -267,7 +392,7 @@ export default function InterviewModal({
               >
                 <StopIcon />
               </button>
-              <p className={styles.recordingStatus}>Recording...</p>
+              <p className={styles.recordingStatus}>Recording your answer...</p>
               <p className={styles.recordingTimer}>{formatDuration(duration)}</p>
               
               {/* Audio Visualizer */}
@@ -287,7 +412,7 @@ export default function InterviewModal({
                   onClick={() => {
                     stopRecording();
                     resetRecording();
-                    setModalState("idle");
+                    setModalState("ready");
                   }}
                 >
                   Cancel

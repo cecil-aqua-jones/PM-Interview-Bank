@@ -518,6 +518,69 @@ a {
   color: var(--ink);
 }
 
+/* ─── Feature Showcase (AI Mock Interview) ──────────────────────────────── */
+.feature-showcase {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-top: 48px;
+}
+
+@media (min-width: 540px) {
+  .feature-showcase {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .feature-showcase {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.feature-showcase-item {
+  background: var(--white);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  position: relative;
+  transition: all var(--transition);
+}
+
+.feature-showcase-item:hover {
+  border-color: var(--silver);
+  box-shadow: var(--shadow-soft);
+}
+
+.feature-number {
+  font-family: var(--font-playfair), serif;
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--smoke);
+  margin-bottom: 16px;
+  line-height: 1;
+}
+
+.feature-showcase-item h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.feature-showcase-item p {
+  font-size: 14px;
+  color: var(--graphite);
+  line-height: 1.6;
+}
+
+/* Highlighted pill variation */
+.pill-highlight {
+  background: var(--ink);
+  color: var(--white);
+}
+
 /* ─── Question Cards ────────────────────────────────────────────────────── */
 .question-grid {
   display: grid;

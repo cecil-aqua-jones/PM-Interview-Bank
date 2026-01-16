@@ -97,12 +97,27 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* AI Mock Interview Feature */}
+        <section className="section" id="features">
+          <div className="container">
+            <div className="section-header">
+              <p className="eyebrow">New Feature</p>
+              <h2>Practice with an AI interviewer.</h2>
+              <p>
+                Click play on any question and practice your response out loud. 
+                Our AI listens, evaluates your answer using a PM-specific rubric, 
+                and gives you actionable feedback in seconds.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* How We Got It */}
-        <section className="section" id="how-it-works">
+        <section className="section alt" id="how-it-works">
           <div className="container split">
             <div>
-              <p className="eyebrow">The Story</p>
-              <h2>How we built this bank.</h2>
+              <p className="eyebrow">The Source</p>
+              <h2>Real questions. Verified origins.</h2>
               <p className="lead" style={{ marginBottom: 0 }}>
                 We aggregated PM interview debriefs from private candidate
                 circles, invite-only PM forums, and trusted communities across
@@ -112,31 +127,31 @@ export default async function Home() {
             </div>
             <div className="feature-grid">
               <div className="feature">
-                <h4>Real Questions</h4>
+                <h4>Sourced from Real Loops</h4>
                 <p>
-                  Sourced from actual interview loops, not recycled textbook
+                  Actual questions from recent interview rounds, not recycled textbook
                   prompts.
                 </p>
               </div>
               <div className="feature">
-                <h4>Recently Verified</h4>
+                <h4>Verified & Timestamped</h4>
                 <p>
                   Each question includes when it was last asked and at which
                   company.
                 </p>
               </div>
               <div className="feature">
-                <h4>Targeted Practice</h4>
+                <h4>Difficulty Calibrated</h4>
                 <p>
-                  Filter by company, category, and interview round for focused
-                  prep.
+                  Questions tagged by difficulty and company expectations for
+                  realistic prep.
                 </p>
               </div>
               <div className="feature">
-                <h4>Time-Saving</h4>
+                <h4>Monthly Updates</h4>
                 <p>
-                  Skip the noise. Focus on high-signal questions that actually
-                  appear.
+                  Fresh questions added regularly from ongoing interview cycles
+                  worldwide.
                 </p>
               </div>
             </div>
@@ -144,45 +159,44 @@ export default async function Home() {
         </section>
 
         {/* Why Us */}
-        <section className="section alt">
+        <section className="section">
           <div className="container">
             <div className="section-header">
               <p className="eyebrow">Why PM Interview Bank</p>
-              <h2>We do the heavy lifting for you.</h2>
+              <h2>More than questions. Real practice.</h2>
               <p>
-                Our crowdsourced platform brings together actual product
-                interview questions from recent loops—so you don't have to spend
-                days searching forums and communities.
+                Most interview prep stops at reading questions. We take you further 
+                with AI-powered mock interviews that simulate the real experience.
               </p>
             </div>
             <div className="split">
               <div className="feature-grid">
                 <div className="feature">
-                  <h4>Crowdsourced Case Library</h4>
+                  <h4>Voice-Based Practice</h4>
                   <p>
-                    Real prompts from top companies, from product sense to
-                    metrics deep dives.
+                    Practice speaking your answers out loud—the skill that 
+                    actually matters in interviews.
                   </p>
                 </div>
                 <div className="feature">
-                  <h4>Your Remedy for Framework Fatigue</h4>
+                  <h4>PM-Specific Evaluation</h4>
                   <p>
-                    Stop memorizing robotic templates. Practice adapting your
-                    thinking to real prompts.
+                    AI feedback calibrated to PM competencies: structure, product 
+                    thinking, metrics, communication, execution.
                   </p>
                 </div>
                 <div className="feature">
-                  <h4>Exclusive Round Insights</h4>
+                  <h4>Difficulty-Aware Scoring</h4>
                   <p>
-                    See when questions were asked and what interviewers probe
-                    for at senior levels.
+                    Feedback adjusts based on question difficulty and expected 
+                    depth for your target level.
                   </p>
                 </div>
                 <div className="feature">
-                  <h4>Focus on What Matters</h4>
+                  <h4>Progress Tracking</h4>
                   <p>
-                    No fluff, no filler. Just the high-signal questions that
-                    show up in onsite loops.
+                    Review your scores over time, identify weak areas, and 
+                    focus your practice where it counts.
                   </p>
                 </div>
               </div>
@@ -391,23 +405,24 @@ export default async function Home() {
         </section>
 
         {/* Pricing */}
-        <section id="pricing" className="section">
+        <section id="pricing" className="section alt">
           <div className="container pricing-grid">
             <div>
               <p className="eyebrow">Pricing</p>
-              <h2>One-time purchase. Lifetime confidence.</h2>
+              <h2>One-time purchase. Unlimited practice.</h2>
               <p>
-                No subscriptions, no fluff. A premium question bank designed to
-                carry you through multiple interview cycles.
+                No subscriptions, no fluff. Get the questions and AI-powered 
+                mock interviews to prep for multiple interview cycles.
               </p>
               <ul className="checklist">
                 <li>
-                  Full access to {totalQuestions.toLocaleString()}+ questions
+                  Full access to {totalQuestions.toLocaleString()}+ verified questions
                 </li>
                 <li>Questions from {companies.length} top tech companies</li>
-                <li>Filter by company, category, and round</li>
-                <li>Monthly updates for 12 months</li>
-                <li>Last-verified dates on all questions</li>
+                <li>Unlimited AI mock interviews with voice practice</li>
+                <li>Instant feedback scored on PM rubrics</li>
+                <li>Progress tracking across all questions</li>
+                <li>Monthly question updates for 12 months</li>
                 <li>30-day money-back guarantee</li>
               </ul>
             </div>
@@ -423,39 +438,55 @@ export default async function Home() {
         </section>
 
         {/* FAQ */}
-        <section className="section alt">
+        <section className="section">
           <div className="container">
             <div className="section-header">
               <h2>Questions, answered.</h2>
             </div>
             <div className="faq-grid">
               <div className="faq">
-                <h4>Is this best for experienced PMs?</h4>
+                <h4>How does the AI mock interview work?</h4>
                 <p>
-                  Yes. The bank focuses on mid to senior interview depth, with
-                  clear expectations by level and company.
+                  Click play on any question. An AI interviewer reads the question 
+                  aloud. Record your verbal answer, and get instant feedback scored 
+                  across 5 PM competencies.
+                </p>
+              </div>
+              <div className="faq">
+                <h4>What does the AI evaluate?</h4>
+                <p>
+                  Structure & frameworks, product thinking depth, metrics usage, 
+                  communication clarity, and execution awareness—calibrated to 
+                  your question's difficulty level.
                 </p>
               </div>
               <div className="faq">
                 <h4>Where do the questions come from?</h4>
                 <p>
                   Questions are sourced from interview debriefs shared in PM
-                  communities, verified candidate submissions, and public
+                  communities, verified candidate submissions, and invite-only
                   forums.
                 </p>
               </div>
               <div className="faq">
-                <h4>How often is it updated?</h4>
+                <h4>Is this best for experienced PMs?</h4>
                 <p>
-                  We add new questions monthly as we receive fresh debriefs.
-                  You'll get updates for 12 months.
+                  Yes. The bank focuses on mid to senior interview depth, with
+                  questions calibrated for L5-L7 expectations at top companies.
                 </p>
               </div>
               <div className="faq">
-                <h4>Can I use it for mock interviews?</h4>
+                <h4>Are AI mock interviews unlimited?</h4>
                 <p>
-                  Absolutely. It's designed for solo practice, peer prep, or
-                  team interview training.
+                  Yes. Practice any question as many times as you want. Your 
+                  progress and scores are saved so you can track improvement.
+                </p>
+              </div>
+              <div className="faq">
+                <h4>How often is the question bank updated?</h4>
+                <p>
+                  We add new questions monthly as we receive fresh debriefs.
+                  Your purchase includes 12 months of updates.
                 </p>
               </div>
             </div>
@@ -465,13 +496,13 @@ export default async function Home() {
         {/* CTA */}
         <section className="cta">
           <div className="container cta-inner">
-            <h2>Ready to ace your PM interviews?</h2>
+            <h2>Ready to practice like it's the real thing?</h2>
             <p>
-              Join thousands of PMs who have used our question bank to land
-              roles at top tech companies.
+              Real questions. AI mock interviews. Instant feedback. 
+              Everything you need to walk into your PM interview with confidence.
             </p>
             <a className="btn btn-accent" href="/login">
-              Get Access Now
+              Start Practicing Now
             </a>
           </div>
         </section>
