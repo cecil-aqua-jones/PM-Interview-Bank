@@ -402,6 +402,68 @@ body {
   line-height: 1.7;
 }
 
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #0b0b0b;
+  color: #f2f2f2;
+}
+
+.login-card {
+  width: min(420px, 90%);
+  background: #121212;
+  border: 1px solid #1f1f1f;
+  border-radius: 16px;
+  padding: 32px;
+  display: grid;
+  grid-gap: 16px;
+  gap: 16px;
+}
+
+.login-card h1 {
+  font-family: var(--font-playfair), "Times New Roman", serif;
+}
+
+.login-card form {
+  display: grid;
+  grid-gap: 12px;
+  gap: 12px;
+}
+
+.login-card label {
+  font-size: 0.85rem;
+  color: #bdbdbd;
+}
+
+.login-card input {
+  background: #101010;
+  border: 1px solid #242424;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #f2f2f2;
+}
+
+.login-card button {
+  background: #f37021;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: opacity 0.3s ease-out;
+}
+
+.login-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-status {
+  font-size: 0.85rem;
+  color: #bdbdbd;
+}
+
 h1,
 h2,
 h3,
