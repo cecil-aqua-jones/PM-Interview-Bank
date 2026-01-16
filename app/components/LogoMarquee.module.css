@@ -1,0 +1,130 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   INFINITE LOGO MARQUEE
+   Seamless horizontal scroll with no visible start/end
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.marqueeWrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 32px 0;
+}
+
+/* Fade gradients on edges for seamless look */
+.marqueeGradientLeft,
+.marqueeGradientRight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.marqueeGradientLeft {
+  left: 0;
+  background: linear-gradient(to right, #fafaf8 0%, transparent 100%);
+}
+
+.marqueeGradientRight {
+  right: 0;
+  background: linear-gradient(to left, #fafaf8 0%, transparent 100%);
+}
+
+.marqueeTrack {
+  display: flex;
+  width: max-content;
+}
+
+.marqueeContent {
+  display: flex;
+  gap: 48px;
+  animation: scroll 60s linear infinite;
+  padding-right: 48px;
+}
+
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Pause on hover for accessibility */
+.marqueeWrapper:hover .marqueeContent {
+  animation-play-state: paused;
+}
+
+.logoItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  min-width: 100px;
+  transition: transform 0.3s ease;
+}
+
+.logoItem:hover {
+  transform: scale(1.05);
+}
+
+.logoImage {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(26, 25, 24, 0.06);
+}
+
+.logoFallback {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f5f4f2 0%, #edebe8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+  color: #4a4845;
+  box-shadow: 0 2px 8px rgba(26, 25, 24, 0.06);
+}
+
+.logoName {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4a4845;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .marqueeContent {
+    gap: 32px;
+    animation-duration: 45s;
+  }
+
+  .marqueeGradientLeft,
+  .marqueeGradientRight {
+    width: 40px;
+  }
+
+  .logoItem {
+    min-width: 80px;
+  }
+
+  .logoImage,
+  .logoFallback {
+    width: 40px;
+    height: 40px;
+  }
+
+  .logoName {
+    font-size: 11px;
+  }
+}

@@ -315,10 +315,15 @@ a {
 
 /* ─── Trust / Logos Section ─────────────────────────────────────────────── */
 .trust {
-  padding: 64px 0;
+  padding: 48px 0 56px;
   background: var(--ivory);
   border-top: 1px solid var(--smoke);
   border-bottom: 1px solid var(--smoke);
+  overflow: hidden;
+}
+
+.trust-header {
+  margin-bottom: 8px;
 }
 
 .trust .eyebrow {

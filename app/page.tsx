@@ -1,6 +1,5 @@
 import { getCompanies } from "@/lib/airtable";
-import { getBrandIcon } from "@/lib/brandfetch";
-import LandingLogos from "./components/LandingLogos";
+import LogoMarquee from "./components/LogoMarquee";
 
 export default async function Home() {
   const companies = await getCompanies();
@@ -8,14 +7,6 @@ export default async function Home() {
     (sum, c) => sum + (c.questionCount ?? 0),
     0
   );
-
-  // Prepare logo data for client component
-  const logoData = companies.slice(0, 15).map((c) => ({
-    name: c.name,
-    slug: c.slug,
-    logoUrl: getBrandIcon(c.name),
-    initial: c.name.charAt(0).toUpperCase()
-  }));
 
   return (
     <>
@@ -87,13 +78,18 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Company Logos */}
+        {/* Company Logos - Infinite Marquee */}
         <section id="companies" className="trust">
-          <div className="container">
-            <p className="eyebrow">
-              Real interview questions from {companies.length}+ companies
+          <div className="trust-header">
+            <p className="eyebrow" style={{ textAlign: "center", marginBottom: 8 }}>
+              Trusted by PMs preparing for interviews at
             </p>
-            <LandingLogos logos={logoData} />
+            <p style={{ textAlign: "center", fontSize: 14, color: "#8a8884", marginBottom: 0 }}>
+              30+ top American tech companies
+            </p>
+          </div>
+          <LogoMarquee />
+          <div className="container">
             <p className="trust-footer">
               Questions sourced from PM communities, interview debriefs, and
               verified candidate submissions.
