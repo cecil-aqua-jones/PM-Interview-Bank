@@ -1,6 +1,6 @@
 "use client";
 
-import { EvaluationResult, PM_RUBRIC } from "@/lib/pmRubric";
+import { EvaluationResult } from "@/lib/pmRubric";
 import styles from "../app.module.css";
 
 type FeedbackCardsProps = {
@@ -16,14 +16,16 @@ function CheckIcon() {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
       <polyline points="20,6 9,17 4,12" />
     </svg>
   );
 }
 
-function LightbulbIcon() {
+function ArrowIcon() {
   return (
     <svg
       className={styles.feedbackListIcon}
@@ -31,8 +33,11 @@ function LightbulbIcon() {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12,5 19,12 12,19" />
     </svg>
   );
 }
@@ -117,7 +122,7 @@ export default function FeedbackCards({
           <div className={styles.feedbackList}>
             {improvements.map((improvement, index) => (
               <div key={index} className={styles.feedbackListItem}>
-                <LightbulbIcon />
+                <ArrowIcon />
                 <span>{improvement}</span>
               </div>
             ))}
@@ -127,8 +132,8 @@ export default function FeedbackCards({
 
       {/* Overall Feedback Card */}
       <div className={styles.feedbackOverall}>
-        <div className={styles.feedbackCardTitle}>Overall Feedback</div>
-        <p className={styles.feedbackOverallText}>{overallFeedback}</p>
+        <div className={styles.feedbackCardTitle}>Summary</div>
+        <p className={styles.feedbackOverallText}>"{overallFeedback}"</p>
       </div>
 
       {/* Actions */}
