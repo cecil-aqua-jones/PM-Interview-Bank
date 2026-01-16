@@ -7,7 +7,7 @@ import Image from "next/image";
 import styles from "../app.module.css";
 import { Question } from "@/lib/types";
 import { getBrandIcon } from "@/lib/brandfetch";
-import { getInterviewScore } from "@/lib/interviewStorage";
+import { getInterview, InterviewRecord } from "@/lib/interviewStorage";
 import PlayButton from "./PlayButton";
 import InterviewModal from "./InterviewModal";
 
@@ -29,22 +29,26 @@ export default function CompanyQuestionsClient({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [interviewQuestion, setInterviewQuestion] = useState<Question | null>(null);
-  const [interviewScores, setInterviewScores] = useState<Record<string, number>>({});
+  const [interviewRecords, setInterviewRecords] = useState<Record<string, InterviewRecord>>({});
 
-  // Load interview scores from localStorage on mount
+  // Load interview records from localStorage on mount
   useEffect(() => {
-    const scores: Record<string, number> = {};
+    const records: Record<string, InterviewRecord> = {};
     questions.forEach((q) => {
-      const score = getInterviewScore(q.id);
-      if (score !== null) {
-        scores[q.id] = score;
+      const record = getInterview(q.id);
+      if (record) {
+        records[q.id] = record;
       }
     });
-    setInterviewScores(scores);
+    setInterviewRecords(records);
   }, [questions]);
 
   const handleScoreUpdate = (questionId: string, score: number) => {
-    setInterviewScores((prev) => ({ ...prev, [questionId]: score }));
+    // Reload the full record after score update
+    const record = getInterview(questionId);
+    if (record) {
+      setInterviewRecords((prev) => ({ ...prev, [questionId]: record }));
+    }
   };
 
   const tags = useMemo(() => {
@@ -108,6 +112,7 @@ export default function CompanyQuestionsClient({
   }, [query, activeTags, selectedIndex, router, searchParams]);
 
   const selectedQuestion = filteredQuestions[selectedIndex] ?? null;
+  const selectedRecord = selectedQuestion ? interviewRecords[selectedQuestion.id] : null;
 
   const goToPrev = () => {
     if (selectedIndex > 0) setSelectedIndex(selectedIndex - 1);
@@ -248,14 +253,14 @@ export default function CompanyQuestionsClient({
                     </span>
                   )}
                   {q.difficultyLabel && <span>{q.difficultyLabel}</span>}
-                  {interviewScores[q.id] && (
+                  {interviewRecords[q.id] && (
                     <span style={{ 
                       marginLeft: "auto", 
                       fontWeight: 600,
-                      color: interviewScores[q.id] >= 7 ? "#16a34a" : 
-                             interviewScores[q.id] >= 5 ? "#d97706" : "#dc2626"
+                      color: interviewRecords[q.id].score >= 7 ? "#16a34a" : 
+                             interviewRecords[q.id].score >= 5 ? "#d97706" : "#dc2626"
                     }}>
-                      {interviewScores[q.id]}/10
+                      {interviewRecords[q.id].score}/10
                     </span>
                   )}
                 </div>
@@ -315,7 +320,7 @@ export default function CompanyQuestionsClient({
                   </div>
                   <PlayButton
                     onClick={() => setInterviewQuestion(selectedQuestion)}
-                    score={interviewScores[selectedQuestion.id]}
+                    score={selectedRecord?.score}
                   />
                 </div>
 
@@ -338,10 +343,76 @@ export default function CompanyQuestionsClient({
                 </div>
               </div>
 
+              {/* Body - Show previous feedback or prompt to practice */}
               <div className={styles.questionCardBody}>
-                <p className={styles.questionPrompt}>
-                  {selectedQuestion.prompt}
-                </p>
+                {selectedRecord ? (
+                  <div className={styles.previousFeedback}>
+                    <div className={styles.previousFeedbackHeader}>
+                      <div className={styles.previousFeedbackScore}>
+                        <span className={styles.previousFeedbackScoreValue}>
+                          {selectedRecord.score}
+                        </span>
+                        <span className={styles.previousFeedbackScoreLabel}>/10</span>
+                      </div>
+                      <div className={styles.previousFeedbackMeta}>
+                        <span className={styles.previousFeedbackTitle}>Your Last Attempt</span>
+                        <span className={styles.previousFeedbackDate}>
+                          {new Date(selectedRecord.timestamp).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric"
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className={styles.previousFeedbackContent}>
+                      <p className={styles.previousFeedbackSummary}>
+                        "{selectedRecord.evaluation.overallFeedback}"
+                      </p>
+                      
+                      {selectedRecord.evaluation.improvements.length > 0 && (
+                        <div className={styles.previousFeedbackSection}>
+                          <span className={styles.previousFeedbackSectionTitle}>
+                            Focus areas for improvement:
+                          </span>
+                          <ul className={styles.previousFeedbackList}>
+                            {selectedRecord.evaluation.improvements.slice(0, 2).map((item, i) => (
+                              <li key={i}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      className={styles.tryAgainBtn}
+                      onClick={() => setInterviewQuestion(selectedQuestion)}
+                    >
+                      Practice Again
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.noPractice}>
+                    <div className={styles.noPracticeIcon}>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    </div>
+                    <p className={styles.noPracticeText}>
+                      Practice this question with voice recording and get AI-powered feedback
+                    </p>
+                    <button
+                      className={styles.startPracticeBtn}
+                      onClick={() => setInterviewQuestion(selectedQuestion)}
+                    >
+                      Start Mock Interview
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className={styles.questionMeta}>
@@ -369,11 +440,11 @@ export default function CompanyQuestionsClient({
                     </span>
                   </div>
                 )}
-                {interviewScores[selectedQuestion.id] && (
+                {selectedRecord && (
                   <div className={styles.questionMetaItem}>
                     <span className={styles.questionMetaLabel}>Your Score</span>
                     <span className={styles.questionMetaValue}>
-                      {interviewScores[selectedQuestion.id]}/10
+                      {selectedRecord.score}/10
                     </span>
                   </div>
                 )}

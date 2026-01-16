@@ -713,6 +713,180 @@
   white-space: pre-wrap;
 }
 
+/* Previous Feedback Display */
+.previousFeedback {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.previousFeedbackHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.previousFeedbackScore {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.previousFeedbackScoreValue {
+  font-family: var(--font-playfair), serif;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--white);
+}
+
+.previousFeedbackScoreLabel {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.previousFeedbackMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previousFeedbackTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.previousFeedbackDate {
+  font-size: 13px;
+  color: var(--graphite);
+}
+
+.previousFeedbackContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.previousFeedbackSummary {
+  font-size: 15px;
+  font-style: italic;
+  color: var(--charcoal);
+  line-height: 1.7;
+  padding: 16px 20px;
+  background: var(--ivory);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--accent);
+}
+
+.previousFeedbackSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.previousFeedbackSectionTitle {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--graphite);
+}
+
+.previousFeedbackList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 0;
+}
+
+.previousFeedbackList li {
+  font-size: 14px;
+  color: var(--charcoal);
+  line-height: 1.5;
+  padding-left: 16px;
+  position: relative;
+}
+
+.previousFeedbackList li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.tryAgainBtn {
+  align-self: flex-start;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--white);
+  border: 1px solid var(--silver);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.tryAgainBtn:hover {
+  border-color: var(--ink);
+  background: var(--pearl);
+}
+
+/* No Practice State */
+.noPractice {
+  text-align: center;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.noPracticeIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--pearl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--graphite);
+}
+
+.noPracticeText {
+  font-size: 15px;
+  color: var(--graphite);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.startPracticeBtn {
+  padding: 14px 28px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--white);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.startPracticeBtn:hover {
+  background: var(--charcoal);
+  border-color: var(--charcoal);
+}
+
 .questionMeta {
   padding: 20px 28px;
   background: var(--pearl);
