@@ -1,5 +1,4 @@
 import { getCompanies } from "@/lib/airtable";
-import Image from "next/image";
 import LogoMarquee from "./components/LogoMarquee";
 import AnimatedMascot from "@/components/AnimatedMascot";
 
@@ -100,7 +99,7 @@ export default async function Home() {
         </section>
 
         {/* AI Mock Interview Feature */}
-        <section className="section" id="features">
+        <section className="section section-white" id="features">
           <div className="container">
             <div className="ai-feature-grid">
               <div className="ai-feature-content">
@@ -112,15 +111,16 @@ export default async function Home() {
                   and gives you actionable feedback in seconds.
                 </p>
               </div>
-              <div className="ai-feature-image">
-                <Image
-                  src="/ai-owl-mascot.png"
-                  alt="AI Interview Coach - Friendly owl mascot"
-                  width={400}
-                  height={400}
-                  priority
-                  style={{ objectFit: "contain" }}
-                />
+              <div className="ai-feature-video">
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                >
+                  <source src="/mascot.webm" type="video/webm" />
+                  <source src="/mascot.mp4" type="video/mp4" />
+                </video>
               </div>
             </div>
           </div>

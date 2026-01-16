@@ -16,6 +16,9 @@ type InterviewModalProps = {
 
 type ModalState = "speaking" | "ready" | "recording" | "processing" | "feedback";
 
+// Track active interview session globally to prevent duplicates
+let activeSessionId: string | null = null;
+
 function MicIcon() {
   return (
     <svg
@@ -80,8 +83,10 @@ export default function InterviewModal({
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState("");
   const [speakingProgress, setSpeakingProgress] = useState(0);
+  const [isClosing, setIsClosing] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const hasFetchedAudio = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef<string>(Date.now().toString());
 
   const {
     state: recorderState,
@@ -96,8 +101,18 @@ export default function InterviewModal({
 
   // Fetch and play the question audio on mount
   useEffect(() => {
-    if (hasFetchedAudio.current) return;
-    hasFetchedAudio.current = true;
+    // Check if another session is already active
+    if (activeSessionId && activeSessionId !== sessionIdRef.current) {
+      console.warn("[Interview] Another session is already active");
+      return;
+    }
+    
+    // Register this session as active
+    activeSessionId = sessionIdRef.current;
+    
+    // Create abort controller for this fetch
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     const fetchAndPlayAudio = async () => {
       try {
@@ -108,7 +123,11 @@ export default function InterviewModal({
             question: question.title,
             category: question.tags[0],
           }),
+          signal: abortController.signal,
         });
+
+        // Check if aborted
+        if (abortController.signal.aborted) return;
 
         if (!response.ok) {
           // If TTS fails, just skip to ready state
@@ -118,6 +137,10 @@ export default function InterviewModal({
         }
 
         const audioBlob = await response.blob();
+        
+        // Check if aborted after getting blob
+        if (abortController.signal.aborted) return;
+        
         const audioUrl = URL.createObjectURL(audioBlob);
         
         const audio = new Audio(audioUrl);
@@ -140,9 +163,16 @@ export default function InterviewModal({
           setModalState("ready");
         });
 
-        // Start playing
-        await audio.play();
+        // Start playing (only if not aborted)
+        if (!abortController.signal.aborted) {
+          await audio.play();
+        }
       } catch (err) {
+        // Ignore abort errors
+        if (err instanceof Error && err.name === "AbortError") {
+          console.log("[TTS] Fetch aborted");
+          return;
+        }
         console.error("[TTS] Error:", err);
         setModalState("ready");
       }
@@ -152,10 +182,19 @@ export default function InterviewModal({
 
     // Cleanup on unmount
     return () => {
+      // Abort any in-flight requests
+      abortController.abort();
+      
+      // Stop and clean up audio
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
         audioRef.current = null;
+      }
+      
+      // Clear active session
+      if (activeSessionId === sessionIdRef.current) {
+        activeSessionId = null;
       }
     };
   }, [question.title, question.tags]);
@@ -265,7 +304,17 @@ export default function InterviewModal({
     setModalState("ready");
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    // Prevent double-close
+    if (isClosing) return;
+    setIsClosing(true);
+    
+    // Abort any in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
     // Stop and clean up audio playback
     if (audioRef.current) {
       audioRef.current.pause();
@@ -280,15 +329,17 @@ export default function InterviewModal({
     
     // Reset all state to prevent stale data on next open
     resetRecording();
-    setModalState("speaking");
-    setEvaluation(null);
-    setError(null);
-    setProcessingStep("");
-    setSpeakingProgress(0);
-    hasFetchedAudio.current = false;
     
-    onClose();
-  };
+    // Clear active session
+    if (activeSessionId === sessionIdRef.current) {
+      activeSessionId = null;
+    }
+    
+    // Small delay before calling onClose to ensure cleanup completes
+    setTimeout(() => {
+      onClose();
+    }, 50);
+  }, [isClosing, recorderState, stopRecording, resetRecording, onClose]);
 
   const skipSpeaking = () => {
     if (audioRef.current) {
@@ -341,16 +392,8 @@ export default function InterviewModal({
           {/* Speaking State - AI reading the question */}
           {modalState === "speaking" && (
             <div className={styles.speakingArea}>
-              <div className={styles.speakingVideo}>
-                <video
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                >
-                  <source src="/speaking-mascot.webm" type="video/webm" />
-                  <source src="/speaking-mascot.mp4" type="video/mp4" />
-                </video>
+              <div className={styles.speakingIcon}>
+                <SpeakerIcon />
               </div>
               <div className={styles.speakingVisualizer}>
                 {speakingBars.map((height, i) => (

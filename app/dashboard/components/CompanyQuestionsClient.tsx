@@ -29,6 +29,7 @@ export default function CompanyQuestionsClient({
   const [imageError, setImageError] = useState(false);
   const [interviewQuestion, setInterviewQuestion] = useState<Question | null>(null);
   const [interviewRecords, setInterviewRecords] = useState<Record<string, InterviewRecord>>({});
+  const [isInterviewClosing, setIsInterviewClosing] = useState(false);
 
   // Load interview records from localStorage on mount
   useEffect(() => {
@@ -402,7 +403,12 @@ export default function CompanyQuestionsClient({
                     <div className={styles.previousFeedbackActions}>
                       <button
                         className={styles.tryAgainBtn}
-                        onClick={() => setInterviewQuestion(selectedQuestion)}
+                        onClick={() => {
+                          if (!isInterviewClosing && !interviewQuestion) {
+                            setInterviewQuestion(selectedQuestion);
+                          }
+                        }}
+                        disabled={isInterviewClosing || !!interviewQuestion}
                       >
                         Practice Again
                       </button>
@@ -423,7 +429,12 @@ export default function CompanyQuestionsClient({
                     </p>
                     <button
                       className={styles.startPracticeBtn}
-                      onClick={() => setInterviewQuestion(selectedQuestion)}
+                      onClick={() => {
+                        if (!isInterviewClosing && !interviewQuestion) {
+                          setInterviewQuestion(selectedQuestion);
+                        }
+                      }}
+                      disabled={isInterviewClosing || !!interviewQuestion}
                     >
                       Start Mock Interview
                     </button>
@@ -482,7 +493,12 @@ export default function CompanyQuestionsClient({
       {interviewQuestion && (
         <InterviewModal
           question={interviewQuestion}
-          onClose={() => setInterviewQuestion(null)}
+          onClose={() => {
+            setIsInterviewClosing(true);
+            setInterviewQuestion(null);
+            // Allow re-opening after a brief delay
+            setTimeout(() => setIsInterviewClosing(false), 200);
+          }}
           onScoreUpdate={handleScoreUpdate}
         />
       )}
