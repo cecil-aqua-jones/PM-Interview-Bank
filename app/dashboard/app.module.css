@@ -1347,3 +1347,198 @@
 .scoreBadgeLow {
   background: #dc2626;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SKELETON LOADING STATES
+   Animated placeholders for loading content
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--smoke) 25%,
+    var(--pearl) 50%,
+    var(--smoke) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Page Header Skeletons */
+.skeletonEyebrow {
+  composes: skeleton;
+  width: 100px;
+  height: 14px;
+  margin-bottom: 12px;
+}
+
+.skeletonTitle {
+  composes: skeleton;
+  width: 200px;
+  height: 48px;
+  margin-bottom: 12px;
+}
+
+.skeletonSubtitle {
+  composes: skeleton;
+  width: 320px;
+  height: 20px;
+}
+
+/* Search Skeleton */
+.skeletonSearch {
+  composes: skeleton;
+  width: 100%;
+  max-width: 400px;
+  height: 48px;
+  border-radius: var(--radius-md);
+}
+
+/* Company Card Skeleton */
+.skeletonCard {
+  background: var(--white);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skeletonLogo {
+  composes: skeleton;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+}
+
+.skeletonCardContent {
+  flex: 1;
+}
+
+.skeletonCardTitle {
+  composes: skeleton;
+  width: 140px;
+  height: 24px;
+  margin-bottom: 8px;
+}
+
+.skeletonCardMeta {
+  composes: skeleton;
+  width: 100px;
+  height: 16px;
+}
+
+.skeletonCardFooter {
+  composes: skeleton;
+  width: 100%;
+  height: 20px;
+  margin-top: 8px;
+}
+
+/* Breadcrumb Skeleton */
+.skeletonBreadcrumb {
+  composes: skeleton;
+  width: 160px;
+  height: 16px;
+}
+
+/* Detail Header Skeletons */
+.skeletonDetailLogo {
+  composes: skeleton;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.skeletonDetailTitle {
+  composes: skeleton;
+  width: 180px;
+  height: 36px;
+  margin-bottom: 8px;
+}
+
+.skeletonDetailSubtitle {
+  composes: skeleton;
+  width: 240px;
+  height: 18px;
+}
+
+.skeletonStat {
+  composes: skeleton;
+  width: 80px;
+  height: 60px;
+  border-radius: var(--radius-md);
+}
+
+/* Filter Skeletons */
+.skeletonChip {
+  composes: skeleton;
+  width: 80px;
+  height: 36px;
+  border-radius: 100px;
+}
+
+/* Sidebar Skeletons */
+.skeletonSidebarTitle {
+  composes: skeleton;
+  width: 120px;
+  height: 28px;
+}
+
+.skeletonListItem {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--smoke);
+}
+
+.skeletonListItemTitle {
+  composes: skeleton;
+  width: 100%;
+  height: 18px;
+  margin-bottom: 8px;
+}
+
+.skeletonListItemMeta {
+  composes: skeleton;
+  width: 60%;
+  height: 14px;
+}
+
+/* Question Detail Skeletons */
+.skeletonNav {
+  composes: skeleton;
+  width: 100%;
+  height: 40px;
+  margin-bottom: 20px;
+}
+
+.skeletonQuestionTitle {
+  composes: skeleton;
+  width: 90%;
+  height: 32px;
+  margin-bottom: 16px;
+}
+
+.skeletonTags {
+  composes: skeleton;
+  width: 200px;
+  height: 28px;
+}
+
+.skeletonPrompt {
+  composes: skeleton;
+  width: 100%;
+  height: 20px;
+  margin-bottom: 12px;
+}
