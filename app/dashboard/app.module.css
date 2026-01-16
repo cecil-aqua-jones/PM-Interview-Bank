@@ -1,29 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   EDITORIAL DESIGN SYSTEM
-   Luxury, refined, mobile-first
+   DASHBOARD MODULE STYLES
+   CSS Module for dashboard pages - uses CSS variables from globals.css
    ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ─── Variables ─────────────────────────────────────────────────────────── */
-:root {
-  --white: #ffffff;
-  --ivory: #fafaf8;
-  --pearl: #f5f4f2;
-  --smoke: #edebe8;
-  --silver: #d4d2cf;
-  --graphite: #8a8884;
-  --charcoal: #4a4845;
-  --ink: #1a1918;
-  --accent: #c9a962;
-  --accent-dark: #b8963d;
-  --success: #2d7a4f;
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
-  --shadow-soft: 0 2px 8px rgba(26, 25, 24, 0.04);
-  --shadow-card: 0 4px 24px rgba(26, 25, 24, 0.06);
-  --shadow-elevated: 0 12px 48px rgba(26, 25, 24, 0.1);
-  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
 /* ─── Shell Layout ──────────────────────────────────────────────────────── */
 .shell {
