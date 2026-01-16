@@ -621,7 +621,7 @@ a {
 }
 
 .testimonial::before {
-  content: """;
+  content: "\201C";
   position: absolute;
   top: 16px;
   left: 24px;
@@ -704,7 +704,7 @@ a {
 }
 
 .checklist li::before {
-  content: "✓";
+  content: "\2713";
   color: var(--accent-dark);
   font-weight: 600;
   flex-shrink: 0;
