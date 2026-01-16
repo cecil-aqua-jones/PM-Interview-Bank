@@ -7,6 +7,9 @@ import Image from "next/image";
 import styles from "../app.module.css";
 import { Question } from "@/lib/types";
 import { getBrandIcon } from "@/lib/brandfetch";
+import { getInterviewScore } from "@/lib/interviewStorage";
+import PlayButton from "./PlayButton";
+import InterviewModal from "./InterviewModal";
 
 type CompanyQuestionsClientProps = {
   companyName: string;
@@ -25,6 +28,24 @@ export default function CompanyQuestionsClient({
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
+  const [interviewQuestion, setInterviewQuestion] = useState<Question | null>(null);
+  const [interviewScores, setInterviewScores] = useState<Record<string, number>>({});
+
+  // Load interview scores from localStorage on mount
+  useEffect(() => {
+    const scores: Record<string, number> = {};
+    questions.forEach((q) => {
+      const score = getInterviewScore(q.id);
+      if (score !== null) {
+        scores[q.id] = score;
+      }
+    });
+    setInterviewScores(scores);
+  }, [questions]);
+
+  const handleScoreUpdate = (questionId: string, score: number) => {
+    setInterviewScores((prev) => ({ ...prev, [questionId]: score }));
+  };
 
   const tags = useMemo(() => {
     const values = new Set<string>();
@@ -227,6 +248,16 @@ export default function CompanyQuestionsClient({
                     </span>
                   )}
                   {q.difficultyLabel && <span>{q.difficultyLabel}</span>}
+                  {interviewScores[q.id] && (
+                    <span style={{ 
+                      marginLeft: "auto", 
+                      fontWeight: 600,
+                      color: interviewScores[q.id] >= 7 ? "#16a34a" : 
+                             interviewScores[q.id] >= 5 ? "#d97706" : "#dc2626"
+                    }}>
+                      {interviewScores[q.id]}/10
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
@@ -275,10 +306,18 @@ export default function CompanyQuestionsClient({
                   </button>
                 </div>
 
-                {/* Title & Tags */}
-                <h2 className={styles.questionCardTitle}>
-                  {selectedQuestion.title}
-                </h2>
+                {/* Title & Tags with Play Button */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 16 }}>
+                  <div style={{ flex: 1 }}>
+                    <h2 className={styles.questionCardTitle} style={{ marginBottom: 0 }}>
+                      {selectedQuestion.title}
+                    </h2>
+                  </div>
+                  <PlayButton
+                    onClick={() => setInterviewQuestion(selectedQuestion)}
+                    score={interviewScores[selectedQuestion.id]}
+                  />
+                </div>
 
                 <div className={styles.questionCardTags}>
                   {selectedQuestion.tags.map((tag, i) => (
@@ -330,6 +369,14 @@ export default function CompanyQuestionsClient({
                     </span>
                   </div>
                 )}
+                {interviewScores[selectedQuestion.id] && (
+                  <div className={styles.questionMetaItem}>
+                    <span className={styles.questionMetaLabel}>Your Score</span>
+                    <span className={styles.questionMetaValue}>
+                      {interviewScores[selectedQuestion.id]}/10
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -343,6 +390,15 @@ export default function CompanyQuestionsClient({
           )}
         </div>
       </div>
+
+      {/* Interview Modal */}
+      {interviewQuestion && (
+        <InterviewModal
+          question={interviewQuestion}
+          onClose={() => setInterviewQuestion(null)}
+          onScoreUpdate={handleScoreUpdate}
+        />
+      )}
     </>
   );
 }

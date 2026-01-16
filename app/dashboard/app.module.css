@@ -121,7 +121,7 @@
   .mobileNavHeader {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+  align-items: center;
     margin-bottom: 48px;
   }
 
@@ -147,7 +147,7 @@
 }
 
 @media (min-width: 768px) {
-  .main {
+.main {
     padding: 48px 32px 120px;
   }
 }
@@ -417,7 +417,7 @@
   .filterBar {
     flex-direction: row;
     align-items: center;
-    flex-wrap: wrap;
+  flex-wrap: wrap;
   }
 }
 
@@ -825,4 +825,525 @@
   font-size: 13px;
   color: var(--success);
   font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INTERVIEW MODAL
+   Voice mock interview UI
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.interviewOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 25, 24, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.interviewModal {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-elevated);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.interviewHeader {
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--smoke);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.interviewHeaderContent {
+  flex: 1;
+}
+
+.interviewEyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  margin-bottom: 8px;
+}
+
+.interviewQuestion {
+  font-family: var(--font-playfair), serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.interviewClose {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--pearl);
+  color: var(--charcoal);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+
+.interviewClose:hover {
+  background: var(--smoke);
+  color: var(--ink);
+}
+
+.interviewBody {
+  padding: 32px 24px;
+}
+
+/* Recording UI */
+.recordingArea {
+  text-align: center;
+}
+
+.micButton {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid var(--smoke);
+  background: var(--white);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  transition: all var(--transition);
+  position: relative;
+}
+
+.micButton:hover {
+  border-color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+
+.micButtonRecording {
+  border-color: #e53935;
+  animation: pulse 1.5s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.3); }
+  50% { box-shadow: 0 0 0 20px rgba(229, 57, 53, 0); }
+}
+
+.micIcon {
+  width: 40px;
+  height: 40px;
+  color: var(--charcoal);
+}
+
+.micButtonRecording .micIcon {
+  color: #e53935;
+}
+
+.recordingStatus {
+  font-size: 14px;
+  color: var(--graphite);
+  margin-bottom: 8px;
+}
+
+.recordingTimer {
+  font-family: var(--font-playfair), serif;
+  font-size: 32px;
+  color: var(--ink);
+  margin-bottom: 24px;
+}
+
+.recordingHint {
+  font-size: 13px;
+  color: var(--graphite);
+  max-width: 300px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* Audio Visualizer */
+.audioVisualizer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 60px;
+  margin-bottom: 24px;
+}
+
+.audioBar {
+  width: 4px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: height 0.1s ease;
+}
+
+/* Recording Actions */
+.recordingActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.actionBtn {
+  padding: 14px 28px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionBtnPrimary {
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  color: var(--white);
+}
+
+.actionBtnPrimary:hover:not(:disabled) {
+  background: var(--charcoal);
+  border-color: var(--charcoal);
+}
+
+.actionBtnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionBtnSecondary {
+  background: transparent;
+  border: 1px solid var(--silver);
+  color: var(--charcoal);
+}
+
+.actionBtnSecondary:hover {
+  border-color: var(--charcoal);
+  color: var(--ink);
+}
+
+/* Processing State */
+.processingState {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--smoke);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.processingText {
+  font-size: 15px;
+  color: var(--charcoal);
+  margin-bottom: 8px;
+}
+
+.processingSubtext {
+  font-size: 13px;
+  color: var(--graphite);
+}
+
+/* Error State */
+.errorState {
+  text-align: center;
+  padding: 24px;
+  background: #fef2f2;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.errorText {
+  color: #991b1b;
+  font-size: 14px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FEEDBACK CARDS
+   Stacked conversation-style feedback display
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.feedbackContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feedbackScoreCard {
+  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  text-align: center;
+  color: var(--white);
+}
+
+.feedbackScoreLabel {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
+
+.feedbackScoreValue {
+  font-family: var(--font-playfair), serif;
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.feedbackScoreMax {
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.feedbackScoreDesc {
+  font-size: 14px;
+  margin-top: 12px;
+  opacity: 0.85;
+}
+
+/* Breakdown Card */
+.feedbackBreakdown {
+  background: var(--white);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.feedbackCardTitle {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--graphite);
+  margin-bottom: 16px;
+}
+
+.breakdownList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.breakdownItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.breakdownLabel {
+  flex: 1;
+  font-size: 14px;
+  color: var(--charcoal);
+}
+
+.breakdownBar {
+  width: 100px;
+  height: 6px;
+  background: var(--smoke);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.breakdownBarFill {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.breakdownScore {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Strengths Card */
+.feedbackStrengths {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.feedbackStrengths .feedbackCardTitle {
+  color: #166534;
+}
+
+.feedbackList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feedbackListItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--charcoal);
+  line-height: 1.5;
+}
+
+.feedbackListIcon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.feedbackStrengths .feedbackListIcon {
+  color: #16a34a;
+}
+
+/* Improvements Card */
+.feedbackImprovements {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.feedbackImprovements .feedbackCardTitle {
+  color: #92400e;
+}
+
+.feedbackImprovements .feedbackListIcon {
+  color: #d97706;
+}
+
+/* Overall Feedback Card */
+.feedbackOverall {
+  background: var(--pearl);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.feedbackOverallText {
+  font-size: 15px;
+  color: var(--charcoal);
+  line-height: 1.7;
+}
+
+/* Feedback Actions */
+.feedbackActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PLAY BUTTON
+   Trigger for interview modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.playButton {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--smoke);
+  background: var(--white);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.playButton:hover {
+  border-color: var(--ink);
+  background: var(--pearl);
+}
+
+.playButtonIcon {
+  width: 18px;
+  height: 18px;
+  color: var(--charcoal);
+  margin-left: 2px;
+}
+
+.playButton:hover .playButtonIcon {
+  color: var(--ink);
+}
+
+/* Score badge */
+.scoreBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+}
+
+.scoreBadgeGood {
+  background: #16a34a;
+}
+
+.scoreBadgeAverage {
+  background: #d97706;
+}
+
+.scoreBadgeLow {
+  background: #dc2626;
 }
