@@ -16,7 +16,9 @@ const airtableFetch = async (path: string) => {
     headers: {
       Authorization: `Bearer ${AIRTABLE_API_KEY}`
     },
-    next: { revalidate: 60 }
+    // Disable caching in development, 60s in production
+    cache: process.env.NODE_ENV === "development" ? "no-store" : "default",
+    next: process.env.NODE_ENV === "development" ? undefined : { revalidate: 60 }
   });
 
   if (!response.ok) {
