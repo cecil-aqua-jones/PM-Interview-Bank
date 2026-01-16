@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import styles from "../app/dashboard/app.module.css";
+import AnimatedMascot from "./AnimatedMascot";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,8 +17,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <nav className={styles.topNav}>
         <div className={styles.topNavInner}>
           <Link href="/dashboard" className={styles.brand}>
-            <div className={styles.brandMark}>PM</div>
-            <span className={styles.brandName}>Interview Bank</span>
+            <AnimatedMascot size={32} />
+            <span className={styles.brandName}>Product Leaks</span>
           </Link>
 
           <div className={styles.navLinks}>
@@ -50,8 +51,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={styles.mobileNav}>
           <div className={styles.mobileNavHeader}>
             <Link href="/dashboard" className={styles.brand} onClick={() => setMobileMenuOpen(false)}>
-              <div className={styles.brandMark}>PM</div>
-              <span className={styles.brandName}>Interview Bank</span>
+              <AnimatedMascot size={32} />
+              <span className={styles.brandName}>Product Leaks</span>
             </Link>
             <button
               className={styles.mobileMenuBtn}

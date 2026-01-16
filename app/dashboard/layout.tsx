@@ -12,7 +12,7 @@ export default function DashboardLayout({
       <ScreenshotProtection 
         enabled={true} 
         blurOnInactive={true}
-        watermark="PM Interview Bank - Confidential"
+        watermark="Product Leaks - Confidential"
       >
         <AppShell>{children}</AppShell>
       </ScreenshotProtection>

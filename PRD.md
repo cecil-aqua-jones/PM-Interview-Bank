@@ -1,4 +1,4 @@
-# PRD: Atlas PM Interview Bank Landing Page
+# PRD: Product Leaks Landing Page
 
 ## Overview
 Build a premium, tech-focused landing page that sells a curated interview

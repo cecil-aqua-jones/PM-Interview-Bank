@@ -49,9 +49,9 @@
 }
 
 .brandName {
-  font-family: var(--font-playfair), serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--ink);
   letter-spacing: -0.02em;
 }
@@ -89,6 +89,17 @@
   background: var(--ink);
 }
 
+.navRight {
+  display: none;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .navRight {
+    display: flex;
+  }
+}
+
 /* ─── Mobile Nav ────────────────────────────────────────────────────────── */
 .mobileMenuBtn {
   display: none;
@@ -114,13 +125,13 @@
     background: var(--white);
     z-index: 200;
     padding: 24px;
-    display: flex;
-    flex-direction: column;
-  }
+  display: flex;
+  flex-direction: column;
+}
 
   .mobileNavHeader {
-    display: flex;
-    justify-content: space-between;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
     margin-bottom: 48px;
   }
@@ -219,7 +230,7 @@
 @media (min-width: 540px) {
   .companyGrid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+  gap: 20px;
   }
 }
 
@@ -463,7 +474,7 @@
 
 @media (min-width: 768px) {
   .filterGroup {
-    flex-wrap: wrap;
+  flex-wrap: wrap;
     overflow-x: visible;
     padding-bottom: 0;
   }
@@ -1464,7 +1475,7 @@
 @media (min-width: 480px) {
   .recordingActions {
     flex-direction: row;
-    gap: 12px;
+  gap: 12px;
     margin-top: 24px;
     padding: 0;
   }
@@ -1583,6 +1594,55 @@
   }
 }
 
+.speakingMascot {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  overflow: hidden;
+}
+
+.speakingMascot img {
+  border-radius: 50%;
+}
+
+@media (min-width: 640px) {
+  .speakingMascot {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 20px;
+  }
+}
+
+.speakingVideo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pearl);
+}
+
+.speakingVideo video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (min-width: 640px) {
+  .speakingVideo {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 20px;
+  }
+}
+
 @keyframes speakingPulse {
   0%, 100% { 
     box-shadow: 0 0 0 0 rgba(26, 25, 24, 0.2);
@@ -1695,7 +1755,7 @@
 
 @media (min-width: 640px) {
   .feedbackContainer {
-    gap: 16px;
+  gap: 16px;
   }
 }
 

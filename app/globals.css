@@ -109,10 +109,16 @@ a {
   font-size: 12px;
 }
 
+/* Animated Mascot Video */
+.brand video {
+  display: block;
+  flex-shrink: 0;
+}
+
 .brand-name {
-  font-family: var(--font-playfair), serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--ink);
   letter-spacing: -0.02em;
 }
@@ -986,6 +992,80 @@ a {
   font-size: 14px;
   color: var(--graphite);
   text-align: center;
+}
+
+/* ─── Proof Header ──────────────────────────────────────────────────────── */
+/* ─── AI Feature Section ────────────────────────────────────────────────── */
+.ai-feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .ai-feature-grid {
+    grid-template-columns: 1.2fr 1fr;
+    gap: 64px;
+  }
+}
+
+.ai-feature-content h2 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  margin-bottom: 20px;
+}
+
+.ai-feature-content .lead {
+  margin-bottom: 32px;
+}
+
+.ai-feature-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 540px) {
+  .ai-feature-highlights {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+}
+
+.ai-highlight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--charcoal);
+}
+
+.ai-highlight-icon {
+  font-size: 20px;
+}
+
+.ai-feature-image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ai-feature-image img {
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 20px 40px rgba(26, 25, 24, 0.1));
+}
+
+@media (max-width: 899px) {
+  .ai-feature-image {
+    order: -1;
+  }
+  
+  .ai-feature-image img {
+    max-width: 280px;
+  }
 }
 
 /* ─── Proof Header ──────────────────────────────────────────────────────── */

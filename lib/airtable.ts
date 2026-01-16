@@ -12,21 +12,26 @@ const hasAirtableConfig = Boolean(AIRTABLE_API_KEY && AIRTABLE_BASE_ID);
 const airtableFetch = async (path: string) => {
   console.log("[Airtable] Fetching:", path);
 
-  const response = await fetch(path, {
-    headers: {
-      Authorization: `Bearer ${AIRTABLE_API_KEY}`
-    },
-    // Use Next.js revalidation (ISR) - revalidate every 60 seconds
-    next: { revalidate: 60 }
-  });
+  try {
+    const response = await fetch(path, {
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`
+      },
+      // Use Next.js revalidation (ISR) - revalidate every 60 seconds
+      next: { revalidate: 60 }
+    });
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error("[Airtable] Error response:", response.status, errorBody);
-    throw new Error(`Airtable request failed: ${response.status} - ${errorBody}`);
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("[Airtable] Error response:", response.status, errorBody);
+      throw new Error(`Airtable request failed: ${response.status} - ${errorBody}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("[Airtable] Fetch error:", error);
+    throw error;
   }
-
-  return response.json();
 };
 
 const toSlug = (name: string): string =>
@@ -68,36 +73,43 @@ const toQuestion = (record: any): Question => {
 // Fetch all questions and derive companies from them
 const fetchAllQuestions = cache(async (): Promise<Question[]> => {
   if (!hasAirtableConfig) {
+    console.log("[Airtable] No config, using mock data");
     return mockQuestions;
   }
 
-  const allQuestions: Question[] = [];
-  let offset: string | undefined;
+  try {
+    const allQuestions: Question[] = [];
+    let offset: string | undefined;
 
-  // Paginate through all records
-  do {
-    const url = new URL(
-      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_QUESTIONS_TABLE}`
-    );
-    if (offset) {
-      url.searchParams.set("offset", offset);
-    }
+    // Paginate through all records
+    do {
+      const url = new URL(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_QUESTIONS_TABLE}`
+      );
+      if (offset) {
+        url.searchParams.set("offset", offset);
+      }
 
-    const data = await airtableFetch(url.toString());
-    allQuestions.push(...data.records.map(toQuestion));
-    offset = data.offset;
-  } while (offset);
+      const data = await airtableFetch(url.toString());
+      allQuestions.push(...data.records.map(toQuestion));
+      offset = data.offset;
+    } while (offset);
 
-  return allQuestions;
+    return allQuestions;
+  } catch (error) {
+    console.error("[Airtable] Failed to fetch, falling back to mock data:", error);
+    return mockQuestions;
+  }
 });
 
 // Derive companies from questions (no separate Companies table needed)
 export const getCompanies = cache(async (): Promise<Company[]> => {
-  if (!hasAirtableConfig) {
+  const questions = await fetchAllQuestions();
+  
+  // If we got mock questions, return mock companies
+  if (questions === mockQuestions) {
     return mockCompanies;
   }
-
-  const questions = await fetchAllQuestions();
   const companyMap = new Map<string, { name: string; count: number }>();
 
   for (const q of questions) {

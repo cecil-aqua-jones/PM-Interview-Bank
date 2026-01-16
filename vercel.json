@@ -1,5 +1,5 @@
 {
-  "name": "pm-interview-bank",
+  "name": "product-leaks",
   "buildCommand": "next build",
   "framework": "nextjs"
 }

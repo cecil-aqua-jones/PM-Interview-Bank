@@ -1,4 +1,4 @@
-# Atlas PM Interview Bank
+# Product Leaks
 
 Elegant landing page and PRD for a premium interview question bank aimed at
 mid to senior Product Management roles at America's top tech companies.

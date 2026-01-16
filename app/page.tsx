@@ -1,5 +1,7 @@
 import { getCompanies } from "@/lib/airtable";
+import Image from "next/image";
 import LogoMarquee from "./components/LogoMarquee";
+import AnimatedMascot from "@/components/AnimatedMascot";
 
 export default async function Home() {
   const companies = await getCompanies();
@@ -13,8 +15,8 @@ export default async function Home() {
       <header className="site-header">
         <div className="container header-inner">
           <div className="brand">
-            <div className="brand-mark">PM</div>
-            <span className="brand-name">Interview Bank</span>
+            <AnimatedMascot size={36} />
+            <span className="brand-name">Product Leaks</span>
           </div>
           <nav className="nav-links">
             <a href="#companies">Companies</a>
@@ -100,187 +102,25 @@ export default async function Home() {
         {/* AI Mock Interview Feature */}
         <section className="section" id="features">
           <div className="container">
-            <div className="section-header">
-              <p className="eyebrow">New Feature</p>
-              <h2>Practice with an AI interviewer.</h2>
-              <p>
-                Click play on any question and practice your response out loud. 
-                Our AI listens, evaluates your answer using a PM-specific rubric, 
-                and gives you actionable feedback in seconds.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* How We Got It */}
-        <section className="section alt" id="how-it-works">
-          <div className="container split">
-            <div>
-              <p className="eyebrow">The Source</p>
-              <h2>Real questions. Verified origins.</h2>
-              <p className="lead" style={{ marginBottom: 0 }}>
-                We aggregated PM interview debriefs from private candidate
-                circles, invite-only PM forums, and trusted communities across
-                India and the US. Every question is anonymized, verified, and
-                calibrated to the hiring bar of America's top tech companies.
-              </p>
-            </div>
-            <div className="feature-grid">
-              <div className="feature">
-                <h4>Sourced from Real Loops</h4>
-                <p>
-                  Actual questions from recent interview rounds, not recycled textbook
-                  prompts.
+            <div className="ai-feature-grid">
+              <div className="ai-feature-content">
+                <p className="eyebrow">New Feature</p>
+                <h2>Practice with an AI interviewer.</h2>
+                <p className="lead">
+                  Click play on any question and practice your response out loud. 
+                  Our AI listens, evaluates your answer using a PM-specific rubric, 
+                  and gives you actionable feedback in seconds.
                 </p>
               </div>
-              <div className="feature">
-                <h4>Verified & Timestamped</h4>
-                <p>
-                  Each question includes when it was last asked and at which
-                  company.
-                </p>
-              </div>
-              <div className="feature">
-                <h4>Difficulty Calibrated</h4>
-                <p>
-                  Questions tagged by difficulty and company expectations for
-                  realistic prep.
-                </p>
-              </div>
-              <div className="feature">
-                <h4>Monthly Updates</h4>
-                <p>
-                  Fresh questions added regularly from ongoing interview cycles
-                  worldwide.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Why Us */}
-        <section className="section">
-          <div className="container">
-            <div className="section-header">
-              <p className="eyebrow">Why PM Interview Bank</p>
-              <h2>More than questions. Real practice.</h2>
-              <p>
-                Most interview prep stops at reading questions. We take you further 
-                with AI-powered mock interviews that simulate the real experience.
-              </p>
-            </div>
-            <div className="split">
-              <div className="feature-grid">
-                <div className="feature">
-                  <h4>Voice-Based Practice</h4>
-                  <p>
-                    Practice speaking your answers out loud—the skill that 
-                    actually matters in interviews.
-                  </p>
-                </div>
-                <div className="feature">
-                  <h4>PM-Specific Evaluation</h4>
-                  <p>
-                    AI feedback calibrated to PM competencies: structure, product 
-                    thinking, metrics, communication, execution.
-                  </p>
-                </div>
-                <div className="feature">
-                  <h4>Difficulty-Aware Scoring</h4>
-                  <p>
-                    Feedback adjusts based on question difficulty and expected 
-                    depth for your target level.
-                  </p>
-                </div>
-                <div className="feature">
-                  <h4>Progress Tracking</h4>
-                  <p>
-                    Review your scores over time, identify weak areas, and 
-                    focus your practice where it counts.
-                  </p>
-                </div>
-              </div>
-              <div className="module-list">
-                <div className="module">
-                  <span>01</span>
-                  <p>Product Sense Fundamentals</p>
-                </div>
-                <div className="module">
-                  <span>02</span>
-                  <p>Market & Competitive Insight</p>
-                </div>
-                <div className="module">
-                  <span>03</span>
-                  <p>Customer Discovery</p>
-                </div>
-                <div className="module">
-                  <span>04</span>
-                  <p>Product Design Collaboration</p>
-                </div>
-                <div className="module">
-                  <span>05</span>
-                  <p>Execution & Delivery</p>
-                </div>
-                <div className="module">
-                  <span>06</span>
-                  <p>Metrics & Experimentation</p>
-                </div>
-                <div className="module">
-                  <span>07</span>
-                  <p>Technical PM: Platform & APIs</p>
-                </div>
-                <div className="module">
-                  <span>08</span>
-                  <p>Leadership & Influence</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Sample Questions */}
-        <section className="section">
-          <div className="container">
-            <div className="section-header">
-              <p className="eyebrow">Sample Questions</p>
-              <h2>Questions that feel like the real interview.</h2>
-            </div>
-            <div className="question-grid">
-              <div className="question-card">
-                <p className="tag">Product Sense</p>
-                <h4>
-                  Design a feature to help users discover new music on Spotify.
-                </h4>
-                <p>
-                  Walk through your approach, user segments, and success
-                  metrics.
-                </p>
-              </div>
-              <div className="question-card">
-                <p className="tag">Execution</p>
-                <h4>
-                  A launch is slipping. What do you cut, and how do you align
-                  the team?
-                </h4>
-                <p>
-                  Detail the decision framework and how you communicate the
-                  reset.
-                </p>
-              </div>
-              <div className="question-card">
-                <p className="tag">Metrics</p>
-                <h4>
-                  Your activation rate dropped 12%. How do you diagnose it in 48
-                  hours?
-                </h4>
-                <p>Prioritize hypotheses and explain how you'll rule them out.</p>
-              </div>
-              <div className="question-card">
-                <p className="tag">Behavioral</p>
-                <h4>Tell me about a time you led without authority and won.</h4>
-                <p>
-                  Share the context, the conflict, and the outcome you drove.
-                </p>
+              <div className="ai-feature-image">
+                <Image
+                  src="/ai-owl-mascot.png"
+                  alt="AI Interview Coach - Friendly owl mascot"
+                  width={400}
+                  height={400}
+                  priority
+                  style={{ objectFit: "contain" }}
+                />
               </div>
             </div>
           </div>
@@ -404,6 +244,180 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* How We Got It */}
+        <section className="section" id="how-it-works">
+          <div className="container split">
+            <div>
+              <p className="eyebrow">The Source</p>
+              <h2>Real questions. Verified origins.</h2>
+              <p className="lead" style={{ marginBottom: 0 }}>
+                We aggregated PM interview debriefs from private candidate
+                circles, invite-only PM forums, and trusted communities across
+                India and the US. Every question is anonymized, verified, and
+                calibrated to the hiring bar of America's top tech companies.
+              </p>
+            </div>
+            <div className="feature-grid">
+              <div className="feature">
+                <h4>Sourced from Real Loops</h4>
+                <p>
+                  Actual questions from recent interview rounds, not recycled textbook
+                  prompts.
+                </p>
+              </div>
+              <div className="feature">
+                <h4>Verified & Timestamped</h4>
+                <p>
+                  Each question includes when it was last asked and at which
+                  company.
+                </p>
+              </div>
+              <div className="feature">
+                <h4>Difficulty Calibrated</h4>
+                <p>
+                  Questions tagged by difficulty and company expectations for
+                  realistic prep.
+                </p>
+              </div>
+              <div className="feature">
+                <h4>Monthly Updates</h4>
+                <p>
+                  Fresh questions added regularly from ongoing interview cycles
+                  worldwide.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Why Us */}
+        <section className="section">
+          <div className="container">
+            <div className="section-header">
+              <p className="eyebrow">Why Product Leaks</p>
+              <h2>More than questions. Real practice.</h2>
+              <p>
+                Most interview prep stops at reading questions. We take you further 
+                with AI-powered mock interviews that simulate the real experience.
+              </p>
+            </div>
+            <div className="split">
+              <div className="feature-grid">
+                <div className="feature">
+                  <h4>Voice-Based Practice</h4>
+                  <p>
+                    Practice speaking your answers out loud—the skill that 
+                    actually matters in interviews.
+                  </p>
+                </div>
+                <div className="feature">
+                  <h4>PM-Specific Evaluation</h4>
+                  <p>
+                    AI feedback calibrated to PM competencies: structure, product 
+                    thinking, metrics, communication, execution.
+                  </p>
+                </div>
+                <div className="feature">
+                  <h4>Difficulty-Aware Scoring</h4>
+                  <p>
+                    Feedback adjusts based on question difficulty and expected 
+                    depth for your target level.
+                  </p>
+                </div>
+                <div className="feature">
+                  <h4>Progress Tracking</h4>
+                  <p>
+                    Review your scores over time, identify weak areas, and 
+                    focus your practice where it counts.
+                  </p>
+                </div>
+              </div>
+              <div className="module-list">
+                <div className="module">
+                  <span>01</span>
+                  <p>Product Sense Fundamentals</p>
+                </div>
+                <div className="module">
+                  <span>02</span>
+                  <p>Market & Competitive Insight</p>
+                </div>
+                <div className="module">
+                  <span>03</span>
+                  <p>Customer Discovery</p>
+                </div>
+                <div className="module">
+                  <span>04</span>
+                  <p>Product Design Collaboration</p>
+                </div>
+                <div className="module">
+                  <span>05</span>
+                  <p>Execution & Delivery</p>
+                </div>
+                <div className="module">
+                  <span>06</span>
+                  <p>Metrics & Experimentation</p>
+                </div>
+                <div className="module">
+                  <span>07</span>
+                  <p>Technical PM: Platform & APIs</p>
+                </div>
+                <div className="module">
+                  <span>08</span>
+                  <p>Leadership & Influence</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Sample Questions */}
+        <section className="section">
+          <div className="container">
+            <div className="section-header">
+              <p className="eyebrow">Sample Questions</p>
+              <h2>Questions that feel like the real interview.</h2>
+            </div>
+            <div className="question-grid">
+              <div className="question-card">
+                <p className="tag">Product Sense</p>
+                <h4>
+                  Design a feature to help users discover new music on Spotify.
+                </h4>
+                <p>
+                  Walk through your approach, user segments, and success
+                  metrics.
+                </p>
+              </div>
+              <div className="question-card">
+                <p className="tag">Execution</p>
+                <h4>
+                  A launch is slipping. What do you cut, and how do you align
+                  the team?
+                </h4>
+                <p>
+                  Detail the decision framework and how you communicate the
+                  reset.
+                </p>
+              </div>
+              <div className="question-card">
+                <p className="tag">Metrics</p>
+                <h4>
+                  Your activation rate dropped 12%. How do you diagnose it in 48
+                  hours?
+                </h4>
+                <p>Prioritize hypotheses and explain how you'll rule them out.</p>
+              </div>
+              <div className="question-card">
+                <p className="tag">Behavioral</p>
+                <h4>Tell me about a time you led without authority and won.</h4>
+                <p>
+                  Share the context, the conflict, and the outcome you drove.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Pricing */}
         <section id="pricing" className="section alt">
           <div className="container pricing-grid">
@@ -510,7 +524,7 @@ export default async function Home() {
 
       <footer className="site-footer">
         <div className="container footer-inner">
-          <p>PM Interview Bank • Built for ambitious product leaders.</p>
+          <p>Product Leaks • Built for ambitious product leaders.</p>
           <div className="footer-links">
             <a href="#">Privacy</a>
             <a href="#">Terms</a>

@@ -16,9 +16,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata = {
-  title: "PM Interview Questions for Top Tech Companies",
+  title: "Product Leaks | PM Interview Questions for Top Tech Companies",
   description:
-    "A premium interview question bank for mid to senior Product Managers at America's top 30 tech companies."
+    "A premium interview question bank for mid to senior Product Managers. Real questions from America's top tech companies."
 };
 
 export default function RootLayout({

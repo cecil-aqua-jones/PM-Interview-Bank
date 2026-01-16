@@ -150,10 +150,11 @@ export default function InterviewModal({
 
     fetchAndPlayAudio();
 
-    // Cleanup
+    // Cleanup on unmount
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = "";
         audioRef.current = null;
       }
     };
@@ -265,12 +266,27 @@ export default function InterviewModal({
   };
 
   const handleClose = () => {
+    // Stop and clean up audio playback
     if (audioRef.current) {
       audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
     }
-    if (modalState === "recording") {
+    
+    // Stop recording if active
+    if (recorderState === "recording") {
       stopRecording();
     }
+    
+    // Reset all state to prevent stale data on next open
+    resetRecording();
+    setModalState("speaking");
+    setEvaluation(null);
+    setError(null);
+    setProcessingStep("");
+    setSpeakingProgress(0);
+    hasFetchedAudio.current = false;
+    
     onClose();
   };
 
@@ -325,8 +341,16 @@ export default function InterviewModal({
           {/* Speaking State - AI reading the question */}
           {modalState === "speaking" && (
             <div className={styles.speakingArea}>
-              <div className={styles.speakingIcon}>
-                <SpeakerIcon />
+              <div className={styles.speakingVideo}>
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                >
+                  <source src="/speaking-mascot.webm" type="video/webm" />
+                  <source src="/speaking-mascot.mp4" type="video/mp4" />
+                </video>
               </div>
               <div className={styles.speakingVisualizer}>
                 {speakingBars.map((height, i) => (
