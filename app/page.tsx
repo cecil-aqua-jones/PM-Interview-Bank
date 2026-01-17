@@ -315,19 +315,6 @@ export default async function Home() {
                   </div>
                 </div>
               </div>
-              <div className="testimonial">
-                <p>
-                  I used this to interview my own candidates. The rubrics are
-                  gold for hiring managers.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">A</div>
-                  <div className="testimonial-info">
-                    <div className="testimonial-name">Alex C.</div>
-                    <div className="testimonial-role">Group PM at Meta</div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </section>
