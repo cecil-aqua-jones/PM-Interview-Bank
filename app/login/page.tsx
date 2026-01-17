@@ -40,7 +40,7 @@ export default function LoginPage() {
     <main className="login-page">
       <div className="login-card">
         <h1>Welcome back</h1>
-        <p>Sign in with your work email to access the PM question bank.</p>
+        <p>Sign in with your email to access the question bank.</p>
         <form onSubmit={handleSignIn}>
           <label htmlFor="email">Email</label>
           <input
