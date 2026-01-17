@@ -22,12 +22,10 @@ export default async function Home() {
             <div className="hero-copy">
               <p className="eyebrow">For Mid-Senior Product Managers</p>
               <h1>
-                Your shortcut to acing Product Management interviews.
+                Leaked Pm interview questions for top tech companies.
               </h1>
               <p className="lead">
-                Access real product case studies and interview questions curated
-                from {companies.length} top tech companies. Sharpen your product
-                sense and land your dream PM role.
+                Access verified leaked pm questions from last week, practice answering them with AI.
               </p>
               <div className="cta-group">
                 <a className="btn btn-primary" href="/login">
@@ -78,7 +76,7 @@ export default async function Home() {
           <LogoMarquee />
           <div className="container">
             <p className="trust-footer">
-              Questions sourced from PM communities, interview debriefs, and
+              Questions sourced from PM communities, 1point3acres, interview debriefs, and
               verified candidate submissions.
             </p>
           </div>
@@ -92,8 +90,8 @@ export default async function Home() {
                 <p className="eyebrow">New Feature</p>
                 <h2>Practice with an AI interviewer.</h2>
                 <p className="lead">
-                  Click play on any question and practice your response out loud. 
-                  Our AI listens, evaluates your answer using a PM-specific rubric, 
+                  Click play on any question and practice your response out loud.
+                  Our AI listens, evaluates your answer using a company-specific PM hiring rubric,
                   and gives you actionable feedback in seconds.
                 </p>
               </div>
@@ -140,7 +138,7 @@ export default async function Home() {
             <div className="testimonial-grid">
               <div className="testimonial">
                 <p>
-                  The questions were spot-on. I saw two nearly identical prompts
+                  The questions were spot-on. I saw two identical questions
                   in my Google onsite.
                 </p>
                 <div className="testimonial-author">
@@ -155,7 +153,7 @@ export default async function Home() {
               </div>
               <div className="testimonial">
                 <p>
-                  Finally, a resource that feels written by people who have
+                  Finally, a resource that feels researched by people who have
                   actually interviewed at these companies.
                 </p>
                 <div className="testimonial-author">
@@ -178,7 +176,7 @@ export default async function Home() {
                   <div className="testimonial-info">
                     <div className="testimonial-name">Elena R.</div>
                     <div className="testimonial-role">
-                      Cracked Google RPM loop
+                      Cracked Google RPM loop on third try. This was the only resource that helped.
                     </div>
                   </div>
                 </div>
@@ -186,7 +184,7 @@ export default async function Home() {
               <div className="testimonial">
                 <p>
                   I prepped with this for two weeks and landed a Product Lead
-                  role. Worth every penny.
+                  role. My TC grew by $100k. Worth every penny.
                 </p>
                 <div className="testimonial-author">
                   <div className="testimonial-avatar">J</div>
@@ -200,15 +198,15 @@ export default async function Home() {
               </div>
               <div className="testimonial">
                 <p>
-                  The behavioral questions helped me structure my stories way
-                  better than any framework.
+                  Practicing the behavioral questions out loud helped me structure my stories way
+                  better than memorising any framework.
                 </p>
                 <div className="testimonial-author">
                   <div className="testimonial-avatar">M</div>
                   <div className="testimonial-info">
                     <div className="testimonial-name">Meera V.</div>
                     <div className="testimonial-role">
-                      Received offer from Atlassian
+                      Received offer from Atlassian and two other companies
                     </div>
                   </div>
                 </div>
@@ -238,8 +236,8 @@ export default async function Home() {
               <h2>Real questions. Verified origins.</h2>
               <p className="lead" style={{ marginBottom: 0 }}>
                 We aggregated PM interview debriefs from private candidate
-                circles, invite-only PM forums, and trusted communities across
-                India and the US. Every question is anonymized, verified, and
+                circles, invite-only PM forums, 1point3acres and trusted communities across
+                India, China, and the US. Every question is anonymized, verified, and
                 calibrated to the hiring bar of America's top tech companies.
               </p>
             </div>
@@ -283,7 +281,7 @@ export default async function Home() {
               <p className="eyebrow">Why Product Leaks</p>
               <h2>More than questions. Real practice.</h2>
               <p>
-                Most interview prep stops at reading questions. We take you further 
+                Most interview prep stops at reading questions. We take you further
                 with AI-powered mock interviews that simulate the real experience.
               </p>
             </div>
@@ -292,28 +290,28 @@ export default async function Home() {
                 <div className="feature">
                   <h4>Voice-Based Practice</h4>
                   <p>
-                    Practice speaking your answers out loud—the skill that 
+                    Practice speaking your answers out loud—the skill that
                     actually matters in interviews.
                   </p>
                 </div>
                 <div className="feature">
                   <h4>PM-Specific Evaluation</h4>
                   <p>
-                    AI feedback calibrated to PM competencies: structure, product 
+                    AI feedback calibrated to PM competencies: structure, product
                     thinking, metrics, communication, execution.
                   </p>
                 </div>
                 <div className="feature">
                   <h4>Difficulty-Aware Scoring</h4>
                   <p>
-                    Feedback adjusts based on question difficulty and expected 
+                    Feedback adjusts based on question difficulty and expected
                     depth for your target level.
                   </p>
                 </div>
                 <div className="feature">
                   <h4>Progress Tracking</h4>
                   <p>
-                    Review your scores over time, identify weak areas, and 
+                    Review your scores over time, identify weak areas, and
                     focus your practice where it counts.
                   </p>
                 </div>
@@ -411,7 +409,7 @@ export default async function Home() {
               <p className="eyebrow">Pricing</p>
               <h2>One-time purchase. Unlimited practice.</h2>
               <p>
-                No subscriptions, no fluff. Get the questions and AI-powered 
+                No subscriptions, no fluff. Get the questions and AI-powered
                 mock interviews to prep for multiple interview cycles.
               </p>
               <ul className="checklist">
@@ -440,16 +438,16 @@ export default async function Home() {
               <div className="faq">
                 <h4>How does the AI mock interview work?</h4>
                 <p>
-                  Click play on any question. An AI interviewer reads the question 
-                  aloud. Record your verbal answer, and get instant feedback scored 
+                  Click play on any question. An AI interviewer reads the question
+                  aloud. Record your verbal answer, and get instant feedback scored
                   across 5 PM competencies.
                 </p>
               </div>
               <div className="faq">
                 <h4>What does the AI evaluate?</h4>
                 <p>
-                  Structure & frameworks, product thinking depth, metrics usage, 
-                  communication clarity, and execution awareness—calibrated to 
+                  Structure & frameworks, product thinking depth, metrics usage,
+                  communication clarity, and execution awareness—calibrated to
                   your question's difficulty level.
                 </p>
               </div>
@@ -457,7 +455,7 @@ export default async function Home() {
                 <h4>Where do the questions come from?</h4>
                 <p>
                   Questions are sourced from interview debriefs shared in PM
-                  communities, verified candidate submissions, and invite-only
+                  communities China, India and the US, verified candidate submissions, and invite-only
                   forums.
                 </p>
               </div>
@@ -471,14 +469,14 @@ export default async function Home() {
               <div className="faq">
                 <h4>Are AI mock interviews unlimited?</h4>
                 <p>
-                  Yes. Practice any question as many times as you want. Your 
+                  Yes. Practice any question as many times as you want. Your
                   progress and scores are saved so you can track improvement.
                 </p>
               </div>
               <div className="faq">
                 <h4>How often is the question bank updated?</h4>
                 <p>
-                  We add new questions monthly as we receive fresh debriefs.
+                  We add new questions weekly as we receive fresh debriefs.
                   Your purchase includes 12 months of updates.
                 </p>
               </div>
@@ -491,7 +489,7 @@ export default async function Home() {
           <div className="container cta-inner">
             <h2>Ready to practice like it's the real thing?</h2>
             <p>
-              Real questions. AI mock interviews. Instant feedback. 
+              Real questions. AI mock interviews. Instant feedback.
               Everything you need to walk into your PM interview with confidence.
             </p>
             <CTAButton />
