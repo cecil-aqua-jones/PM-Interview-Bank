@@ -1,6 +1,8 @@
 import { getCompanies } from "@/lib/airtable";
 import LogoMarquee from "./components/LogoMarquee";
-import AnimatedMascot from "@/components/AnimatedMascot";
+import LandingHeader from "./components/LandingHeader";
+import PricingCard from "./components/PricingCard";
+import CTAButton from "./components/CTAButton";
 
 export default async function Home() {
   const companies = await getCompanies();
@@ -11,23 +13,7 @@ export default async function Home() {
 
   return (
     <>
-      <header className="site-header">
-        <div className="container header-inner">
-          <div className="brand">
-            <AnimatedMascot size={36} />
-            <span className="brand-name">Product Leaks</span>
-          </div>
-          <nav className="nav-links">
-            <a href="#companies">Companies</a>
-            <a href="#how-it-works">How It Works</a>
-            <a href="#proof">Results</a>
-            <a href="#pricing">Pricing</a>
-          </nav>
-          <a className="btn btn-primary" href="/login">
-            Get Access
-          </a>
-        </div>
-      </header>
+      <LandingHeader />
 
       <main>
         {/* Hero */}
@@ -72,7 +58,7 @@ export default async function Home() {
                 <div className="pill">Take-home</div>
               </div>
               <div className="card-bottom">
-                <p className="price-tag">$129</p>
+                <p className="price-tag">$250</p>
                 <span className="price-note">One-time purchase</span>
               </div>
             </div>
@@ -440,14 +426,7 @@ export default async function Home() {
                 <li>30-day money-back guarantee</li>
               </ul>
             </div>
-            <div className="price-card">
-              <p className="price">$129</p>
-              <p className="price-label">One-time payment</p>
-              <a className="btn btn-primary" href="/login">
-                Get Access Now
-              </a>
-              <p className="microcopy">Secure checkout • Instant access</p>
-            </div>
+            <PricingCard />
           </div>
         </section>
 
@@ -515,9 +494,7 @@ export default async function Home() {
               Real questions. AI mock interviews. Instant feedback. 
               Everything you need to walk into your PM interview with confidence.
             </p>
-            <a className="btn btn-accent" href="/login">
-              Start Practicing Now
-            </a>
+            <CTAButton />
           </div>
         </section>
       </main>

@@ -325,6 +325,11 @@
   transition: all var(--transition);
 }
 
+.lockIcon {
+  color: var(--slate);
+  opacity: 0.6;
+}
+
 .companyCard:hover .cardArrow {
   color: var(--ink);
   transform: translateX(4px);
@@ -2264,4 +2269,177 @@
   width: 100%;
   height: 20px;
   margin-bottom: 12px;
+}
+
+/* ─── Paywall Modal ────────────────────────────────────────────────────── */
+
+.paywallOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 25, 24, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.paywallModal {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  max-width: 440px;
+  width: 100%;
+  position: relative;
+  animation: slideUp 0.3s ease;
+  box-shadow: 0 24px 48px rgba(26, 25, 24, 0.2);
+}
+
+.paywallClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--pearl);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--slate);
+  transition: all var(--transition);
+}
+
+.paywallClose:hover {
+  background: var(--smoke);
+  color: var(--ink);
+}
+
+.paywallContent {
+  padding: 48px 32px 32px;
+  text-align: center;
+}
+
+.paywallIcon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  color: var(--white);
+}
+
+.paywallTitle {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
+.paywallDescription {
+  font-size: 15px;
+  color: var(--slate);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.paywallFeatures {
+  text-align: left;
+  background: var(--pearl);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.paywallFeature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--charcoal);
+  padding: 8px 0;
+}
+
+.paywallFeature svg {
+  color: #16a34a;
+  flex-shrink: 0;
+}
+
+.paywallPricing {
+  margin-bottom: 20px;
+}
+
+.paywallPrice {
+  font-family: var(--font-serif);
+  font-size: 48px;
+  font-weight: 400;
+  color: var(--ink);
+  display: block;
+  line-height: 1;
+}
+
+.paywallPriceNote {
+  font-size: 14px;
+  color: var(--slate);
+}
+
+.paywallButton {
+  width: 100%;
+  padding: 16px 32px;
+  background: var(--ink);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.paywallButton:hover:not(:disabled) {
+  background: var(--charcoal);
+  transform: translateY(-1px);
+}
+
+.paywallButton:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.paywallSecure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--slate);
+}
+
+@media (max-width: 480px) {
+  .paywallModal {
+    max-width: 100%;
+    margin: 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    animation: slideUpMobile 0.3s ease;
+  }
+
+  .paywallContent {
+    padding: 40px 24px 32px;
+  }
+
+  .paywallPrice {
+    font-size: 40px;
+  }
 }

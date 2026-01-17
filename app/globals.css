@@ -90,6 +90,18 @@ a {
   gap: 24px;
 }
 
+@media (max-width: 480px) {
+  .header-inner {
+    padding: 12px 0;
+    gap: 12px;
+  }
+  
+  .header-inner .btn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}
+
 .brand {
   display: flex;
   align-items: center;

@@ -1,0 +1,27 @@
+"use client";
+
+import Link from "next/link";
+import AnimatedMascot from "@/components/AnimatedMascot";
+import CheckoutButton from "./CheckoutButton";
+
+export default function LandingHeader() {
+  return (
+    <header className="site-header">
+      <div className="container header-inner">
+        <div className="brand">
+          <AnimatedMascot size={36} />
+          <span className="brand-name">Product Leaks</span>
+        </div>
+        <nav className="nav-links">
+          <a href="#companies">Companies</a>
+          <a href="#how-it-works">How It Works</a>
+          <a href="#proof">Results</a>
+          <a href="#pricing">Pricing</a>
+        </nav>
+        <CheckoutButton className="btn btn-primary">
+          Get Access
+        </CheckoutButton>
+      </div>
+    </header>
+  );
+}

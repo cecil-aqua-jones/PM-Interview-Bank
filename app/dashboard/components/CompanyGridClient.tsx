@@ -1,19 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import styles from "../app.module.css";
 import { Company } from "@/lib/types";
 import { getBrandIcon } from "@/lib/brandfetch";
+import PaywallModal from "./PaywallModal";
 
 type CompanyGridClientProps = {
   companies: Company[];
+  hasPaid?: boolean;
 };
 
-export default function CompanyGridClient({ companies }: CompanyGridClientProps) {
+export default function CompanyGridClient({ companies, hasPaid = false }: CompanyGridClientProps) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
   const filteredCompanies = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -30,6 +36,18 @@ export default function CompanyGridClient({ companies }: CompanyGridClientProps)
 
   const handleImageError = (companyId: string) => {
     setImageErrors((prev) => new Set(prev).add(companyId));
+  };
+
+  const handleCompanyClick = (company: Company, e: React.MouseEvent) => {
+    if (hasPaid) {
+      // User has paid, allow navigation
+      return;
+    }
+    
+    // User hasn't paid, show paywall
+    e.preventDefault();
+    setSelectedCompany(company);
+    setShowPaywall(true);
   };
 
   return (
@@ -59,6 +77,7 @@ export default function CompanyGridClient({ companies }: CompanyGridClientProps)
             key={company.slug}
             href={`/dashboard/company/${company.slug}`}
             className={styles.companyCard}
+            onClick={(e) => handleCompanyClick(company, e)}
           >
             {imageErrors.has(company.id) ? (
               <div className={styles.companyLogoFallback}>
@@ -85,6 +104,20 @@ export default function CompanyGridClient({ companies }: CompanyGridClientProps)
               <span className={styles.questionCount}>
                 {company.questionCount ?? 0} questions
               </span>
+              {!hasPaid && (
+                <svg
+                  className={styles.lockIcon}
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              )}
               <svg
                 className={styles.cardArrow}
                 viewBox="0 0 20 20"
@@ -109,6 +142,17 @@ export default function CompanyGridClient({ companies }: CompanyGridClientProps)
             Try adjusting your search query.
           </p>
         </div>
+      )}
+
+      {/* Paywall Modal */}
+      {showPaywall && (
+        <PaywallModal
+          companyName={selectedCompany?.name}
+          onClose={() => {
+            setShowPaywall(false);
+            setSelectedCompany(null);
+          }}
+        />
       )}
     </>
   );
