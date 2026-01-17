@@ -79,7 +79,7 @@ function JsonLd() {
         name: "Is it a subscription or one-time payment?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Product Leaks is a one-time payment of $250 for 12 months of full access. No recurring charges."
+          text: "Product Leaks is a one-time payment of $250 for 12 months of full access. It doesnt automatically renew at the end of the year."
         }
       }
     ]
@@ -124,12 +124,12 @@ export default async function Home() {
         <section className="hero">
           <div className="container hero-grid">
             <div className="hero-copy">
-              <p className="eyebrow">For Mid-Senior Product Managers</p>
+              <p className="eyebrow">For Ambitious Product Managers</p>
               <h1>
                 Leaked Pm interview questions for top tech companies.
               </h1>
               <p className="lead">
-                Access verified leaked pm questions from last week, practice answering them with AI.
+                Access verified leaked pm questions and other intel from last week, practice answering them with AI.
               </p>
               <div className="cta-group">
                 <a className="btn btn-primary" href="/login">
