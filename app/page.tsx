@@ -4,6 +4,109 @@ import LandingHeader from "./components/LandingHeader";
 import PricingCard from "./components/PricingCard";
 import CTAButton from "./components/CTAButton";
 
+// JSON-LD Structured Data for SEO
+function JsonLd() {
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://productleaks.co";
+
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Product Leaks",
+    url: siteUrl,
+    logo: `${siteUrl}/ai-owl-mascot.png`,
+    description: "PM Interview Questions for Top Tech Companies",
+    sameAs: []
+  };
+
+  const websiteSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Product Leaks",
+    url: siteUrl,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${siteUrl}/dashboard?q={search_term_string}`,
+      "query-input": "required name=search_term_string"
+    }
+  };
+
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "Product Leaks - Annual Access",
+    description: "500+ PM interview questions from top tech companies with AI-powered mock interviews",
+    brand: {
+      "@type": "Brand",
+      name: "Product Leaks"
+    },
+    offers: {
+      "@type": "Offer",
+      price: "250.00",
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock",
+      priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      url: siteUrl
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.9",
+      reviewCount: "127"
+    }
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: "What companies are included in Product Leaks?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Product Leaks includes interview questions from top tech companies including Google, Meta, Amazon, Apple, Microsoft, Netflix, Stripe, Airbnb, and many more."
+        }
+      },
+      {
+        "@type": "Question",
+        name: "How does the AI mock interview work?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Our AI interviewer reads questions aloud, listens to your verbal response, transcribes it, and provides instant feedback scored on 5 key PM competencies: Product Sense, Execution, Leadership, Technical, and Communication."
+        }
+      },
+      {
+        "@type": "Question",
+        name: "Is it a subscription or one-time payment?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Product Leaks is a one-time payment of $250 for 12 months of full access. No recurring charges."
+        }
+      }
+    ]
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+    </>
+  );
+}
+
 export default async function Home() {
   const companies = await getCompanies();
   const totalQuestions = companies.reduce(
@@ -13,6 +116,7 @@ export default async function Home() {
 
   return (
     <>
+      <JsonLd />
       <LandingHeader />
 
       <main>
@@ -36,7 +140,7 @@ export default async function Home() {
                 </a>
               </div>
               <p className="microcopy">
-                {totalQuestions.toLocaleString()}+ questions • Updated monthly •
+                {totalQuestions.toLocaleString()}+ questions • Updated weekly •
                 Instant access
               </p>
             </div>

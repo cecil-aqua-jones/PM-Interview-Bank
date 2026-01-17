@@ -1,5 +1,15 @@
+import { Metadata } from "next";
 import Link from "next/link";
 import AnimatedMascot from "@/components/AnimatedMascot";
+
+export const metadata: Metadata = {
+  title: "Payment Successful",
+  description: "Welcome to Product Leaks! Your payment was successful.",
+  robots: {
+    index: false,
+    follow: false
+  }
+};
 
 export default function SuccessPage() {
   return (
@@ -35,7 +45,7 @@ export default function SuccessPage() {
               Welcome to Product Leaks!
             </h1>
             
-            <p className="lead" style={{ marginBottom: "32px", color: "var(--slate)" }}>
+            <p className="lead" style={{ marginBottom: "32px", color: "var(--graphite)" }}>
               Your payment was successful. You now have full access to all PM interview 
               questions and AI mock interviews for the next year.
             </p>
@@ -46,10 +56,10 @@ export default function SuccessPage() {
               borderRadius: "var(--radius-lg)",
               marginBottom: "32px"
             }}>
-              <p style={{ fontSize: "14px", color: "var(--slate)", marginBottom: "16px" }}>
+              <p style={{ fontSize: "14px", color: "var(--graphite)", marginBottom: "16px" }}>
                 A confirmation email has been sent to your inbox with your receipt and login details.
               </p>
-              <p style={{ fontSize: "14px", color: "var(--slate)" }}>
+              <p style={{ fontSize: "14px", color: "var(--graphite)" }}>
                 <strong>Next step:</strong> Check your email for a magic link to access your dashboard.
               </p>
             </div>

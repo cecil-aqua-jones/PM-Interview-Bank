@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getCompanyBySlug, getQuestionsByCompany } from "@/lib/airtable";
 import CompanyQuestionsWrapper from "../../components/CompanyQuestionsWrapper";
@@ -8,6 +9,25 @@ export const dynamic = "force-dynamic";
 type Props = {
   params: { slug: string };
 };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const company = await getCompanyBySlug(params.slug);
+  
+  if (!company) {
+    return {
+      title: "Company Not Found"
+    };
+  }
+
+  return {
+    title: `${company.name} PM Interview Questions`,
+    description: `Practice ${company.name} Product Manager interview questions with AI-powered mock interviews. Real questions from ${company.name} PM interviews.`,
+    robots: {
+      index: false, // Protected content
+      follow: false
+    }
+  };
+}
 
 export default async function CompanyPage({ params }: Props) {
   const { slug } = params;
