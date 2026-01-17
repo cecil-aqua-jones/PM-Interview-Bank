@@ -30,9 +30,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Companies
             </Link>
-            <a href="/#pricing" className={styles.navLink}>
-              Upgrade
-            </a>
           </div>
 
           <button
@@ -72,13 +69,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Companies
             </Link>
-            <a
-              href="/#pricing"
-              className={styles.mobileNavLink}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Upgrade
-            </a>
           </div>
         </div>
       )}
