@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCompanyBySlug, getQuestionsByCompany } from "@/lib/airtable";
-import CompanyQuestionsClient from "../../components/CompanyQuestionsClient";
+import CompanyQuestionsWrapper from "../../components/CompanyQuestionsWrapper";
 
 // Force dynamic rendering - don't pre-render during build
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export default async function CompanyPage({ params }: Props) {
   }
 
   return (
-    <CompanyQuestionsClient
+    <CompanyQuestionsWrapper
       companyName={company.name}
       companySlug={company.slug}
       questions={questions}
