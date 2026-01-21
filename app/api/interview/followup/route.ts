@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
       code, 
       language = "python",
       conversationHistory = [],
-      previousEvaluation
+      previousEvaluation,
+      clarifications = []
     } = body;
 
     // Validate required fields

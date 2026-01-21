@@ -54,6 +54,13 @@ type ConversationTurn = {
   timestamp: number;
 };
 
+type AudioQueueItem = {
+  id: string;
+  source: "url" | "base64" | "fetch";
+  data: string;
+  onComplete?: () => void;
+};
+
 let activeSessionId: string | null = null;
 
 export default function InterviewPanel({
@@ -92,16 +99,20 @@ export default function InterviewPanel({
   const [clarifyingQuestion, setClarifyingQuestion] = useState("");
   const [clarifications, setClarifications] = useState<{ question: string; answer: string }[]>([]);
   const [isAskingClarification, setIsAskingClarification] = useState(false);
-  const [showClarifyInput, setShowClarifyInput] = useState(true); // Show expanded by default
+  const [showClarifyInput, setShowClarifyInput] = useState(true);
   const [isRecordingClarification, setIsRecordingClarification] = useState(false);
   const [clarifyRecordingState, setClarifyRecordingState] = useState<"idle" | "recording" | "processing">("idle");
   const MAX_CLARIFICATIONS = 5;
 
+  // Audio queue system - prevents simultaneous playback
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioQueueRef = useRef<AudioQueueItem[]>([]);
+  const isPlayingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(Date.now().toString());
   const clarifyMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const clarifyChunksRef = useRef<Blob[]>([]);
+  const initialQuestionPlayedRef = useRef(false);
 
   const {
     state: recorderState,
@@ -114,6 +125,138 @@ export default function InterviewPanel({
     audioLevel,
   } = useAudioRecorder();
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO QUEUE SYSTEM - Ensures sequential playback, never simultaneous
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const stopCurrentAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+    setIsSpeaking(false);
+    isPlayingRef.current = false;
+  }, []);
+
+  const clearAudioQueue = useCallback(() => {
+    audioQueueRef.current = [];
+    stopCurrentAudio();
+  }, [stopCurrentAudio]);
+
+  const processNextInQueue = useCallback(async () => {
+    // If already playing or queue empty, do nothing
+    if (isPlayingRef.current || audioQueueRef.current.length === 0) {
+      return;
+    }
+
+    isPlayingRef.current = true;
+    setIsSpeaking(true);
+    const item = audioQueueRef.current.shift()!;
+
+    try {
+      let audioUrl: string;
+
+      if (item.source === "url") {
+        audioUrl = item.data;
+      } else if (item.source === "base64") {
+        const binaryString = atob(item.data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: "audio/mpeg" });
+        audioUrl = URL.createObjectURL(blob);
+      } else {
+        // fetch mode - item.data is the text to speak
+        const response = await fetch("/api/interview/speak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: item.data }),
+        });
+        if (!response.ok) {
+          throw new Error("TTS failed");
+        }
+        const blob = await response.blob();
+        audioUrl = URL.createObjectURL(blob);
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.addEventListener("timeupdate", () => {
+        if (audio.duration) {
+          setSpeakingProgress((audio.currentTime / audio.duration) * 100);
+        }
+      });
+
+      audio.addEventListener("ended", () => {
+        if (item.source !== "url") {
+          URL.revokeObjectURL(audioUrl);
+        }
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+        setSpeakingProgress(0);
+        item.onComplete?.();
+        // Process next item in queue
+        processNextInQueue();
+      });
+
+      audio.addEventListener("error", () => {
+        if (item.source !== "url") {
+          URL.revokeObjectURL(audioUrl);
+        }
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+        item.onComplete?.();
+        processNextInQueue();
+      });
+
+      audio.addEventListener("pause", () => {
+        // If paused externally, consider it done
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+      });
+
+      await audio.play();
+    } catch (err) {
+      console.error("[Audio Queue] Error:", err);
+      isPlayingRef.current = false;
+      setIsSpeaking(false);
+      item.onComplete?.();
+      processNextInQueue();
+    }
+  }, []);
+
+  const queueAudio = useCallback((item: Omit<AudioQueueItem, "id">) => {
+    const queueItem: AudioQueueItem = {
+      ...item,
+      id: Date.now().toString(),
+    };
+    audioQueueRef.current.push(queueItem);
+    
+    // Start processing if not already playing
+    if (!isPlayingRef.current) {
+      processNextInQueue();
+    }
+  }, [processNextInQueue]);
+
+  const speakText = useCallback((text: string, onComplete?: () => void) => {
+    queueAudio({ source: "fetch", data: text, onComplete });
+  }, [queueAudio]);
+
+  const playAudioUrl = useCallback((url: string, onComplete?: () => void) => {
+    queueAudio({ source: "url", data: url, onComplete });
+  }, [queueAudio]);
+
+  const playBase64Audio = useCallback((base64: string, onComplete?: () => void) => {
+    queueAudio({ source: "base64", data: base64, onComplete });
+  }, [queueAudio]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
   // Animate panel in
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -121,86 +264,31 @@ export default function InterviewPanel({
     });
   }, []);
 
-  // Play audio (preloaded or fetch new)
+  // Play initial question audio (only once)
   useEffect(() => {
-    if (activeSessionId && activeSessionId !== sessionIdRef.current) {
-      return;
-    }
+    if (initialQuestionPlayedRef.current) return;
+    if (activeSessionId && activeSessionId !== sessionIdRef.current) return;
 
     activeSessionId = sessionIdRef.current;
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+    initialQuestionPlayedRef.current = true;
 
-    const playAudio = async () => {
-      try {
-        setIsSpeaking(true);
-        let audioUrl = preloadedAudioUrl;
-
-        // If not preloaded, fetch now
-        if (!audioUrl) {
-          const fullQuestion = `${question.title}. ${question.prompt}`;
-          const response = await fetch("/api/interview/speak", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ question: fullQuestion, category: question.tags[0] }),
-            signal: abortController.signal,
-          });
-
-          if (abortController.signal.aborted) return;
-          if (!response.ok) {
-            setPanelState("coding");
-            setIsSpeaking(false);
-            return;
-          }
-
-          const blob = await response.blob();
-          audioUrl = URL.createObjectURL(blob);
-        }
-
-        if (abortController.signal.aborted) return;
-
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-
-        audio.addEventListener("timeupdate", () => {
-          if (audio.duration) {
-            setSpeakingProgress((audio.currentTime / audio.duration) * 100);
-          }
-        });
-
-        audio.addEventListener("ended", () => {
-          setPanelState("coding");
-          setIsSpeaking(false);
-          if (!preloadedAudioUrl) URL.revokeObjectURL(audioUrl!);
-        });
-
-        audio.addEventListener("error", () => {
-          setPanelState("coding");
-          setIsSpeaking(false);
-        });
-
-        await audio.play();
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        setPanelState("coding");
-        setIsSpeaking(false);
-      }
+    const onQuestionComplete = () => {
+      setPanelState("coding");
     };
 
-    playAudio();
+    if (preloadedAudioUrl) {
+      playAudioUrl(preloadedAudioUrl, onQuestionComplete);
+    } else {
+      const fullQuestion = `${question.title}. ${question.prompt}`;
+      speakText(fullQuestion, onQuestionComplete);
+    }
 
     return () => {
-      abortController.abort();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-        audioRef.current = null;
-      }
       if (activeSessionId === sessionIdRef.current) {
         activeSessionId = null;
       }
     };
-  }, [question, preloadedAudioUrl]);
+  }, [question, preloadedAudioUrl, playAudioUrl, speakText]);
 
   // Load previous interview
   useEffect(() => {
@@ -212,58 +300,55 @@ export default function InterviewPanel({
     }
   }, [question.id]);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HANDLERS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const handleClose = useCallback(() => {
     setIsClosing(true);
     setIsVisible(false);
-
-    // Stop audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current = null;
-    }
-
-    abortControllerRef.current?.abort();
+    clearAudioQueue();
+    
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;
     }
-
+    
     setTimeout(() => {
       onClose();
     }, 300);
-  }, [onClose]);
+  }, [onClose, clearAudioQueue]);
 
   const handleNavigation = useCallback((direction: "next" | "prev") => {
-    // Complete cleanup
-    setIsClosing(true);
-    setIsVisible(false);
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current = null;
-    }
-
-    abortControllerRef.current?.abort();
+    clearAudioQueue();
+    initialQuestionPlayedRef.current = false;
+    
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;
     }
-
-    setTimeout(() => {
-      if (direction === "next" && onNext) onNext();
-      else if (direction === "prev" && onPrev) onPrev();
-    }, 300);
-  }, [onNext, onPrev]);
+    
+    // Reset state
+    setEvaluation(null);
+    setConversation([]);
+    setClarifications([]);
+    setFollowUpCount(0);
+    setCurrentFollowUp(null);
+    setPanelState("speaking");
+    
+    if (direction === "next" && onNext) {
+      onNext();
+    } else if (direction === "prev" && onPrev) {
+      onPrev();
+    }
+  }, [onNext, onPrev, clearAudioQueue]);
 
   const skipToCode = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-      audioRef.current = null;
-    }
-    setIsSpeaking(false);
+    clearAudioQueue();
     setPanelState("coding");
-  }, []);
+  }, [clearAudioQueue]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CODE SUBMISSION & EVALUATION
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const handleSubmitCode = async () => {
     if (!code.trim() || code.trim().length < 10) {
@@ -271,20 +356,28 @@ export default function InterviewPanel({
       return;
     }
 
+    // Stop any playing audio before processing
+    clearAudioQueue();
     setPanelState("processing");
     setProcessingStep("Analyzing your code...");
     abortControllerRef.current = new AbortController();
 
     try {
+      // Include clarifications in context for evaluation
+      const clarificationContext = clarifications.length > 0
+        ? `\n\nClarifying questions asked:\n${clarifications.map(c => `Q: ${c.question}\nA: ${c.answer}`).join("\n\n")}`
+        : "";
+
       const response = await fetch("/api/interview/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: `${question.title}\n\n${question.prompt}`,
+          question: `${question.title}\n\n${question.prompt}${clarificationContext}`,
           code,
           language,
           difficulty: question.difficultyLabel,
           expectedComplexity: question.expectedComplexity,
+          clarifications, // Pass clarifications for context
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -298,9 +391,9 @@ export default function InterviewPanel({
       saveInterview(question.id, data.evaluation, code, language);
       onScoreUpdate?.(question.id, data.evaluation.overallScore);
 
-      // Start review phase
+      // Speak feedback
       setProcessingStep("Generating feedback...");
-      await speakFeedback(data.evaluation);
+      await speakFeedbackAndFollowUp(data.evaluation);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       setError("Failed to evaluate code. Please try again.");
@@ -308,48 +401,31 @@ export default function InterviewPanel({
     }
   };
 
-  const speakFeedback = async (eval_result: CodingEvaluationResult) => {
-    try {
-      const feedbackText = `Your score is ${eval_result.overallScore} out of 100. ${eval_result.strengths[0] || ""} ${eval_result.improvements[0] ? `Consider improving: ${eval_result.improvements[0]}` : ""}`;
+  const speakFeedbackAndFollowUp = async (evalResult: CodingEvaluationResult) => {
+    const score = evalResult.overallScore;
+    const verdict = score >= 4 ? "Strong work!" : score >= 3 ? "Good effort." : "Let's talk about some improvements.";
+    
+    const feedbackText = `Alright, I've reviewed your solution. ${verdict} Your score is ${score.toFixed(1)} out of 5. ${evalResult.overallFeedback || ""}`;
 
-      const response = await fetch("/api/interview/speak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: feedbackText }),
-      });
-
-      if (!response.ok) {
+    speakText(feedbackText, () => {
+      // After feedback, decide whether to ask follow-up or show final feedback
+      if (followUpCount < MAX_FOLLOWUPS) {
+        generateFollowUp("", conversation);
+      } else {
         setPanelState("feedback");
-        return;
       }
+    });
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-
-      setPanelState("review");
-      setIsSpeaking(true);
-
-      audio.addEventListener("ended", () => {
-        setIsSpeaking(false);
-        if (followUpCount < MAX_FOLLOWUPS) {
-          generateFollowUp("", conversation);
-        } else {
-          setPanelState("feedback");
-        }
-        URL.revokeObjectURL(url);
-      });
-
-      await audio.play();
-    } catch {
-      setPanelState("feedback");
-    }
+    setPanelState("review");
   };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FOLLOW-UP QUESTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const generateFollowUp = async (lastResponse: string, conv: ConversationTurn[]) => {
     setFollowUpCount(prev => prev + 1);
-    setProcessingStep("Preparing follow-up question...");
+    setProcessingStep("Thinking of a follow-up question...");
 
     try {
       const response = await fetch("/api/interview/followup", {
@@ -361,6 +437,7 @@ export default function InterviewPanel({
           language,
           question: question.prompt,
           evaluation,
+          clarifications, // Include clarification context
         }),
       });
 
@@ -372,31 +449,10 @@ export default function InterviewPanel({
       const data = await response.json();
       setCurrentFollowUp(data.followUpQuestion);
 
-      // Speak follow-up
-      const ttsResponse = await fetch("/api/interview/speak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: data.followUpQuestion }),
+      // Speak follow-up question
+      speakText(data.followUpQuestion, () => {
+        setPanelState("followup");
       });
-
-      if (ttsResponse.ok) {
-        const blob = await ttsResponse.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
-
-        setPanelState("followup");
-        setIsSpeaking(true);
-
-        audio.addEventListener("ended", () => {
-          setIsSpeaking(false);
-          URL.revokeObjectURL(url);
-        });
-
-        await audio.play();
-      } else {
-        setPanelState("followup");
-      }
     } catch {
       setPanelState("feedback");
     }
@@ -420,6 +476,7 @@ export default function InterviewPanel({
   const processFollowUpResponse = async () => {
     if (!audioBlob) return;
 
+    clearAudioQueue(); // Stop any audio before processing
     setProcessingStep("Processing your response...");
 
     try {
@@ -460,6 +517,7 @@ export default function InterviewPanel({
   };
 
   const skipFollowUp = () => {
+    clearAudioQueue();
     if (followUpCount < MAX_FOLLOWUPS) {
       generateFollowUp("", conversation);
     } else {
@@ -467,12 +525,17 @@ export default function InterviewPanel({
     }
   };
 
-  // Handle clarifying question submission (text or transcribed voice)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLARIFYING QUESTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const submitClarification = async (questionText: string) => {
     if (!questionText.trim() || isAskingClarification || clarifications.length >= MAX_CLARIFICATIONS) {
       return;
     }
 
+    // Stop current audio before asking clarification
+    clearAudioQueue();
     setIsAskingClarification(true);
 
     try {
@@ -493,34 +556,15 @@ export default function InterviewPanel({
       const data = await response.json();
       
       // Add to clarifications list
-      setClarifications([
-        ...clarifications,
+      setClarifications(prev => [
+        ...prev,
         { question: questionText.trim(), answer: data.answer }
       ]);
       setClarifyingQuestion("");
-      setShowClarifyInput(false);
 
-      // Play audio response if available
+      // Play audio response using queue (will wait for any current audio)
       if (data.audio) {
-        const clarifyAudioBlob = new Blob(
-          [Uint8Array.from(atob(data.audio), c => c.charCodeAt(0))],
-          { type: "audio/mpeg" }
-        );
-        const audioUrl = URL.createObjectURL(clarifyAudioBlob);
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        setIsSpeaking(true);
-        
-        audio.addEventListener("ended", () => {
-          setIsSpeaking(false);
-          URL.revokeObjectURL(audioUrl);
-        });
-        
-        audio.addEventListener("error", () => {
-          setIsSpeaking(false);
-        });
-        
-        await audio.play();
+        playBase64Audio(data.audio);
       }
     } catch (err) {
       setError("Failed to get clarification. Please try again.");
@@ -529,13 +573,15 @@ export default function InterviewPanel({
     }
   };
 
-  // Handle text-based clarification
   const handleAskClarification = () => {
     submitClarification(clarifyingQuestion);
   };
 
-  // Start recording voice clarification
+  // Voice recording for clarification
   const startClarifyRecording = async () => {
+    // Stop any playing audio first
+    clearAudioQueue();
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream, {
@@ -561,13 +607,11 @@ export default function InterviewPanel({
         
         setClarifyRecordingState("processing");
         
-        // Create blob and transcribe
         const recordedBlob = new Blob(clarifyChunksRef.current, { 
           type: mediaRecorder.mimeType 
         });
         
         try {
-          // Transcribe the audio
           const formData = new FormData();
           formData.append("audio", recordedBlob, "clarification.webm");
           
@@ -583,7 +627,6 @@ export default function InterviewPanel({
           const { transcript } = await transcribeResponse.json();
           
           if (transcript && transcript.trim()) {
-            // Submit the transcribed question
             await submitClarification(transcript);
           } else {
             setError("Couldn't hear your question. Please try again.");
@@ -604,7 +647,6 @@ export default function InterviewPanel({
     }
   };
 
-  // Stop recording voice clarification
   const stopClarifyRecording = () => {
     if (clarifyMediaRecorderRef.current && clarifyMediaRecorderRef.current.state === "recording") {
       clarifyMediaRecorderRef.current.stop();
@@ -612,7 +654,6 @@ export default function InterviewPanel({
     }
   };
 
-  // Toggle clarify recording
   const toggleClarifyRecording = () => {
     if (clarifyRecordingState === "recording") {
       stopClarifyRecording();
@@ -620,6 +661,10 @@ export default function InterviewPanel({
       startClarifyRecording();
     }
   };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════
 
   return (
     <div className={`${styles.interviewPanel} ${isVisible ? styles.interviewPanelVisible : ""}`}>
@@ -637,7 +682,6 @@ export default function InterviewPanel({
             Question {questionIndex + 1} of {totalQuestions}
           </span>
         </div>
-
         <div className={styles.panelHeaderRight}>
           {hasPrev && (
             <button
@@ -721,7 +765,7 @@ export default function InterviewPanel({
           </div>
 
           {/* Clarifying Questions Section */}
-          {(panelState === "coding" || panelState === "speaking") && (
+          {(panelState === "coding" || panelState === "speaking") && !isSpeaking && (
             <div className={styles.clarifySection}>
               {/* Previous Clarifications */}
               {clarifications.length > 0 && (
@@ -743,92 +787,78 @@ export default function InterviewPanel({
               )}
 
               {/* Ask Clarification Input */}
-              {clarifications.length < MAX_CLARIFICATIONS ? (
-                showClarifyInput ? (
-                  <div className={styles.clarifyInput}>
-                    {clarifyRecordingState === "processing" ? (
-                      <div className={styles.clarifyProcessing}>
-                        <span className={styles.spinnerSmall} />
-                        <span>Processing your question...</span>
+              {clarifications.length < MAX_CLARIFICATIONS && (
+                <div className={styles.clarifyInput}>
+                  {clarifyRecordingState === "processing" ? (
+                    <div className={styles.clarifyProcessing}>
+                      <span className={styles.spinnerSmall} />
+                      <span>Processing your question...</span>
+                    </div>
+                  ) : clarifyRecordingState === "recording" ? (
+                    <div className={styles.clarifyRecording}>
+                      <div className={styles.clarifyRecordingIndicator}>
+                        <span className={styles.recordingDotSmall} />
+                        <span>Recording... Ask your question</span>
                       </div>
-                    ) : clarifyRecordingState === "recording" ? (
-                      <div className={styles.clarifyRecording}>
-                        <div className={styles.clarifyRecordingIndicator}>
-                          <span className={styles.recordingDotSmall} />
-                          <span>Recording... Ask your question</span>
-                        </div>
-                        <button
-                          className={styles.clarifyStopRecordBtn}
-                          onClick={stopClarifyRecording}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <rect x="6" y="6" width="12" height="12" rx="2" />
-                          </svg>
-                          Done
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className={styles.clarifyInputRow}>
-                          <input
-                            type="text"
-                            value={clarifyingQuestion}
-                            onChange={(e) => setClarifyingQuestion(e.target.value)}
-                            placeholder="Type or speak your question..."
-                            className={styles.clarifyTextInput}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                handleAskClarification();
-                              }
-                            }}
-                            disabled={isAskingClarification}
-                          />
-                          <button
-                            className={styles.clarifyMicBtn}
-                            onClick={toggleClarifyRecording}
-                            title="Ask with voice"
-                            disabled={isAskingClarification}
-                          >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                              <line x1="12" y1="19" x2="12" y2="23" />
-                              <line x1="8" y1="23" x2="16" y2="23" />
-                            </svg>
-                          </button>
-                          <button
-                            className={styles.clarifySubmitBtn}
-                            onClick={handleAskClarification}
-                            disabled={!clarifyingQuestion.trim() || isAskingClarification}
-                          >
-                            {isAskingClarification ? (
-                              <>
-                                <span className={styles.spinnerSmall} />
-                                Asking...
-                              </>
-                            ) : (
-                              "Ask"
-                            )}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    className={styles.askClarifyBtn}
-                    onClick={() => setShowClarifyInput(true)}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                      <line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
-                    Ask a clarifying question (type or speak)
-                  </button>
-                )
-              ) : (
+                      <button
+                        className={styles.clarifyStopRecordBtn}
+                        onClick={stopClarifyRecording}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <rect x="6" y="6" width="12" height="12" rx="2" />
+                        </svg>
+                        Done
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={styles.clarifyInputRow}>
+                      <input
+                        type="text"
+                        value={clarifyingQuestion}
+                        onChange={(e) => setClarifyingQuestion(e.target.value)}
+                        placeholder="Type or speak your question..."
+                        className={styles.clarifyTextInput}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAskClarification();
+                          }
+                        }}
+                        disabled={isAskingClarification || isSpeaking}
+                      />
+                      <button
+                        className={styles.clarifyMicBtn}
+                        onClick={toggleClarifyRecording}
+                        title="Ask with voice"
+                        disabled={isAskingClarification || isSpeaking}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                          <line x1="12" y1="19" x2="12" y2="23" />
+                          <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg>
+                      </button>
+                      <button
+                        className={styles.clarifySubmitBtn}
+                        onClick={handleAskClarification}
+                        disabled={!clarifyingQuestion.trim() || isAskingClarification || isSpeaking}
+                      >
+                        {isAskingClarification ? (
+                          <>
+                            <span className={styles.spinnerSmall} />
+                            Asking...
+                          </>
+                        ) : (
+                          "Ask"
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {clarifications.length >= MAX_CLARIFICATIONS && (
                 <p className={styles.clarifyLimitReached}>
                   Maximum clarifications reached. Time to start coding!
                 </p>
@@ -842,52 +872,50 @@ export default function InterviewPanel({
               <p className={styles.followupPrompt}>
                 {currentFollowUp || "Answer the follow-up question:"}
               </p>
-              <button
-                className={`${styles.recordBtn} ${recorderState === "recording" ? styles.recording : ""}`}
-                onClick={handleRecordingToggle}
-              >
-                {recorderState === "recording" ? (
-                  <>
-                    <span className={styles.recordingDot} />
-                    Stop Recording
-                  </>
-                ) : (
-                  <>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    </svg>
-                    Record Answer
-                  </>
+              
+              <div className={styles.recordingControls}>
+                <button
+                  className={`${styles.recordBtn} ${recorderState === "recording" ? styles.recordBtnActive : ""}`}
+                  onClick={handleRecordingToggle}
+                >
+                  {recorderState === "recording" ? (
+                    <>
+                      <span className={styles.recordingDot} />
+                      Recording... ({Math.floor(duration)}s) - Click to stop
+                    </>
+                  ) : (
+                    <>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                      Record your answer
+                    </>
+                  )}
+                </button>
+                
+                {recorderState === "recording" && (
+                  <div className={styles.audioLevelContainer}>
+                    <div 
+                      className={styles.audioLevelBar} 
+                      style={{ width: `${Math.min(100, audioLevel * 100)}%` }}
+                    />
+                  </div>
                 )}
-              </button>
-              <button className={styles.skipFollowupBtn} onClick={skipFollowUp}>
-                Skip this question
-              </button>
+                
+                <button className={styles.skipFollowUpBtn} onClick={skipFollowUp}>
+                  Skip
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Feedback Summary (when in feedback state) */}
+          {/* Feedback Section */}
           {panelState === "feedback" && evaluation && (
-            <div className={styles.feedbackSummary}>
-              <div className={styles.scoreCircle}>
-                <span className={styles.scoreValue}>{evaluation.overallScore}</span>
-                <span className={styles.scoreLabel}>Score</span>
-              </div>
-              <div className={styles.feedbackHighlights}>
-                {evaluation.strengths[0] && (
-                  <div className={styles.feedbackStrength}>
-                    <span className={styles.feedbackIcon}>✓</span>
-                    {evaluation.strengths[0]}
-                  </div>
-                )}
-                {evaluation.improvements[0] && (
-                  <div className={styles.feedbackImprovement}>
-                    <span className={styles.feedbackIcon}>→</span>
-                    {evaluation.improvements[0]}
-                  </div>
-                )}
-              </div>
+            <div className={styles.feedbackSection}>
+              <FeedbackCards evaluation={evaluation} questionType="coding" />
             </div>
           )}
         </div>
@@ -924,7 +952,7 @@ export default function InterviewPanel({
                   <button
                     className={styles.submitCodeBtn}
                     onClick={handleSubmitCode}
-                    disabled={!code.trim() || code.trim().length < 10}
+                    disabled={!code.trim() || code.trim().length < 10 || isSpeaking}
                   >
                     {evaluation ? "Resubmit Code" : "Submit Code"}
                   </button>
