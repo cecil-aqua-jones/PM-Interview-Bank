@@ -183,7 +183,12 @@ export default function BehavioralInterviewPanel({
     if (previous) {
       setEvaluation(previous.evaluation);
       if (previous.conversationHistory) {
-        setConversation(previous.conversationHistory);
+        // Map stored history to include timestamps (use current time as fallback)
+        const historyWithTimestamps: ConversationTurn[] = previous.conversationHistory.map((turn, index) => ({
+          ...turn,
+          timestamp: previous.timestamp - (previous.conversationHistory!.length - index) * 1000
+        }));
+        setConversation(historyWithTimestamps);
       }
     }
   }, [question.id]);
