@@ -56,19 +56,22 @@ export function useTTSPreloader() {
   const evictOldestIfNeeded = useCallback(() => {
     if (cacheRef.current.size >= MAX_CACHE_SIZE) {
       // Find oldest entry
-      let oldest: { id: string; timestamp: number } | null = null;
+      let oldestId: string | null = null;
+      let oldestTimestamp = Infinity;
+      
       cacheRef.current.forEach((audio, id) => {
-        if (!oldest || audio.timestamp < oldest.timestamp) {
-          oldest = { id, timestamp: audio.timestamp };
+        if (audio.timestamp < oldestTimestamp) {
+          oldestId = id;
+          oldestTimestamp = audio.timestamp;
         }
       });
       
-      if (oldest) {
-        const cached = cacheRef.current.get(oldest.id);
+      if (oldestId) {
+        const cached = cacheRef.current.get(oldestId);
         if (cached?.audioUrl) {
           URL.revokeObjectURL(cached.audioUrl);
         }
-        cacheRef.current.delete(oldest.id);
+        cacheRef.current.delete(oldestId);
       }
     }
   }, []);

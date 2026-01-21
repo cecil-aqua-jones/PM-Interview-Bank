@@ -164,7 +164,9 @@ export function getCodingInterview(questionId: string): CodingInterviewRecord | 
   }
   // Handle legacy records without type field
   if (record && !("type" in record) && "code" in record) {
-    return { ...record, type: "coding" } as CodingInterviewRecord;
+    // Legacy record - cast and add type
+    const legacyRecord = record as unknown as Omit<CodingInterviewRecord, "type">;
+    return { ...legacyRecord, type: "coding" as const };
   }
   return null;
 }

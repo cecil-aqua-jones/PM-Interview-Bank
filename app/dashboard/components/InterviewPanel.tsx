@@ -318,6 +318,29 @@ export default function InterviewPanel({
     }, 300);
   }, [onClose, clearAudioQueue]);
 
+  const handleTryAgain = useCallback(() => {
+    clearAudioQueue();
+    initialQuestionPlayedRef.current = false;
+    
+    // Reset all state for a fresh attempt
+    setEvaluation(null);
+    setConversation([]);
+    setClarifications([]);
+    setFollowUpCount(0);
+    setCurrentFollowUp(null);
+    setClarifyingQuestion("");
+    setShowClarifyInput(true);
+    setError(null);
+    
+    // Reset code to starter
+    const lang = getSupportedLanguage(question.language);
+    setLanguage(lang);
+    setCode(question.starterCode || DEFAULT_STARTER_CODE[lang]);
+    
+    // Go back to coding state (skip intro on retry)
+    setPanelState("coding");
+  }, [clearAudioQueue, question.language, question.starterCode]);
+
   const handleNavigation = useCallback((direction: "next" | "prev") => {
     clearAudioQueue();
     initialQuestionPlayedRef.current = false;
@@ -915,7 +938,12 @@ export default function InterviewPanel({
           {/* Feedback Section */}
           {panelState === "feedback" && evaluation && (
             <div className={styles.feedbackSection}>
-              <FeedbackCards evaluation={evaluation} questionType="coding" />
+              <FeedbackCards 
+                evaluation={evaluation} 
+                conversation={conversation}
+                onTryAgain={handleTryAgain}
+                onClose={handleClose}
+              />
             </div>
           )}
         </div>
