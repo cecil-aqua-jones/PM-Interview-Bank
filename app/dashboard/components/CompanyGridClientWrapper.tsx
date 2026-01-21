@@ -5,15 +5,23 @@ import { supabase } from "@/lib/supabaseClient";
 import { Company } from "@/lib/types";
 import CompanyGridClient from "./CompanyGridClient";
 
+// Match the AuthGuard setting - when true, bypass payment check too (MUST be false in production)
+const BYPASS_AUTH = true;
+
 type CompanyGridClientWrapperProps = {
   companies: Company[];
 };
 
 export default function CompanyGridClientWrapper({ companies }: CompanyGridClientWrapperProps) {
-  const [hasPaid, setHasPaid] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [hasPaid, setHasPaid] = useState(BYPASS_AUTH); // Default to paid if bypassing
+  const [loading, setLoading] = useState(!BYPASS_AUTH);
 
   useEffect(() => {
+    // Skip payment check if auth is bypassed
+    if (BYPASS_AUTH) {
+      return;
+    }
+
     const checkPaymentStatus = async () => {
       if (!supabase) {
         setLoading(false);
@@ -22,7 +30,7 @@ export default function CompanyGridClientWrapper({ companies }: CompanyGridClien
 
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (user?.user_metadata?.has_paid) {
           setHasPaid(true);
         }

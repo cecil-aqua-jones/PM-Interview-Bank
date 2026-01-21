@@ -10,10 +10,10 @@ export default function LandingHeader() {
       <div className="container header-inner">
         <div className="brand">
           <AnimatedMascot size={36} />
-          <span className="brand-name">Product Leaks</span>
+          <span className="brand-name">Apex Interviewer</span>
         </div>
         <nav className="nav-links">
-          <a href="#companies">Companies</a>
+          <a href="/dashboard">Companies</a>
           <a href="#how-it-works">How It Works</a>
           <a href="#proof">Results</a>
           <a href="#pricing">Pricing</a>

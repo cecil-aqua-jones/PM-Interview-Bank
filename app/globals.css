@@ -27,6 +27,8 @@
   --accent-warm: #d4a853;
   --success: #2d7a4f;
   --radius-sm: 6px;
+  /* Monospace font stack for code */
+  --font-code: "JetBrains Mono", "Fira Code", "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Source Code Pro", "Menlo", "Consolas", monospace;
   --radius-md: 12px;
   --radius-lg: 20px;
   --radius-xl: 28px;

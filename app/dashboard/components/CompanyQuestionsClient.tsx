@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import styles from "../app.module.css";
-import { Question } from "@/lib/types";
+import { Question, getQuestionType, QuestionType } from "@/lib/types";
 import { getBrandIcon } from "@/lib/brandfetch";
 import { getInterview, InterviewRecord } from "@/lib/interviewStorage";
-import InterviewModal from "./InterviewModal";
+import { useTTSPreloader } from "@/lib/hooks/useTTSPreloader";
+import InterviewPanel from "./InterviewPanel";
+import BehavioralInterviewPanel from "./BehavioralInterviewPanel";
+import FormattedContent from "./FormattedContent";
 
 type CompanyQuestionsClientProps = {
   companyName: string;
@@ -30,6 +33,9 @@ export default function CompanyQuestionsClient({
   const [interviewQuestion, setInterviewQuestion] = useState<Question | null>(null);
   const [interviewRecords, setInterviewRecords] = useState<Record<string, InterviewRecord>>({});
   const [isInterviewClosing, setIsInterviewClosing] = useState(false);
+
+  // TTS preloader for instant audio playback
+  const { preload, preloadImmediate, preloadBatch, preloadAdjacent, getPreloadedAudio, isPreloaded, clearCache } = useTTSPreloader();
 
   // Load interview records from localStorage on mount
   useEffect(() => {
@@ -75,10 +81,34 @@ export default function CompanyQuestionsClient({
     });
   }, [questions, query, activeTags]);
 
+  // Aggressive preloading: load first 5 questions on mount
+  useEffect(() => {
+    if (filteredQuestions.length > 0) {
+      const initialBatch = filteredQuestions.slice(0, 5).map(q => ({
+        id: q.id,
+        text: `${q.title}. ${q.prompt}`
+      }));
+      preloadBatch(initialBatch, 7);
+    }
+  }, [filteredQuestions, preloadBatch]);
+
   // Reset selection when filters change
   useEffect(() => {
     setSelectedIndex(0);
   }, [query, activeTags]);
+
+  // Preload TTS when a question is selected (before user clicks start)
+  // Also preload adjacent questions for smooth navigation
+  useEffect(() => {
+    if (filteredQuestions[selectedIndex]) {
+      const q = filteredQuestions[selectedIndex];
+      const fullText = `${q.title}. ${q.prompt}`;
+      // High priority for selected question
+      preloadImmediate(q.id, fullText);
+      // Also preload adjacent questions
+      preloadAdjacent(filteredQuestions, selectedIndex);
+    }
+  }, [selectedIndex, filteredQuestions, preloadImmediate, preloadAdjacent]);
 
   // URL sync
   useEffect(() => {
@@ -113,6 +143,7 @@ export default function CompanyQuestionsClient({
 
   const selectedQuestion = filteredQuestions[selectedIndex] ?? null;
   const selectedRecord = selectedQuestion ? interviewRecords[selectedQuestion.id] : null;
+  const selectedQuestionType = selectedQuestion ? getQuestionType(selectedQuestion) : "coding";
 
   const goToPrev = () => {
     if (selectedIndex > 0) setSelectedIndex(selectedIndex - 1);
@@ -167,7 +198,7 @@ export default function CompanyQuestionsClient({
           <div>
             <h1 className={styles.detailTitle}>{companyName}</h1>
             <p className={styles.detailSubtitle}>
-              Product Management Interview Questions
+              Coding Interview Questions
             </p>
           </div>
         </div>
@@ -202,9 +233,8 @@ export default function CompanyQuestionsClient({
               key={tag}
               type="button"
               onClick={() => toggleTag(tag)}
-              className={`${styles.filterChip} ${
-                activeTags.includes(tag) ? styles.filterChipActive : ""
-              }`}
+              className={`${styles.filterChip} ${activeTags.includes(tag) ? styles.filterChipActive : ""
+                }`}
             >
               {tag}
             </button>
@@ -236,36 +266,44 @@ export default function CompanyQuestionsClient({
           </div>
 
           <div className={styles.questionList}>
-            {filteredQuestions.map((q, idx) => (
-              <button
-                key={q.id}
-                type="button"
-                onClick={() => setSelectedIndex(idx)}
-                className={`${styles.questionListItem} ${
-                  idx === selectedIndex ? styles.questionListItemActive : ""
-                }`}
-              >
-                <div className={styles.questionListItemTitle}>{q.title}</div>
-                <div className={styles.questionListItemMeta}>
-                  {q.tags[0] && (
-                    <span className={styles.questionListItemTag}>
-                      {q.tags[0]}
-                    </span>
-                  )}
-                  {q.difficultyLabel && <span>{q.difficultyLabel}</span>}
-                  {interviewRecords[q.id] && (
-                    <span style={{ 
-                      marginLeft: "auto", 
-                      fontWeight: 600,
-                      color: interviewRecords[q.id].score >= 7 ? "#16a34a" : 
-                             interviewRecords[q.id].score >= 5 ? "#d97706" : "#dc2626"
-                    }}>
-                      {interviewRecords[q.id].score}/10
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))}
+            {filteredQuestions.map((q, idx) => {
+              const qType = getQuestionType(q);
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setSelectedIndex(idx)}
+                  onMouseEnter={() => {
+                    // Preload on hover for instant experience
+                    preload(q.id, `${q.title}. ${q.prompt}`, 6);
+                  }}
+                  className={`${styles.questionListItem} ${idx === selectedIndex ? styles.questionListItemActive : ""
+                    }`}
+                >
+                  <div className={styles.questionListItemTitle}>
+                    {q.title}
+                  </div>
+                  <div className={styles.questionListItemMeta}>
+                    {q.tags[0] && (
+                      <span className={styles.questionListItemTag}>
+                        {q.tags[0]}
+                      </span>
+                    )}
+                    {q.difficultyLabel && <span>{q.difficultyLabel}</span>}
+                    {interviewRecords[q.id] && (
+                      <span style={{
+                        marginLeft: "auto",
+                        fontWeight: 600,
+                        color: interviewRecords[q.id].score >= 3.5 ? "#16a34a" :
+                          interviewRecords[q.id].score >= 2.5 ? "#d97706" : "#dc2626"
+                      }}>
+                        {interviewRecords[q.id].score.toFixed(1)}/5
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
 
             {!filteredQuestions.length && (
               <div className={styles.emptyState}>
@@ -289,7 +327,7 @@ export default function CompanyQuestionsClient({
                     className={styles.questionNavBtn}
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                      <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
                     </svg>
                     Previous
                   </button>
@@ -306,7 +344,7 @@ export default function CompanyQuestionsClient({
                   >
                     Next
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                      <path d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z" />
                     </svg>
                   </button>
                 </div>
@@ -320,9 +358,8 @@ export default function CompanyQuestionsClient({
                   {selectedQuestion.tags.map((tag, i) => (
                     <span
                       key={tag}
-                      className={`${styles.questionTag} ${
-                        i === 0 ? styles.questionTagPrimary : ""
-                      }`}
+                      className={`${styles.questionTag} ${i === 0 ? styles.questionTagPrimary : ""
+                        }`}
                     >
                       {tag}
                     </span>
@@ -334,6 +371,14 @@ export default function CompanyQuestionsClient({
                   )}
                 </div>
               </div>
+
+              {/* Problem Description */}
+              {selectedQuestion.prompt && (
+                <div className={styles.questionContent}>
+                  <h3 className={styles.questionContentTitle}>Problem Description</h3>
+                  <FormattedContent content={selectedQuestion.prompt} />
+                </div>
+              )}
 
               {/* Body - Show previous feedback or prompt to practice */}
               <div className={styles.questionCardBody}>
@@ -349,16 +394,15 @@ export default function CompanyQuestionsClient({
                               cx="18" cy="18" r="15.5"
                             />
                             <circle
-                              className={`${styles.previousFeedbackScoreRingFill} ${
-                                selectedRecord.score >= 7 ? styles.scoreHigh :
-                                selectedRecord.score >= 4 ? styles.scoreMid : styles.scoreLow
-                              }`}
+                              className={`${styles.previousFeedbackScoreRingFill} ${selectedRecord.score >= 3.5 ? styles.scoreHigh :
+                                selectedRecord.score >= 2.5 ? styles.scoreMid : styles.scoreLow
+                                }`}
                               cx="18" cy="18" r="15.5"
-                              strokeDasharray={`${selectedRecord.score * 9.7} 97`}
+                              strokeDasharray={`${selectedRecord.score * 19.4} 97`}
                             />
                           </svg>
                           <span className={styles.previousFeedbackScoreValue}>
-                            {selectedRecord.score}
+                            {selectedRecord.score.toFixed(1)}
                           </span>
                         </div>
                         <div className={styles.previousFeedbackMeta}>
@@ -372,20 +416,19 @@ export default function CompanyQuestionsClient({
                           </span>
                         </div>
                       </div>
-                      <span className={`${styles.previousFeedbackPerformance} ${
-                        selectedRecord.score >= 7 ? styles.performanceHigh :
-                        selectedRecord.score >= 4 ? styles.performanceMid : styles.performanceLow
-                      }`}>
-                        {selectedRecord.score >= 7 ? "Strong" :
-                         selectedRecord.score >= 4 ? "Developing" : "Needs Work"}
+                      <span className={`${styles.previousFeedbackPerformance} ${selectedRecord.score >= 3.5 ? styles.performanceHigh :
+                        selectedRecord.score >= 2.5 ? styles.performanceMid : styles.performanceLow
+                        }`}>
+                        {selectedRecord.score >= 3.5 ? "Strong" :
+                          selectedRecord.score >= 2.5 ? "Developing" : "Needs Work"}
                       </span>
                     </div>
-                    
+
                     <div className={styles.previousFeedbackContent}>
                       <p className={styles.previousFeedbackSummary}>
                         {selectedRecord.evaluation.overallFeedback}
                       </p>
-                      
+
                       {selectedRecord.evaluation.improvements.length > 0 && (
                         <div className={styles.previousFeedbackSection}>
                           <span className={styles.previousFeedbackSectionTitle}>
@@ -417,18 +460,25 @@ export default function CompanyQuestionsClient({
                 ) : (
                   <div className={styles.noPractice}>
                     <div className={styles.noPracticeIcon}>
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <line x1="12" y1="19" x2="12" y2="23" />
-                        <line x1="8" y1="23" x2="16" y2="23" />
-                      </svg>
+                      {selectedQuestionType === "coding" ? (
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <polyline points="4 17 10 11 4 5" />
+                          <line x1="12" y1="19" x2="20" y2="19" />
+                        </svg>
+                      ) : (
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                      )}
                     </div>
                     <p className={styles.noPracticeText}>
-                      Practice this question with voice recording and get AI-powered feedback
+                      {selectedQuestionType === "coding"
+                        ? "Write your solution, submit, and get grilled by an AI interviewer"
+                        : "Practice your communication skills with back-and-forth conversation"
+                      }
                     </p>
                     <button
-                      className={styles.startPracticeBtn}
+                      className={`${styles.startPracticeBtn} ${isPreloaded(selectedQuestion.id) ? styles.startPracticeBtnReady : ""}`}
                       onClick={() => {
                         if (!isInterviewClosing && !interviewQuestion) {
                           setInterviewQuestion(selectedQuestion);
@@ -436,7 +486,15 @@ export default function CompanyQuestionsClient({
                       }}
                       disabled={isInterviewClosing || !!interviewQuestion}
                     >
-                      Start Mock Interview
+                      {isPreloaded(selectedQuestion.id) && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                      {selectedQuestionType === "coding"
+                        ? "Start Coding Interview"
+                        : "Start Behavioral Interview"
+                      }
                     </button>
                   </div>
                 )}
@@ -471,7 +529,7 @@ export default function CompanyQuestionsClient({
                   <div className={styles.questionMetaItem}>
                     <span className={styles.questionMetaLabel}>Your Score</span>
                     <span className={styles.questionMetaValue}>
-                      {selectedRecord.score}/10
+                      {selectedRecord.score}/5
                     </span>
                   </div>
                 )}
@@ -489,18 +547,79 @@ export default function CompanyQuestionsClient({
         </div>
       </div>
 
-      {/* Interview Modal */}
+      {/* Interview Panel - Elegant slide-out */}
       {interviewQuestion && (
-        <InterviewModal
-          question={interviewQuestion}
-          onClose={() => {
-            setIsInterviewClosing(true);
-            setInterviewQuestion(null);
-            // Allow re-opening after a brief delay
-            setTimeout(() => setIsInterviewClosing(false), 200);
-          }}
-          onScoreUpdate={handleScoreUpdate}
-        />
+        getQuestionType(interviewQuestion) === "coding" ? (
+          <InterviewPanel
+            question={interviewQuestion}
+            preloadedAudioUrl={getPreloadedAudio(interviewQuestion.id)?.audioUrl}
+            onClose={() => {
+              setIsInterviewClosing(true);
+              setInterviewQuestion(null);
+              setTimeout(() => setIsInterviewClosing(false), 200);
+            }}
+            onNext={() => {
+              const currentIdx = filteredQuestions.findIndex(q => q.id === interviewQuestion.id);
+              if (currentIdx < filteredQuestions.length - 1) {
+                const nextQ = filteredQuestions[currentIdx + 1];
+                setInterviewQuestion(nextQ);
+                setSelectedIndex(currentIdx + 1);
+                // Aggressively preload adjacent questions
+                preloadAdjacent(filteredQuestions, currentIdx + 1);
+              }
+            }}
+            onPrev={() => {
+              const currentIdx = filteredQuestions.findIndex(q => q.id === interviewQuestion.id);
+              if (currentIdx > 0) {
+                const prevQ = filteredQuestions[currentIdx - 1];
+                setInterviewQuestion(prevQ);
+                setSelectedIndex(currentIdx - 1);
+                // Aggressively preload adjacent questions
+                preloadAdjacent(filteredQuestions, currentIdx - 1);
+              }
+            }}
+            hasNext={filteredQuestions.findIndex(q => q.id === interviewQuestion.id) < filteredQuestions.length - 1}
+            hasPrev={filteredQuestions.findIndex(q => q.id === interviewQuestion.id) > 0}
+            onScoreUpdate={handleScoreUpdate}
+            questionIndex={filteredQuestions.findIndex(q => q.id === interviewQuestion.id)}
+            totalQuestions={filteredQuestions.length}
+          />
+        ) : (
+          <BehavioralInterviewPanel
+            question={interviewQuestion}
+            preloadedAudioUrl={getPreloadedAudio(interviewQuestion.id)?.audioUrl}
+            onClose={() => {
+              setIsInterviewClosing(true);
+              setInterviewQuestion(null);
+              setTimeout(() => setIsInterviewClosing(false), 200);
+            }}
+            onNext={() => {
+              const currentIdx = filteredQuestions.findIndex(q => q.id === interviewQuestion.id);
+              if (currentIdx < filteredQuestions.length - 1) {
+                const nextQ = filteredQuestions[currentIdx + 1];
+                setInterviewQuestion(nextQ);
+                setSelectedIndex(currentIdx + 1);
+                // Aggressively preload adjacent questions
+                preloadAdjacent(filteredQuestions, currentIdx + 1);
+              }
+            }}
+            onPrev={() => {
+              const currentIdx = filteredQuestions.findIndex(q => q.id === interviewQuestion.id);
+              if (currentIdx > 0) {
+                const prevQ = filteredQuestions[currentIdx - 1];
+                setInterviewQuestion(prevQ);
+                setSelectedIndex(currentIdx - 1);
+                // Aggressively preload adjacent questions
+                preloadAdjacent(filteredQuestions, currentIdx - 1);
+              }
+            }}
+            hasNext={filteredQuestions.findIndex(q => q.id === interviewQuestion.id) < filteredQuestions.length - 1}
+            hasPrev={filteredQuestions.findIndex(q => q.id === interviewQuestion.id) > 0}
+            onScoreUpdate={handleScoreUpdate}
+            questionIndex={filteredQuestions.findIndex(q => q.id === interviewQuestion.id)}
+            totalQuestions={filteredQuestions.length}
+          />
+        )
       )}
     </>
   );

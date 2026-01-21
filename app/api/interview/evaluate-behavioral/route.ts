@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { 
-  buildCodingEvaluationPrompt, 
-  CodingEvaluationResult, 
-  validateCodingEvaluation 
-} from "@/lib/codingRubric";
+  buildBehavioralEvaluationPrompt, 
+  BehavioralEvaluationResult, 
+  validateBehavioralEvaluation 
+} from "@/lib/behavioralRubric";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -11,21 +11,14 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 export async function POST(request: NextRequest) {
   if (!OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: "Service temporarily unavailable" },
-      { status: 503 }
+      { error: "OpenAI API key not configured" },
+      { status: 500 }
     );
   }
 
   try {
     const body = await request.json();
-    let { 
-      question, 
-      code, 
-      language = "python",
-      transcript = "",
-      difficulty,
-      expectedComplexity
-    } = body;
+    let { question, transcript, tags = [], difficulty } = body;
 
     // Validate required fields
     if (!question) {
@@ -35,29 +28,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!code || code.trim().length < 10) {
+    if (!transcript || transcript.trim().length < 20) {
       return NextResponse.json(
-        { error: "Code submission is required (minimum 10 characters)" },
+        { error: "Response transcript is required (minimum 20 characters)" },
         { status: 400 }
       );
     }
 
     // Sanitize inputs to prevent prompt injection
     question = sanitizeForLLM(question);
-    code = sanitizeForLLM(code);
-    transcript = transcript ? sanitizeForLLM(transcript) : "";
-    language = typeof language === "string" ? sanitizeForLLM(language) : "python";
+    transcript = sanitizeForLLM(transcript);
     difficulty = typeof difficulty === "string" ? sanitizeForLLM(difficulty) : undefined;
-
-    // Sanitize expected complexity
-    if (expectedComplexity && typeof expectedComplexity === "object") {
-      expectedComplexity = {
-        time: expectedComplexity.time ? sanitizeForLLM(String(expectedComplexity.time)) : undefined,
-        space: expectedComplexity.space ? sanitizeForLLM(String(expectedComplexity.space)) : undefined
-      };
-    } else {
-      expectedComplexity = undefined;
-    }
+    tags = Array.isArray(tags) 
+      ? tags.slice(0, 10).map((t: unknown) => typeof t === "string" ? sanitizeForLLM(t) : "").filter(Boolean)
+      : [];
 
     // Validate lengths
     const questionValidation = validateLength(question, 10, 2000);
@@ -65,29 +49,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: questionValidation.error }, { status: 400 });
     }
 
-    const codeValidation = validateLength(code, 10, 15000);
-    if (!codeValidation.valid) {
-      return NextResponse.json({ error: codeValidation.error }, { status: 400 });
-    }
-
-    if (transcript) {
-      const transcriptValidation = validateLength(transcript, 0, 10000);
-      if (!transcriptValidation.valid) {
-        return NextResponse.json({ error: transcriptValidation.error }, { status: 400 });
-      }
+    const transcriptValidation = validateLength(transcript, 20, 10000);
+    if (!transcriptValidation.valid) {
+      return NextResponse.json({ error: transcriptValidation.error }, { status: 400 });
     }
 
     // Build the evaluation prompt
-    const prompt = buildCodingEvaluationPrompt(
-      question,
-      code,
-      language,
-      transcript,
-      difficulty,
-      expectedComplexity
-    );
+    const prompt = buildBehavioralEvaluationPrompt(question, transcript, tags, difficulty);
 
-    // Call GPT-4o for better code analysis
+    // Call GPT-4o for nuanced behavioral evaluation
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -100,39 +70,40 @@ export async function POST(request: NextRequest) {
           {
             role: "system",
             content:
-              "You are an expert coding interviewer at a FAANG company. Always respond with valid JSON only, no markdown formatting.",
+              "You are an expert behavioral interviewer at a FAANG company. Always respond with valid JSON only, no markdown formatting.",
           },
           {
             role: "user",
             content: prompt,
           },
         ],
-        temperature: 0.3, // Lower temperature for consistent scoring
+        temperature: 0.3,
         max_tokens: 1500,
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[GPT] Error:", response.status, errorText);
+      const error = await response.json();
+      console.error("[Behavioral Evaluate] OpenAI error:", error);
       return NextResponse.json(
-        { error: "Evaluation failed" },
+        { error: "Failed to evaluate response" },
         { status: 500 }
       );
     }
 
     const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
+      console.error("[Behavioral Evaluate] No content in response");
       return NextResponse.json(
-        { error: "No evaluation generated" },
+        { error: "Empty response from AI" },
         { status: 500 }
       );
     }
 
     // Parse the JSON response
-    let evaluation: CodingEvaluationResult;
+    let evaluation: BehavioralEvaluationResult;
     try {
       // Remove potential markdown code blocks
       const cleanContent = content
@@ -141,7 +112,7 @@ export async function POST(request: NextRequest) {
         .trim();
       evaluation = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("[Evaluate] JSON parse error:", parseError, content);
+      console.error("[Behavioral Evaluate] Parse error:", parseError, content);
       return NextResponse.json(
         { error: "Failed to parse evaluation" },
         { status: 500 }
@@ -149,8 +120,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate the response structure
-    if (!validateCodingEvaluation(evaluation)) {
-      console.error("[Evaluate] Invalid response structure:", evaluation);
+    if (!validateBehavioralEvaluation(evaluation)) {
+      console.error("[Behavioral Evaluate] Invalid response structure:", evaluation);
       return NextResponse.json(
         { error: "Invalid evaluation format" },
         { status: 500 }
@@ -159,14 +130,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       evaluation,
-      code,
-      language,
       transcript
     });
   } catch (error) {
-    console.error("[Evaluate] Error:", error);
+    console.error("[Behavioral Evaluate] Error:", error);
     return NextResponse.json(
-      { error: "Failed to evaluate response" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

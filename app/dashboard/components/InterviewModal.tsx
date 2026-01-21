@@ -1,12 +1,34 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useAudioRecorder } from "@/lib/hooks/useAudioRecorder";
-import { saveInterview, getInterview } from "@/lib/interviewStorage";
-import { EvaluationResult } from "@/lib/pmRubric";
-import { Question } from "@/lib/types";
+import { saveInterview, getCodingInterview } from "@/lib/interviewStorage";
+import { CodingEvaluationResult } from "@/lib/codingRubric";
+import { Question, SupportedLanguage, SUPPORTED_LANGUAGES, DEFAULT_STARTER_CODE } from "@/lib/types";
 import FeedbackCards from "./FeedbackCards";
+import FormattedContent from "./FormattedContent";
 import styles from "../app.module.css";
+
+// Dynamically import CodeEditor to avoid SSR issues
+const CodeEditor = dynamic(() => import("@/components/CodeEditor"), {
+  ssr: false,
+  loading: () => (
+    <div className={styles.codeEditorLoading}>
+      <div className={styles.spinner} />
+      <p>Loading editor...</p>
+    </div>
+  )
+});
+
+// Helper to validate and normalize language to a supported value
+const getSupportedLanguage = (lang: string | undefined): SupportedLanguage => {
+  if (!lang) return "python";
+  const supportedIds = SUPPORTED_LANGUAGES.map(l => l.id);
+  return supportedIds.includes(lang as SupportedLanguage)
+    ? (lang as SupportedLanguage)
+    : "python";
+};
 
 type InterviewModalProps = {
   question: Question;
@@ -14,10 +36,41 @@ type InterviewModalProps = {
   onScoreUpdate?: (questionId: string, score: number) => void;
 };
 
-type ModalState = "speaking" | "ready" | "recording" | "processing" | "feedback";
+type ModalState =
+  | "speaking"      // AI reads the question
+  | "coding"        // User writes code
+  | "processing"    // Evaluating code
+  | "review"        // AI speaks initial feedback
+  | "followup"      // AI asks follow-up, user responds
+  | "feedback";     // Final feedback display
+
+type ConversationTurn = {
+  role: "interviewer" | "candidate";
+  content: string;
+  timestamp: number;
+};
 
 // Track active interview session globally to prevent duplicates
 let activeSessionId: string | null = null;
+
+function CloseIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
 
 function MicIcon() {
   return (
@@ -48,25 +101,6 @@ function StopIcon() {
   );
 }
 
-function CloseIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function SpeakerIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-    </svg>
-  );
-}
-
 function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -79,11 +113,23 @@ export default function InterviewModal({
   onScoreUpdate,
 }: InterviewModalProps) {
   const [modalState, setModalState] = useState<ModalState>("speaking");
-  const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [evaluation, setEvaluation] = useState<CodingEvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState("");
   const [speakingProgress, setSpeakingProgress] = useState(0);
   const [isClosing, setIsClosing] = useState(false);
+
+  // Code editor state - use helper to ensure valid language
+  const initialLanguage = getSupportedLanguage(question.language);
+  const [code, setCode] = useState(question.starterCode || DEFAULT_STARTER_CODE[initialLanguage]);
+  const [language, setLanguage] = useState<SupportedLanguage>(initialLanguage);
+
+  // Conversation state for follow-ups
+  const [conversation, setConversation] = useState<ConversationTurn[]>([]);
+  const [currentFollowUp, setCurrentFollowUp] = useState<string | null>(null);
+  const [followUpCount, setFollowUpCount] = useState(0);
+  const MAX_FOLLOWUPS = 3;
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(Date.now().toString());
@@ -101,52 +147,47 @@ export default function InterviewModal({
 
   // Fetch and play the question audio on mount
   useEffect(() => {
-    // Check if another session is already active
     if (activeSessionId && activeSessionId !== sessionIdRef.current) {
       console.warn("[Interview] Another session is already active");
       return;
     }
-    
-    // Register this session as active
+
     activeSessionId = sessionIdRef.current;
-    
-    // Create abort controller for this fetch
+
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
     const fetchAndPlayAudio = async () => {
       try {
+        // Build the full question text for TTS
+        const fullQuestion = `${question.title}. ${question.prompt}`;
+
         const response = await fetch("/api/interview/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            question: question.title,
+            question: fullQuestion,
             category: question.tags[0],
           }),
           signal: abortController.signal,
         });
 
-        // Check if aborted
         if (abortController.signal.aborted) return;
 
         if (!response.ok) {
-          // If TTS fails, just skip to ready state
           console.error("[TTS] Failed to generate speech");
-          setModalState("ready");
+          setModalState("coding");
           return;
         }
 
         const audioBlob = await response.blob();
-        
-        // Check if aborted after getting blob
+
         if (abortController.signal.aborted) return;
-        
+
         const audioUrl = URL.createObjectURL(audioBlob);
-        
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
 
-        // Track progress
         audio.addEventListener("timeupdate", () => {
           if (audio.duration) {
             setSpeakingProgress((audio.currentTime / audio.duration) * 100);
@@ -154,80 +195,86 @@ export default function InterviewModal({
         });
 
         audio.addEventListener("ended", () => {
-          setModalState("ready");
+          setModalState("coding");
           URL.revokeObjectURL(audioUrl);
         });
 
         audio.addEventListener("error", () => {
           console.error("[TTS] Audio playback error");
-          setModalState("ready");
+          setModalState("coding");
         });
 
-        // Start playing (only if not aborted)
         if (!abortController.signal.aborted) {
           await audio.play();
         }
       } catch (err) {
-        // Ignore abort errors
         if (err instanceof Error && err.name === "AbortError") {
           console.log("[TTS] Fetch aborted");
           return;
         }
         console.error("[TTS] Error:", err);
-        setModalState("ready");
+        setModalState("coding");
       }
     };
 
     fetchAndPlayAudio();
 
-    // Cleanup on unmount
     return () => {
-      // Abort any in-flight requests
       abortController.abort();
-      
-      // Stop and clean up audio
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
         audioRef.current = null;
       }
-      
-      // Clear active session
       if (activeSessionId === sessionIdRef.current) {
         activeSessionId = null;
       }
     };
-  }, [question.title, question.tags]);
+  }, [question.title, question.prompt, question.tags]);
 
-  // Check for previous interview
+  // Check for previous coding interview
   useEffect(() => {
-    const previous = getInterview(question.id);
+    // Use getCodingInterview to ensure we only get coding-type records
+    // This prevents type errors when accessing .code and .language
+    const previous = getCodingInterview(question.id);
     if (previous) {
       setEvaluation(previous.evaluation);
+
+      // Validate the stored language - if invalid, it defaults to "python"
+      const validatedLang = getSupportedLanguage(previous.language);
+      const storedLang = previous.language as SupportedLanguage;
+
+      // If the language was changed (invalid stored language), reset to starter code
+      // Otherwise, use the stored code
+      if (validatedLang !== storedLang || !SUPPORTED_LANGUAGES.some(l => l.id === storedLang)) {
+        // Language changed - use default starter code for the validated language
+        setCode(DEFAULT_STARTER_CODE[validatedLang]);
+      } else {
+        // Language is valid - use stored code
+        setCode(previous.code);
+      }
+      setLanguage(validatedLang);
     }
   }, [question.id]);
 
   // Handle recording state changes
   useEffect(() => {
     if (recorderState === "recording") {
-      setModalState("recording");
+      // Recording started
     }
   }, [recorderState]);
 
-  // Process audio when recording stops
+  // Process audio when recording stops (for follow-up responses)
   useEffect(() => {
-    if (recorderState === "stopped" && audioBlob && modalState === "recording") {
-      processAudio(audioBlob);
+    if (recorderState === "stopped" && audioBlob && modalState === "followup") {
+      processFollowUpResponse(audioBlob);
     }
   }, [recorderState, audioBlob, modalState]);
 
-  const processAudio = async (blob: Blob) => {
-    setModalState("processing");
-    setError(null);
+  const processFollowUpResponse = async (blob: Blob) => {
+    setProcessingStep("Transcribing your response...");
 
     try {
-      // Step 1: Transcribe
-      setProcessingStep("Transcribing your response...");
       const formData = new FormData();
       formData.append("audio", blob, "audio.webm");
 
@@ -237,26 +284,185 @@ export default function InterviewModal({
       });
 
       if (!transcribeRes.ok) {
-        const errorData = await transcribeRes.json();
-        throw new Error(errorData.error || "Transcription failed");
+        throw new Error("Transcription failed");
       }
 
       const { transcript } = await transcribeRes.json();
 
-      if (!transcript || transcript.trim().length < 10) {
-        throw new Error("Could not detect speech. Please try again and speak clearly.");
+      if (!transcript || transcript.trim().length < 5) {
+        setError("Could not detect speech. Please try again.");
+        return;
       }
 
-      // Step 2: Evaluate
-      setProcessingStep("Analyzing your answer...");
+      // Add candidate response to conversation
+      const candidateTurn: ConversationTurn = {
+        role: "candidate",
+        content: transcript,
+        timestamp: Date.now()
+      };
+
+      // Build the complete updated conversation BEFORE updating state
+      // This avoids issues with stale state in React's async updates
+      // We need to check if the current interviewer's follow-up is already in conversation
+      const hasCurrentFollowUpInConversation = currentFollowUp && conversation.some(
+        turn => turn.role === "interviewer" && turn.content === currentFollowUp
+      );
+
+      // Build the full conversation history
+      let updatedConversation: ConversationTurn[];
+      if (currentFollowUp && !hasCurrentFollowUpInConversation) {
+        // The interviewer's question isn't in conversation yet, add it
+        const interviewerTurn: ConversationTurn = {
+          role: "interviewer",
+          content: currentFollowUp,
+          timestamp: Date.now() - 1 // Slightly before candidate response
+        };
+        updatedConversation = [...conversation, interviewerTurn, candidateTurn];
+      } else {
+        // Interviewer's question is already there (or doesn't exist), just add candidate
+        updatedConversation = [...conversation, candidateTurn];
+      }
+
+      // Update state for UI with the complete conversation
+      setConversation(updatedConversation);
+
+      // Check if we should continue with more follow-ups
+      if (followUpCount < MAX_FOLLOWUPS) {
+        // Pass the locally computed conversation (not stale state)
+        await generateFollowUp(transcript, updatedConversation);
+      } else {
+        // Move to final feedback
+        setModalState("feedback");
+      }
+    } catch (err) {
+      console.error("[FollowUp] Error:", err);
+      setError("Failed to process response");
+    }
+  };
+
+  const generateFollowUp = async (
+    lastResponse?: string,
+    updatedConversation?: ConversationTurn[],
+    newEvaluation?: CodingEvaluationResult
+  ) => {
+    setProcessingStep("Generating follow-up question...");
+
+    try {
+      // Use provided values or fall back to current state
+      const conversationToSend = updatedConversation ?? conversation;
+      const evaluationToSend = newEvaluation ?? evaluation;
+
+      const response = await fetch("/api/interview/followup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: `${question.title}\n${question.prompt}`,
+          code,
+          language,
+          conversationHistory: conversationToSend,
+          previousEvaluation: evaluationToSend
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate follow-up");
+      }
+
+      const { followUpQuestion } = await response.json();
+
+      // Add interviewer question to conversation
+      setConversation(prev => [...prev, {
+        role: "interviewer",
+        content: followUpQuestion,
+        timestamp: Date.now()
+      }]);
+
+      setCurrentFollowUp(followUpQuestion);
+      setFollowUpCount(prev => prev + 1);
+
+      // Speak the follow-up question
+      await speakText(followUpQuestion);
+
+      setModalState("followup");
+      resetRecording();
+    } catch (err) {
+      console.error("[FollowUp] Error:", err);
+      // If follow-up fails, just go to feedback
+      setModalState("feedback");
+    }
+  };
+
+  const speakText = async (text: string) => {
+    try {
+      const response = await fetch("/api/interview/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: text }),
+      });
+
+      if (!response.ok) return;
+
+      const blob = await response.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      await audio.play();
+
+      return new Promise<void>((resolve) => {
+        // Resolve on ended (normal completion)
+        const handleEnded = () => {
+          cleanup();
+          resolve();
+        };
+
+        // Also resolve on pause/error/abort to prevent hanging promises
+        const handlePause = () => {
+          cleanup();
+          resolve();
+        };
+
+        const handleError = () => {
+          cleanup();
+          resolve();
+        };
+
+        const cleanup = () => {
+          audio.removeEventListener("ended", handleEnded);
+          audio.removeEventListener("pause", handlePause);
+          audio.removeEventListener("error", handleError);
+          URL.revokeObjectURL(audioUrl);
+        };
+
+        audio.addEventListener("ended", handleEnded);
+        audio.addEventListener("pause", handlePause);
+        audio.addEventListener("error", handleError);
+      });
+    } catch (err) {
+      console.error("[TTS] Error:", err);
+    }
+  };
+
+  const submitCode = async () => {
+    if (code.trim().length < 10) {
+      setError("Please write some code before submitting");
+      return;
+    }
+
+    setModalState("processing");
+    setError(null);
+    setProcessingStep("Analyzing your code...");
+
+    try {
       const evaluateRes = await fetch("/api/interview/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: question.title,
-          transcript,
-          tags: question.tags,
+          question: `${question.title}\n${question.prompt}`,
+          code,
+          language,
           difficulty: question.difficultyLabel,
+          expectedComplexity: question.expectedComplexity
         }),
       });
 
@@ -268,7 +474,7 @@ export default function InterviewModal({
       const { evaluation: result } = await evaluateRes.json();
 
       // Save to localStorage
-      saveInterview(question.id, result, transcript);
+      saveInterview(question.id, result, code, language);
 
       // Update parent
       if (onScoreUpdate) {
@@ -276,23 +482,32 @@ export default function InterviewModal({
       }
 
       setEvaluation(result);
-      setModalState("feedback");
+
+      // Speak initial feedback
+      setModalState("review");
+      setProcessingStep("Reviewing your solution...");
+
+      const feedbackText = `Your solution scored ${result.overallScore.toFixed(1)} out of 5. ${result.overallFeedback}`;
+      await speakText(feedbackText);
+
+      // Start follow-up questions - pass result directly to avoid race condition
+      // (setEvaluation is async, so evaluation state may not be updated yet)
+      await generateFollowUp(undefined, undefined, result);
     } catch (err) {
       console.error("[Interview] Error:", err);
       setError(err instanceof Error ? err.message : "Something went wrong");
-      setModalState("ready");
+      setModalState("coding");
     }
   };
 
   const handleStartRecording = async () => {
     setError(null);
-    setEvaluation(null);
     await startRecording();
   };
 
   const handleStopRecording = () => {
-    if (duration < 5) {
-      setError("Please record for at least 5 seconds");
+    if (duration < 3) {
+      setError("Please record for at least 3 seconds");
       return;
     }
     stopRecording();
@@ -301,41 +516,38 @@ export default function InterviewModal({
   const handleTryAgain = () => {
     resetRecording();
     setEvaluation(null);
-    setModalState("ready");
+    setConversation([]);
+    setFollowUpCount(0);
+    setCurrentFollowUp(null);
+    setCode(question.starterCode || DEFAULT_STARTER_CODE[language]);
+    setModalState("coding");
   };
 
   const handleClose = useCallback(() => {
-    // Prevent double-close
     if (isClosing) return;
     setIsClosing(true);
-    
-    // Abort any in-flight requests
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
-    // Stop and clean up audio playback
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;
     }
-    
-    // Stop recording if active
+
     if (recorderState === "recording") {
       stopRecording();
     }
-    
-    // Reset all state to prevent stale data on next open
+
     resetRecording();
-    
-    // Clear active session
+
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;
     }
-    
-    // Small delay before calling onClose to ensure cleanup completes
+
     setTimeout(() => {
       onClose();
     }, 50);
@@ -345,10 +557,23 @@ export default function InterviewModal({
     if (audioRef.current) {
       audioRef.current.pause();
     }
-    setModalState("ready");
+    setModalState("coding");
   };
 
-  // Generate audio bars for visualizer
+  const skipToFeedback = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setModalState("feedback");
+  };
+
+  // Generate speaking visualizer bars
+  const speakingBars = Array.from({ length: 5 }, (_, i) => {
+    const phase = Date.now() * 0.003 + i * 0.8;
+    return 20 + Math.sin(phase) * 15;
+  });
+
+  // Generate audio bars for recording visualizer
   const audioBars = Array.from({ length: 20 }, (_, i) => {
     const baseHeight = 8;
     const maxHeight = 50;
@@ -357,23 +582,24 @@ export default function InterviewModal({
     return height;
   });
 
-  // Generate speaking visualizer bars
-  const speakingBars = Array.from({ length: 5 }, (_, i) => {
-    const phase = Date.now() * 0.003 + i * 0.8;
-    return 20 + Math.sin(phase) * 15;
-  });
-
   return (
     <div className={styles.interviewOverlay} onClick={handleClose}>
       <div
-        className={styles.interviewModal}
+        className={`${styles.interviewModal} ${styles.interviewModalWide}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className={styles.interviewHeader}>
           <div className={styles.interviewHeaderContent}>
-            <div className={styles.interviewEyebrow}>Mock Interview</div>
+            <div className={styles.interviewEyebrow}>
+              Coding Interview • {question.difficultyLabel || "Medium"}
+            </div>
             <h2 className={styles.interviewQuestion}>{question.title}</h2>
+            <div className={styles.interviewTags}>
+              {question.tags.slice(0, 3).map(tag => (
+                <span key={tag} className={styles.interviewTag}>{tag}</span>
+              ))}
+            </div>
           </div>
           <button className={styles.interviewClose} onClick={handleClose}>
             <CloseIcon />
@@ -389,109 +615,187 @@ export default function InterviewModal({
             </div>
           )}
 
-          {/* Speaking State - AI reading the question */}
+          {/* Speaking State - AI reading the question while showing content */}
           {modalState === "speaking" && (
-            <div className={styles.speakingArea}>
-              <div className={styles.speakingIcon}>
-                <SpeakerIcon />
-              </div>
-              <div className={styles.speakingVisualizer}>
-                {speakingBars.map((height, i) => (
+            <div className={styles.speakingWithContent}>
+              {/* Speaker indicator - floating card */}
+              <div className={styles.speakerCard}>
+                <div className={styles.speakerCardInner}>
+                  <div className={styles.speakerIconSmall}>
+                    <SpeakerIcon />
+                  </div>
+                  <div className={styles.speakerInfo}>
+                    <span className={styles.speakerLabel}>AI Interviewer</span>
+                    <div className={styles.speakingVisualizerSmall}>
+                      {speakingBars.map((height, i) => (
+                        <div
+                          key={i}
+                          className={styles.speakingBarSmall}
+                          style={{ height: `${Math.max(4, height * 0.6)}px` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.speakingProgressSmall}>
                   <div
-                    key={i}
-                    className={styles.speakingBar}
-                    style={{ height: `${height}px` }}
+                    className={styles.speakingProgressBarSmall}
+                    style={{ width: `${speakingProgress}%` }}
                   />
-                ))}
+                </div>
               </div>
-              <p className={styles.speakingStatus}>Interviewer is speaking...</p>
-              <p className={styles.speakingHint}>Listen to the question carefully</p>
-              <div className={styles.speakingProgress}>
-                <div 
-                  className={styles.speakingProgressBar} 
-                  style={{ width: `${speakingProgress}%` }}
+
+              {/* Problem content - scrollable */}
+              <div className={styles.problemContent}>
+                <div className={styles.problemSection}>
+                  <h3>Problem Description</h3>
+                  <FormattedContent content={question.prompt} />
+                </div>
+
+                {question.examples && question.examples.length > 0 && (
+                  <div className={styles.problemSection}>
+                    <h4>Examples</h4>
+                    {question.examples.slice(0, 3).map((ex, i) => (
+                      <div key={i} className={styles.codingExample}>
+                        <div><strong>Input:</strong> <code>{ex.input}</code></div>
+                        <div><strong>Output:</strong> <code>{ex.output}</code></div>
+                        {ex.explanation && (
+                          <div className={styles.codingExplanation}>{ex.explanation}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {question.constraints && question.constraints.length > 0 && (
+                  <div className={styles.problemSection}>
+                    <h4>Constraints</h4>
+                    <ul className={styles.constraintsList}>
+                      {question.constraints.map((c, i) => (
+                        <li key={i}><code>{c}</code></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {question.hints && question.hints.length > 0 && (
+                  <div className={styles.problemSection}>
+                    <h4>Hints</h4>
+                    <ul className={styles.hintsList}>
+                      {question.hints.map((hint, i) => (
+                        <li key={i}>{hint}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Skip button */}
+              <div className={styles.speakingActions}>
+                <button
+                  className={styles.skipButton}
+                  onClick={skipSpeaking}
+                >
+                  Skip to coding →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Coding State - User writes code */}
+          {modalState === "coding" && (
+            <div className={styles.codingArea}>
+              <div className={styles.codingHeader}>
+                <div className={styles.codingProblem}>
+                  <h3>Problem</h3>
+                  <p>{question.prompt}</p>
+
+                  {question.examples && question.examples.length > 0 && (
+                    <div className={styles.codingExamples}>
+                      <h4>Examples</h4>
+                      {question.examples.slice(0, 2).map((ex, i) => (
+                        <div key={i} className={styles.codingExample}>
+                          <div><strong>Input:</strong> <code>{ex.input}</code></div>
+                          <div><strong>Output:</strong> <code>{ex.output}</code></div>
+                          {ex.explanation && (
+                            <div className={styles.codingExplanation}>{ex.explanation}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {question.constraints && question.constraints.length > 0 && (
+                    <div className={styles.codingConstraints}>
+                      <h4>Constraints</h4>
+                      <ul>
+                        {question.constraints.map((c, i) => (
+                          <li key={i}><code>{c}</code></li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.languageSelector}>
+                  <label htmlFor="language">Language:</label>
+                  <select
+                    id="language"
+                    value={language}
+                    onChange={(e) => {
+                      const newLang = e.target.value as SupportedLanguage;
+                      const oldLang = language; // Capture current language before state update
+                      const currentCode = code;
+                      setLanguage(newLang);
+                      // Only replace code if it's empty or still has the old language's starter code
+                      if (!currentCode || currentCode === DEFAULT_STARTER_CODE[oldLang]) {
+                        setCode(DEFAULT_STARTER_CODE[newLang]);
+                      }
+                    }}
+                  >
+                    {SUPPORTED_LANGUAGES.map(lang => (
+                      <option key={lang.id} value={lang.id}>{lang.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className={styles.codeEditorWrapper}>
+                <CodeEditor
+                  value={code}
+                  onChange={setCode}
+                  language={language}
+                  height="350px"
                 />
               </div>
-              <button
-                className={styles.skipButton}
-                onClick={skipSpeaking}
-              >
-                Skip to answer
-              </button>
-            </div>
-          )}
 
-          {/* Ready State - User ready to record */}
-          {modalState === "ready" && (
-            <div className={styles.recordingArea}>
-              <button
-                className={styles.micButton}
-                onClick={handleStartRecording}
-              >
-                <MicIcon />
-              </button>
-              <p className={styles.recordingStatus}>
-                Your turn — click to record your answer
-              </p>
-              <p className={styles.recordingHint}>
-                Structure your response using frameworks like STAR or CIRCLES.
-                Take a moment to gather your thoughts.
-              </p>
-              {evaluation && (
-                <div className={styles.recordingActions}>
-                  <button
-                    className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
-                    onClick={() => setModalState("feedback")}
-                  >
-                    View Previous Feedback
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Recording State */}
-          {modalState === "recording" && (
-            <div className={styles.recordingArea}>
-              <button
-                className={`${styles.micButton} ${styles.micButtonRecording}`}
-                onClick={handleStopRecording}
-              >
-                <StopIcon />
-              </button>
-              <p className={styles.recordingStatus}>Recording your answer...</p>
-              <p className={styles.recordingTimer}>{formatDuration(duration)}</p>
-              
-              {/* Audio Visualizer */}
-              <div className={styles.audioVisualizer}>
-                {audioBars.map((height, i) => (
-                  <div
-                    key={i}
-                    className={styles.audioBar}
-                    style={{ height: `${height}px` }}
-                  />
-                ))}
-              </div>
-
-              <div className={styles.recordingActions}>
+              <div className={styles.codingActions}>
                 <button
                   className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
-                  onClick={() => {
-                    stopRecording();
-                    resetRecording();
-                    setModalState("ready");
-                  }}
+                  onClick={handleClose}
                 >
                   Cancel
                 </button>
                 <button
                   className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
-                  onClick={handleStopRecording}
-                  disabled={duration < 5}
+                  onClick={submitCode}
+                  disabled={code.trim().length < 10}
                 >
-                  Submit Answer
+                  Submit & Discuss
                 </button>
               </div>
+
+              {evaluation && (
+                <div className={styles.previousScoreHint}>
+                  Previous score: {evaluation.overallScore}/5
+                  <button
+                    className={styles.viewPreviousBtn}
+                    onClick={() => setModalState("feedback")}
+                  >
+                    View feedback
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -506,10 +810,99 @@ export default function InterviewModal({
             </div>
           )}
 
+          {/* Review State - AI speaking feedback */}
+          {modalState === "review" && (
+            <div className={styles.speakingArea}>
+              <div className={styles.speakingIcon}>
+                <SpeakerIcon />
+              </div>
+              <div className={styles.speakingVisualizer}>
+                {speakingBars.map((height, i) => (
+                  <div
+                    key={i}
+                    className={styles.speakingBar}
+                    style={{ height: `${height}px` }}
+                  />
+                ))}
+              </div>
+              <p className={styles.speakingStatus}>Reviewing your solution...</p>
+              {evaluation && (
+                <p className={styles.speakingHint}>
+                  Score: {evaluation.overallScore}/5
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Follow-up State - AI asks questions, user responds */}
+          {modalState === "followup" && (
+            <div className={styles.followupArea}>
+              <div className={styles.followupHeader}>
+                <span className={styles.followupCount}>
+                  Follow-up {followUpCount} of {MAX_FOLLOWUPS}
+                </span>
+              </div>
+
+              {currentFollowUp && (
+                <div className={styles.followupQuestion}>
+                  <div className={styles.followupIcon}>🎤</div>
+                  <p>{currentFollowUp}</p>
+                </div>
+              )}
+
+              <div className={styles.recordingArea}>
+                {recorderState !== "recording" ? (
+                  <>
+                    <button
+                      className={styles.micButton}
+                      onClick={handleStartRecording}
+                    >
+                      <MicIcon />
+                    </button>
+                    <p className={styles.recordingStatus}>
+                      Click to record your response
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className={`${styles.micButton} ${styles.micButtonRecording}`}
+                      onClick={handleStopRecording}
+                    >
+                      <StopIcon />
+                    </button>
+                    <p className={styles.recordingStatus}>Recording...</p>
+                    <p className={styles.recordingTimer}>{formatDuration(duration)}</p>
+
+                    <div className={styles.audioVisualizer}>
+                      {audioBars.map((height, i) => (
+                        <div
+                          key={i}
+                          className={styles.audioBar}
+                          style={{ height: `${height}px` }}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className={styles.followupActions}>
+                <button
+                  className={`${styles.actionBtn} ${styles.actionBtnSecondary}`}
+                  onClick={skipToFeedback}
+                >
+                  Skip to results
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Feedback State */}
           {modalState === "feedback" && evaluation && (
             <FeedbackCards
               evaluation={evaluation}
+              conversation={conversation}
               onTryAgain={handleTryAgain}
               onClose={handleClose}
             />

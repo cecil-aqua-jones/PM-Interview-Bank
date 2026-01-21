@@ -74,8 +74,8 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
           </h2>
 
           <p className={styles.paywallDescription}>
-            Get full access to all PM interview questions and AI mock interviews 
-            with instant feedback.
+            Get full access to all coding interview questions and AI mock interviews 
+            with code review and follow-up questions.
           </p>
 
           <div className={styles.paywallFeatures}>
@@ -83,13 +83,13 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>500+ real interview questions</span>
+              <span>1,500+ real coding questions</span>
             </div>
             <div className={styles.paywallFeature}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>AI mock interviews with feedback</span>
+              <span>AI code review with follow-ups</span>
             </div>
             <div className={styles.paywallFeature}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -101,7 +101,7 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              <span>Monthly question updates</span>
+              <span>Weekly question updates</span>
             </div>
           </div>
 

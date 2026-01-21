@@ -3,41 +3,119 @@ import { sanitizeForLLM, validateLength } from "@/lib/security";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// Interview preambles to make it feel natural
+// Character threshold for summarization
+const LONG_QUESTION_THRESHOLD = 400;
+
+// Natural, conversational preambles - varied to sound human
 const PREAMBLES = [
-  "Thanks for joining me today. Let's dive right into it.",
-  "Great to meet you. I'm excited to hear your thoughts on this one.",
-  "Alright, let's get started. Here's what I'd like you to think about.",
-  "Thanks for taking the time. Let me share the question with you.",
-  "Perfect, let's begin. I have an interesting scenario for you.",
+  "Hey, thanks for being here. So,",
+  "Alright, let's jump into this one.",
+  "Great to have you. Okay, so",
+  "Thanks for joining. Let's see here...",
+  "Okay, perfect. So here's what I've got for you.",
+  "Alright, let's do this. So,",
+  "Hey, great to meet you. Okay so,",
+  "Alright, let's get into it.",
 ];
 
+// Natural transitions - more conversational
 const TRANSITIONS = [
-  "Here's the question:",
-  "The question is:",
-  "I'd like you to consider:",
-  "Here's the scenario:",
-  "Think about this:",
+  "here's the problem I'd like you to work on.",
+  "I'm gonna walk you through the question.",
+  "let me describe what we're looking for here.",
+  "here's what we've got.",
+  "I'll lay out the problem for you.",
 ];
 
-const CLOSINGS = [
-  "Take your time to think it through, and let me know when you're ready to share your answer.",
-  "Feel free to take a moment to gather your thoughts before responding.",
-  "Take a breath, structure your thinking, and share your response when ready.",
-  "Think about your approach, and walk me through your answer when you're ready.",
+// Short question closings - encouraging and human
+const CLOSINGS_SHORT = [
+  "So yeah, take a sec to think through your approach, and whenever you're ready, just start walking me through your thinking.",
+  "Take your time with this. There's no rush. Just let me know when you want to start talking through your solution.",
+  "Feel free to think out loud as you work through it. I'm here to have a conversation, not to pressure you.",
+  "Just think it through and start whenever you're comfortable. I'm interested in hearing how you approach this.",
+  "No need to rush into it. Take a moment, and when you're ready, walk me through how you'd tackle this.",
 ];
 
-function buildInterviewPrompt(question: string, category?: string): string {
+// Long question closings - guiding them to read details
+const CLOSINGS_LONG = [
+  "Now, there's more detail in the problem description on your screen, so definitely read through that carefully. The examples especially will help. Take your time, and start coding whenever you're ready.",
+  "That's the high-level idea, but the full requirements are on screen. I'd recommend going through the examples and constraints before diving in. Let me know if anything's unclear.",
+  "So yeah, that's the gist. But make sure to read through the specifics on screen, especially the edge cases. Those tend to trip people up. Start whenever you're ready.",
+  "The complete problem is shown there for you. Read through it, make sure you understand the constraints, and feel free to ask me any clarifying questions before you start.",
+];
+
+/**
+ * Uses GPT to create a natural, human summary of a long question
+ */
+async function summarizeQuestion(question: string, category?: string): Promise<string> {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a friendly, senior software engineer having a conversation with an interview candidate. 
+Your task is to verbally summarize a coding problem naturally, like you're explaining it to a colleague.
+
+Speaking style:
+- Talk like a real person, not a robot. Use contractions (you're, it's, we're)
+- Keep it to 2-3 sentences max - they can read the details
+- Be warm and supportive, but not over-the-top
+- Use casual language: "basically", "so", "pretty much", "you know"
+- Focus on what they need to DO, not every constraint
+- Sound like you're actually interested in the problem
+
+Example: "Basically, you've got an array of numbers and you need to find two that add up to a target sum. Pretty common one—just return the indices of those two numbers."
+
+Another example: "So this one's about designing an LRU cache. You know, least recently used? When it fills up, you kick out whatever you haven't touched in a while. Classic systems design problem."`,
+        },
+        {
+          role: "user",
+          content: `Summarize this ${category ? category + " " : ""}problem conversationally:\n\n${question}`,
+        },
+      ],
+      temperature: 0.8,
+      max_tokens: 200,
+    }),
+  });
+
+  if (!response.ok) {
+    // Fallback to first 300 chars if summarization fails
+    return question.slice(0, 300) + (question.length > 300 ? "..." : "");
+  }
+
+  const data = await response.json();
+  return data.choices[0]?.message?.content || question.slice(0, 300);
+}
+
+function buildInterviewPrompt(question: string, isLong: boolean, category?: string): string {
   const preamble = PREAMBLES[Math.floor(Math.random() * PREAMBLES.length)];
   const transition = TRANSITIONS[Math.floor(Math.random() * TRANSITIONS.length)];
-  const closing = CLOSINGS[Math.floor(Math.random() * CLOSINGS.length)];
+  const closings = isLong ? CLOSINGS_LONG : CLOSINGS_SHORT;
+  const closing = closings[Math.floor(Math.random() * closings.length)];
 
-  // Add category context if available
-  const categoryContext = category
-    ? ` This is a ${category.toLowerCase()} question.`
-    : "";
+  // Add category context naturally if available
+  let categoryContext = "";
+  if (category) {
+    const cat = category.toLowerCase();
+    if (cat.includes("array") || cat.includes("string")) {
+      categoryContext = " This one's more of a data structure problem. ";
+    } else if (cat.includes("dynamic") || cat.includes("dp")) {
+      categoryContext = " This is a DP question, so think about breaking it down. ";
+    } else if (cat.includes("tree") || cat.includes("graph")) {
+      categoryContext = " This one involves some graph traversal. ";
+    } else if (cat.includes("system")) {
+      categoryContext = " This is more of a system design question. ";
+    }
+  }
 
-  return `${preamble}${categoryContext} ${transition} ${question} ... ${closing}`;
+  // Build with natural pauses (commas create micro-pauses in TTS)
+  return `${preamble}${categoryContext}${transition} ${question}. ${closing}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -50,7 +128,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    let { question, category } = body;
+    let { question, category, forceFullRead } = body;
 
     if (!question) {
       return NextResponse.json(
@@ -63,16 +141,26 @@ export async function POST(request: NextRequest) {
     question = sanitizeForLLM(question);
     category = typeof category === "string" ? sanitizeForLLM(category) : undefined;
 
-    // Validate length
-    const questionValidation = validateLength(question, 10, 1000);
+    // Validate length (allow longer questions, we'll summarize them)
+    const questionValidation = validateLength(question, 10, 5000);
     if (!questionValidation.valid) {
       return NextResponse.json({ error: questionValidation.error }, { status: 400 });
     }
 
-    // Build the natural interview prompt
-    const speechText = buildInterviewPrompt(question, category);
+    // Determine if this is a long question that needs summarization
+    const isLongQuestion = question.length > LONG_QUESTION_THRESHOLD && !forceFullRead;
+    
+    let spokenQuestion = question;
+    
+    if (isLongQuestion) {
+      // Summarize long questions using GPT
+      spokenQuestion = await summarizeQuestion(question, category);
+    }
 
-    // Call OpenAI TTS API
+    // Build the natural interview prompt
+    const speechText = buildInterviewPrompt(spokenQuestion, isLongQuestion, category);
+
+    // Call OpenAI TTS API with HD model for more natural voice
     const response = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
@@ -80,11 +168,11 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "tts-1",
+        model: "tts-1-hd", // HD model for more natural, human-like voice
         input: speechText,
-        voice: "onyx", // Deep, professional voice good for interviews
+        voice: "alloy", // Natural, warm, conversational voice
         response_format: "mp3",
-        speed: 0.95, // Slightly slower for clarity
+        speed: 1.0, // Natural speaking pace
       }),
     });
 

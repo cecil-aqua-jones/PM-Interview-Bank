@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Dashboard",
-  description: "Browse PM interview questions from top tech companies. Practice with AI mock interviews and track your progress.",
+  description: "Browse coding interview questions from FAANG companies. Practice with an AI interviewer that reviews your code and asks follow-up questions.",
   robots: {
     index: false, // Dashboard is behind auth
     follow: false

@@ -1,5 +1,5 @@
 import "./globals.css";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { Metadata } from "next";
 
 const inter = Inter({
@@ -16,31 +16,40 @@ const playfair = Playfair_Display({
   weight: ["400", "600", "700"]
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://productleaks.co";
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-code",
+  display: "swap",
+  weight: ["400", "500"]
+});
+
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Product Leaks | PM Interview Questions for Top Tech Companies",
-    template: "%s | Product Leaks"
+    default: "Apex Interviewer | FAANG Coding Interview Questions & AI Practice",
+    template: "%s | Apex Interviewer"
   },
   description:
-    "Master your PM interviews with 500+ real questions from Google, Meta, Amazon, and top tech companies. AI-powered mock interviews with instant feedback.",
+    "Ace your FAANG coding interviews with real questions from Google, Meta, Amazon, Apple, and Netflix. Practice with an AI interviewer that reviews your code and asks follow-up questions.",
   keywords: [
-    "product manager interview questions",
-    "PM interview prep",
-    "Google PM interview",
-    "Meta PM interview",
-    "Amazon PM interview",
-    "product management",
-    "FAANG interview questions",
-    "tech interview preparation",
-    "product sense questions",
-    "execution interview questions"
+    "coding interview questions",
+    "FAANG interview prep",
+    "Google coding interview",
+    "Meta coding interview",
+    "Amazon coding interview",
+    "LeetCode alternatives",
+    "software engineer interview",
+    "technical interview preparation",
+    "algorithm interview questions",
+    "data structures interview",
+    "system design interview",
+    "coding practice with AI"
   ],
-  authors: [{ name: "Product Leaks" }],
-  creator: "Product Leaks",
-  publisher: "Product Leaks",
+  authors: [{ name: "Apex Interviewer" }],
+  creator: "Apex Interviewer",
+  publisher: "Apex Interviewer",
   formatDetection: {
     email: false,
     address: false,
@@ -50,26 +59,26 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: siteUrl,
-    siteName: "Product Leaks",
-    title: "Product Leaks | PM Interview Questions for Top Tech Companies",
+    siteName: "Apex Interviewer",
+    title: "Apex Interviewer | FAANG Coding Interview Questions & AI Practice",
     description:
-      "Master your PM interviews with 500+ real questions from Google, Meta, Amazon, and top tech companies. AI-powered mock interviews with instant feedback.",
+      "Ace your FAANG coding interviews with real questions from Google, Meta, Amazon, Apple, and Netflix. Practice with an AI interviewer.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Product Leaks - PM Interview Question Bank"
+        alt: "Apex Interviewer - FAANG Coding Interview Prep"
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Product Leaks | PM Interview Questions for Top Tech Companies",
+    title: "Apex Interviewer | FAANG Coding Interview Questions & AI Practice",
     description:
-      "Master your PM interviews with 500+ real questions from Google, Meta, Amazon, and top tech companies.",
+      "Ace your FAANG coding interviews with real questions from Google, Meta, Amazon, Apple, and Netflix.",
     images: ["/og-image.png"],
-    creator: "@productleaks"
+    creator: "@apexinterviewer"
   },
   robots: {
     index: true,
@@ -85,7 +94,6 @@ export const metadata: Metadata = {
   verification: {
     // Add your verification codes here when available
     // google: "your-google-verification-code",
-    // yandex: "your-yandex-verification-code",
   },
   alternates: {
     canonical: siteUrl
@@ -107,7 +115,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#1a1918" />
       </head>
-      <body className={`${inter.variable} ${playfair.variable}`}>
+      <body className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable}`}>
         {children}
       </body>
     </html>

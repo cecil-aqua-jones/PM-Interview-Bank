@@ -97,7 +97,7 @@ export default function CompanyGridClient({ companies, hasPaid = false }: Compan
 
             <div className={styles.companyCardContent}>
               <h3 className={styles.companyName}>{company.name}</h3>
-              <p className={styles.companyMeta}>Product Management</p>
+              <p className={styles.companyMeta}>Coding Questions</p>
             </div>
 
             <div className={styles.companyCardFooter}>

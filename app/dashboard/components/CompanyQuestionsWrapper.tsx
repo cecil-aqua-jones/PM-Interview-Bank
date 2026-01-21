@@ -8,6 +8,9 @@ import CompanyQuestionsClient from "./CompanyQuestionsClient";
 import PaywallModal from "./PaywallModal";
 import styles from "../app.module.css";
 
+// Match the AuthGuard setting - when true, bypass payment check too (MUST be false in production)
+const BYPASS_AUTH = true;
+
 type CompanyQuestionsWrapperProps = {
   companyName: string;
   companySlug: string;
@@ -20,10 +23,15 @@ export default function CompanyQuestionsWrapper({
   questions,
 }: CompanyQuestionsWrapperProps) {
   const router = useRouter();
-  const [hasPaid, setHasPaid] = useState<boolean | null>(null);
+  const [hasPaid, setHasPaid] = useState<boolean | null>(BYPASS_AUTH ? true : null);
   const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
+    // Skip payment check if auth is bypassed
+    if (BYPASS_AUTH) {
+      return;
+    }
+
     const checkPaymentStatus = async () => {
       if (!supabase) {
         // If no Supabase configured, allow access (development mode)
@@ -33,7 +41,7 @@ export default function CompanyQuestionsWrapper({
 
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        
+
         if (user?.user_metadata?.has_paid) {
           setHasPaid(true);
         } else {

@@ -1,41 +1,76 @@
-# Product Leaks
+# Apex Interviewer
 
-Elegant landing page and PRD for a premium interview question bank aimed at
-mid to senior Product Management roles at America's top tech companies.
+FAANG coding interview preparation platform with AI-powered mock interviews.
+Practice real coding questions from Google, Meta, Amazon, Apple, and Netflix
+with an AI interviewer that reviews your code and asks follow-up questions.
+
+## Features
+- **Real Questions**: Verified coding questions from FAANG companies
+- **Code Editor**: Full-featured editor with syntax highlighting (Python, JS, Java, C++, Go)
+- **AI Interviewer**: Reviews your code, asks follow-up questions about complexity
+- **Voice Practice**: Practice explaining your solutions out loud
+- **Progress Tracking**: Track scores by topic and identify weak areas
 
 ## Files
-- `app/page.tsx` — Next.js landing page.
-- `app/globals.css` — Visual system and layout.
-- `app/(app)/` — Authenticated app shell and screens.
-- `PRD.md` — End-to-end product requirements document.
-- `index.html` and `styles.css` — Legacy static version (kept for reference).
+- `app/page.tsx` — Next.js landing page
+- `app/globals.css` — Visual system and layout
+- `app/dashboard/` — Authenticated app shell and screens
+- `components/CodeEditor.tsx` — CodeMirror-based code editor
+- `lib/codingRubric.ts` — Evaluation criteria for code review
 
-## Quick Preview
+## Quick Start
 Install dependencies and run the dev server:
 
-`npm install`
-`npm run dev`
+```bash
+npm install
+npm run dev
+```
 
 ## Environment Variables
 Create a `.env.local` with the following:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `AIRTABLE_API_KEY`
-- `AIRTABLE_BASE_ID`
-- `AIRTABLE_COMPANIES_TABLE` (optional, default: `Companies`)
-- `AIRTABLE_QUESTIONS_TABLE` (optional, default: `Questions`)
+
+```env
+# Supabase (Authentication)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Airtable (Questions Database)
+AIRTABLE_API_KEY=
+AIRTABLE_BASE_ID=
+AIRTABLE_QUESTIONS_TABLE=Questions
+
+# OpenAI (AI Interviewer)
+OPENAI_API_KEY=
+
+# Stripe (Payments)
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+
+# App URL
+NEXT_PUBLIC_APP_URL=https://apexinterviewer.com
+```
 
 ## Airtable Schema
-Companies table fields:
-- `Name` (text)
-- `Slug` (text)
-- `QuestionCount` (number)
-
 Questions table fields:
-- `Title` (text)
-- `Prompt` (long text)
-- `Tags` (multi-select or comma-separated text)
-- `DifficultyLabel` (text)
-- `DifficultyScore` (number)
-- `CompanySlug` (text)
-- `Requirements` (multi-select or comma-separated text)
+- `Question` or `Title` (text) — Problem title
+- `Description` (long text) — Full problem description
+- `Company` (single select) — Company name (Google, Meta, etc.)
+- `Category` (multi-select) — Topic tags (Arrays, DP, Trees, etc.)
+- `Difficulty` (single select) — Easy, Medium, Hard
+- `Starter Code` (long text) — Optional starter template
+- `Constraints` (long text) — Time/space constraints, separated by newlines
+- `Examples` (long text) — JSON array or formatted text with Input/Output/Explanation
+- `Hints` (long text) — Comma-separated hints
+- `TimeComplexity` (text) — Expected time complexity (e.g., "O(n)")
+- `SpaceComplexity` (text) — Expected space complexity (e.g., "O(1)")
+
+## Tech Stack
+- **Framework**: Next.js 14 (App Router)
+- **Auth**: Supabase
+- **Database**: Airtable
+- **Code Editor**: CodeMirror 6
+- **AI**: OpenAI GPT-4
+- **Payments**: Stripe
+- **Styling**: CSS Modules

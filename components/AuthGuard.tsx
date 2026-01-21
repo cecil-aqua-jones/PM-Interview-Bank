@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-// Set to true to bypass auth during development
+// Set to true to bypass auth during development (MUST be false in production)
 const BYPASS_AUTH = true;
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -25,7 +25,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const checkSession = async () => {
       const { data: { session } } = await client.auth.getSession();
-      
+
       if (session) {
         setStatus("authenticated");
       } else {

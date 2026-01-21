@@ -174,10 +174,10 @@ describe("Paywall Functionality", () => {
                 render(<PaywallModal onClose={mockOnClose} />);
             });
 
-            expect(screen.getByText(/500\+ real interview questions/i)).toBeInTheDocument();
-            expect(screen.getByText(/AI mock interviews with feedback/i)).toBeInTheDocument();
+            expect(screen.getByText(/1,500\+ real coding questions/i)).toBeInTheDocument();
+            expect(screen.getByText(/AI code review with follow-ups/i)).toBeInTheDocument();
             expect(screen.getByText(/1 year of unlimited access/i)).toBeInTheDocument();
-            expect(screen.getByText(/Monthly question updates/i)).toBeInTheDocument();
+            expect(screen.getByText(/Weekly question updates/i)).toBeInTheDocument();
         });
 
         it("should call onClose when close button is clicked", async () => {

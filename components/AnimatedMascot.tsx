@@ -57,7 +57,7 @@ export default function AnimatedMascot({
           fontSize: size * 0.35,
         }}
       >
-        PL
+        CL
       </div>
     </video>
   );

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { mockCompanies, mockQuestions } from "./mockData";
-import { Company, Question } from "./types";
+import { Company, Question, CodeExample } from "./types";
 
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
@@ -47,26 +47,121 @@ const normalizeTags = (value: unknown): string[] => {
   return [];
 };
 
+const parseExamples = (value: unknown): CodeExample[] | undefined => {
+  if (!value) return undefined;
+
+  // If it's already an array of objects
+  if (Array.isArray(value)) {
+    return value.map(ex => ({
+      input: String(ex.input ?? ""),
+      output: String(ex.output ?? ""),
+      explanation: ex.explanation ? String(ex.explanation) : undefined
+    }));
+  }
+
+  // If it's a JSON string
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map(ex => ({
+          input: String(ex.input ?? ""),
+          output: String(ex.output ?? ""),
+          explanation: ex.explanation ? String(ex.explanation) : undefined
+        }));
+      }
+    } catch {
+      // Not valid JSON, try parsing as formatted text
+      // Format: "Input: ...\nOutput: ...\n---"
+      const examples: CodeExample[] = [];
+      const blocks = value.split("---").filter(Boolean);
+      for (const block of blocks) {
+        // Use [\s\S]+? to match across newlines (multi-line inputs/outputs)
+        const inputMatch = block.match(/Input:\s*([\s\S]+?)(?=Output:|$)/i);
+        const outputMatch = block.match(/Output:\s*([\s\S]+?)(?=Explanation:|$)/i);
+        const explanationMatch = block.match(/Explanation:\s*([\s\S]+?)$/i);
+        if (inputMatch && outputMatch) {
+          examples.push({
+            input: inputMatch[1].trim(),
+            output: outputMatch[1].trim(),
+            explanation: explanationMatch ? explanationMatch[1].trim() : undefined
+          });
+        }
+      }
+      return examples.length > 0 ? examples : undefined;
+    }
+  }
+
+  return undefined;
+};
+
+const parseConstraints = (value: unknown): string[] | undefined => {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === "string") {
+    // Split by newlines or semicolons
+    return value.split(/[\n;]/).map(c => c.trim()).filter(Boolean);
+  }
+  return undefined;
+};
+
+const parseHints = (value: unknown): string[] | undefined => {
+  if (!value) return undefined;
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === "string") {
+    return value.split(/[\n,]/).map(h => h.trim()).filter(Boolean);
+  }
+  return undefined;
+};
+
 // Map your Airtable fields to our Question type
 const toQuestion = (record: any): Question => {
   const fields = record.fields ?? {};
-  const category = fields.Category;
-  const subcategory = fields.Subcategory;
-  
-  // Combine Category + Subcategory into tags
+
+  // Build tags from "Asked during" field (e.g., "system design, coding, onsite")
   const tags: string[] = [];
-  if (category) tags.push(...normalizeTags(category));
-  if (subcategory) tags.push(...normalizeTags(subcategory));
+  if (fields["Asked during"]) {
+    tags.push(...normalizeTags(fields["Asked during"]));
+  }
+  // Also support Category/Subcategory if present
+  if (fields.Category) tags.push(...normalizeTags(fields.Category));
+  if (fields.Subcategory) tags.push(...normalizeTags(fields.Subcategory));
+
+  // Map difficulty from AI estimate or Frequency
+  let difficultyLabel: string | undefined;
+  const aiDifficulty = fields["AI Difficulty Estimate"];
+  if (aiDifficulty && typeof aiDifficulty === "object" && aiDifficulty.value) {
+    difficultyLabel = String(aiDifficulty.value);
+  } else if (fields.Difficulty) {
+    difficultyLabel = fields.Difficulty;
+  } else if (fields.Frequency) {
+    // Map frequency to difficulty: 1-3 = Easy, 4-6 = Medium, 7+ = Hard
+    const freq = Number(fields.Frequency);
+    if (freq >= 7) difficultyLabel = "Hard";
+    else if (freq >= 4) difficultyLabel = "Medium";
+    else difficultyLabel = "Easy";
+  }
 
   return {
     id: record.id,
-    title: fields.Question ?? "Untitled",
-    prompt: fields.Question ?? "", // Using Question as both title and prompt
+    title: fields.Question ?? fields.Title ?? "Untitled",
+    prompt: fields.Content ?? fields.Description ?? fields.Question ?? "",
     tags,
-    difficultyLabel: fields["Frequent?"] ? "Frequent" : undefined,
+    difficultyLabel,
+    difficultyScore: fields.Frequency ? Number(fields.Frequency) : undefined,
     companySlug: fields.Company ? toSlug(fields.Company) : undefined,
     companyName: fields.Company,
-    lastVerified: fields["Last verified"]
+    lastVerified: fields["Last Reported"] ?? fields["Last Updated"],
+    // Coding-specific fields (optional)
+    language: fields.Language,
+    starterCode: fields["Starter Code"] ?? fields.StarterCode,
+    constraints: parseConstraints(fields.Constraints),
+    examples: parseExamples(fields.Examples),
+    hints: parseHints(fields.Hints),
+    expectedComplexity: (fields.TimeComplexity || fields["Time Complexity"] || fields.SpaceComplexity || fields["Space Complexity"]) ? {
+      time: fields.TimeComplexity ?? fields["Time Complexity"],
+      space: fields.SpaceComplexity ?? fields["Space Complexity"]
+    } : undefined
   };
 };
 
@@ -95,7 +190,16 @@ const fetchAllQuestions = cache(async (): Promise<Question[]> => {
       offset = data.offset;
     } while (offset);
 
-    return allQuestions;
+    // Filter out questions that don't have both a title and content
+    const validQuestions = allQuestions.filter(q => 
+      q.title && 
+      q.title !== "Untitled" && 
+      q.prompt && 
+      q.prompt.trim().length > 0
+    );
+
+    console.log(`[Airtable] Loaded ${validQuestions.length} valid questions (filtered from ${allQuestions.length})`);
+    return validQuestions;
   } catch (error) {
     console.error("[Airtable] Failed to fetch, falling back to mock data:", error);
     return mockQuestions;
@@ -105,7 +209,7 @@ const fetchAllQuestions = cache(async (): Promise<Question[]> => {
 // Derive companies from questions (no separate Companies table needed)
 export const getCompanies = cache(async (): Promise<Company[]> => {
   const questions = await fetchAllQuestions();
-  
+
   // If we got mock questions, return mock companies
   if (questions === mockQuestions) {
     return mockCompanies;

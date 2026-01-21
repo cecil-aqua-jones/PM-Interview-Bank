@@ -18,7 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={styles.topNavInner}>
           <Link href="/dashboard" className={styles.brand}>
             <AnimatedMascot size={32} />
-            <span className={styles.brandName}>Product Leaks</span>
+            <span className={styles.brandName}>Apex Interviewer</span>
           </Link>
 
           <div className={styles.navLinks}>
@@ -49,7 +49,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className={styles.mobileNavHeader}>
             <Link href="/dashboard" className={styles.brand} onClick={() => setMobileMenuOpen(false)}>
               <AnimatedMascot size={32} />
-              <span className={styles.brandName}>Product Leaks</span>
+              <span className={styles.brandName}>Apex Interviewer</span>
             </Link>
             <button
               className={styles.mobileMenuBtn}
