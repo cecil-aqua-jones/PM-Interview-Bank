@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useAudioRecorder } from "@/lib/hooks/useAudioRecorder";
-import { saveInterview, getInterview } from "@/lib/interviewStorage";
+import { saveInterview, getCodingInterview } from "@/lib/interviewStorage";
 import { CodingEvaluationResult } from "@/lib/codingRubric";
 import { Question, SupportedLanguage, SUPPORTED_LANGUAGES, DEFAULT_STARTER_CODE } from "@/lib/types";
 import FeedbackCards from "./FeedbackCards";
@@ -292,7 +292,7 @@ export default function InterviewPanel({
 
   // Load previous interview
   useEffect(() => {
-    const previous = getInterview(question.id);
+    const previous = getCodingInterview(question.id);
     if (previous) {
       setEvaluation(previous.evaluation);
       setCode(previous.code);
