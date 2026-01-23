@@ -153,13 +153,14 @@ describe("Evaluate API Logic", () => {
 
   describe("Response Validation", () => {
     const validResponse = {
-      overallScore: 8,
+      overallScore: 4,
+      verdict: "Strong Pass",
       breakdown: {
-        correctness: 9,
-        timeComplexity: 8,
-        spaceComplexity: 7,
-        codeQuality: 8,
-        edgeCases: 8,
+        correctness: 4.5,
+        timeComplexity: 4,
+        spaceComplexity: 3.5,
+        codeQuality: 4,
+        problemSolving: 4,
       },
       strengths: ["Efficient solution", "Clean code"],
       improvements: ["Add comments"],
@@ -167,6 +168,7 @@ describe("Evaluate API Logic", () => {
       complexityAnalysis: {
         time: "O(n)",
         space: "O(n)",
+        isOptimal: true,
         explanation: "Single pass with hash map",
       },
     };
@@ -177,11 +179,12 @@ describe("Evaluate API Logic", () => {
 
     it("should reject response missing overallScore", () => {
       const invalid = { ...validResponse, overallScore: undefined };
-      expect(validateCodingEvaluation(invalid as any)).toBe(false);
+      expect(validateCodingEvaluation(invalid as unknown)).toBe(false);
     });
 
     it("should reject response with invalid score range", () => {
-      expect(validateCodingEvaluation({ ...validResponse, overallScore: 11 })).toBe(false);
+      // Score must be 1-5 range
+      expect(validateCodingEvaluation({ ...validResponse, overallScore: 6 })).toBe(false);
       expect(validateCodingEvaluation({ ...validResponse, overallScore: -1 })).toBe(false);
       expect(validateCodingEvaluation({ ...validResponse, overallScore: 0 })).toBe(false);
     });

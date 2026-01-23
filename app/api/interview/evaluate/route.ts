@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
       language = "python",
       transcript = "",
       difficulty,
-      expectedComplexity
+      expectedComplexity,
+      conversationHistory = []  // NEW: Include interview conversation
     } = body;
 
     // Validate required fields
@@ -59,6 +60,27 @@ export async function POST(request: NextRequest) {
       expectedComplexity = undefined;
     }
 
+    // Sanitize conversation history - only accept valid roles, reject invalid entries
+    let sanitizedHistory: { role: "interviewer" | "candidate"; content: string }[] = [];
+    if (Array.isArray(conversationHistory)) {
+      // Take last 20 turns max to keep prompt reasonable
+      for (const turn of conversationHistory.slice(-20)) {
+        // Only include entries with valid roles (consistent with followup/converse endpoints)
+        if (
+          turn &&
+          typeof turn === "object" &&
+          (turn.role === "interviewer" || turn.role === "candidate") &&
+          typeof turn.content === "string" &&
+          turn.content.trim().length > 0
+        ) {
+          sanitizedHistory.push({
+            role: turn.role,
+            content: sanitizeForLLM(turn.content).slice(0, 1000)
+          });
+        }
+      }
+    }
+
     // Validate lengths
     const questionValidation = validateLength(question, 10, 2000);
     if (!questionValidation.valid) {
@@ -77,14 +99,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build the evaluation prompt
+    // Build the evaluation prompt with conversation history
     const prompt = buildCodingEvaluationPrompt(
       question,
       code,
       language,
       transcript,
       difficulty,
-      expectedComplexity
+      expectedComplexity,
+      sanitizedHistory  // NEW: Pass conversation history
     );
 
     // Call GPT-4o for better code analysis

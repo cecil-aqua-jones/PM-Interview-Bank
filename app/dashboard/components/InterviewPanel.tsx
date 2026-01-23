@@ -95,14 +95,107 @@ export default function InterviewPanel({
   const [followUpCount, setFollowUpCount] = useState(0);
   const MAX_FOLLOWUPS = 3;
 
-  // Clarifying questions state
-  const [clarifyingQuestion, setClarifyingQuestion] = useState("");
-  const [clarifications, setClarifications] = useState<{ question: string; answer: string }[]>([]);
-  const [isAskingClarification, setIsAskingClarification] = useState(false);
-  const [showClarifyInput, setShowClarifyInput] = useState(true);
-  const [isRecordingClarification, setIsRecordingClarification] = useState(false);
-  const [clarifyRecordingState, setClarifyRecordingState] = useState<"idle" | "recording" | "processing">("idle");
-  const MAX_CLARIFICATIONS = 5;
+  // Unified conversation state (replaces separate clarifying questions)
+  const [isConversing, setIsConversing] = useState(false);
+  const [conversationRecordingState, setConversationRecordingState] = useState<
+    "idle" | "listening" | "recording" | "paused" | "processing"
+  >("idle");
+  const [pendingTranscript, setPendingTranscript] = useState<string>("");
+  const [audioLevel, setAudioLevel] = useState(0);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
+
+  // Natural conversation flow refs
+  const continuationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceStartRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  // Auto-listen mode: automatically start listening after AI finishes speaking
+  const autoListenEnabledRef = useRef(true);
+  const autoListenDelayRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Ref to track recording state for async callbacks (avoids stale closures)
+  const conversationRecordingStateRef = useRef(conversationRecordingState);
+  const panelStateRef = useRef(panelState);
+  const conversationRef = useRef(conversation);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    conversationRecordingStateRef.current = conversationRecordingState;
+  }, [conversationRecordingState]);
+
+  useEffect(() => {
+    panelStateRef.current = panelState;
+  }, [panelState]);
+
+  useEffect(() => {
+    conversationRef.current = conversation;
+  }, [conversation]);
+
+  // Configuration for natural conversation flow
+  // These settings prevent the AI from responding during natural pauses
+  const SILENCE_THRESHOLD = 0.04; // Audio level below this is considered silence
+  const SILENCE_DURATION = 1500; // ms of silence before auto-pausing (1.5s per design spec)
+  const CONTINUATION_WINDOW = 3500; // ms to wait for continuation before sending (3.5s)
+
+  /**
+   * Check if the transcribed text appears to be a complete thought
+   * Returns false if it looks like the user was cut off mid-sentence
+   */
+  const isCompleteSentence = (text: string): boolean => {
+    if (!text || text.trim().length === 0) return false;
+
+    const trimmed = text.trim();
+
+    // Check for trailing conjunctions/prepositions that indicate incomplete thought
+    const incompleteEndings = [
+      /\s(and|but|so|or|because|if|when|while|although|though|since|unless|after|before|that|which|who|where|what|how|why|the|a|an|to|for|with|in|on|at|by|of|is|are|was|were|have|has|had|will|would|could|should|can|may|might|must|shall|do|does|did|be|being|been|it's|its|this|these|those|like|such|as|than|then|just|also|only|even|still|yet|already|about|into|from|over|under|between|through|during|toward|towards|against|among|within|without|upon|along|across|behind|beside|besides|beyond|except|around|above|below|beneath|inside|outside|i|we|you|they|he|she|it|my|our|your|their|his|her|its|im|i'm|i'll|i've|i'd|we're|we'll|we've|they're|they'll|they've|he's|she's|it's)$/i,
+    ];
+
+    // Check for incomplete endings
+    for (const pattern of incompleteEndings) {
+      if (pattern.test(trimmed)) {
+        return false;
+      }
+    }
+
+    // Check if ends with ellipsis or dash (trailing off)
+    if (/[…\-–—]$/.test(trimmed) || trimmed.endsWith('...')) {
+      return false;
+    }
+
+    // Very short responses (1-2 words) might be incomplete unless they're common phrases
+    const words = trimmed.split(/\s+/);
+    if (words.length <= 2) {
+      const lowerTrimmed = trimmed.toLowerCase();
+      // Single word responses - check exact match
+      const singleWordResponses = ['yes', 'no', 'okay', 'sure', 'right', 'correct', 'exactly', 'agreed', 'understood', 'thanks', 'yep', 'nope', 'yeah', 'nah', 'ok', 'alright', 'definitely', 'absolutely'];
+      // Multi-word responses - check exact match for full phrase
+      const multiWordResponses = ['got it', 'makes sense', 'i see', 'mm-hm', 'uh-huh', 'thank you', 'of course', 'for sure'];
+      
+      // Check if the entire text matches a single word response
+      if (singleWordResponses.includes(lowerTrimmed)) {
+        return true;
+      }
+      // Check if the entire text matches a multi-word response
+      if (multiWordResponses.includes(lowerTrimmed)) {
+        return true;
+      }
+      // Check if text starts with a complete response followed by more words
+      // e.g., "yes I think so" or "okay so"
+      if (words.length === 2 && singleWordResponses.includes(words[0].toLowerCase())) {
+        return true;
+      }
+      // Very short and not a common complete phrase - likely incomplete
+      // Fall through to punctuation/length check below
+    }
+
+    // Generally assume complete if it ends with sentence-ending punctuation
+    // or is reasonably long
+    return /[.!?]$/.test(trimmed) || words.length >= 5;
+  };
 
   // Audio queue system - prevents simultaneous playback
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -110,25 +203,18 @@ export default function InterviewPanel({
   const isPlayingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(Date.now().toString());
-  const clarifyMediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const clarifyChunksRef = useRef<Blob[]>([]);
+  const conversationMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const conversationChunksRef = useRef<Blob[]>([]);
   const initialQuestionPlayedRef = useRef(false);
 
-  const {
-    state: recorderState,
-    audioBlob,
-    duration,
-    error: recorderError,
-    startRecording,
-    stopRecording,
-    resetRecording,
-    audioLevel,
-  } = useAudioRecorder();
+  // Note: useAudioRecorder is still available for future enhancements
+  // For now we use our own MediaRecorder implementation in the conversation system
+  const { error: recorderError } = useAudioRecorder();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // AUDIO QUEUE SYSTEM - Ensures sequential playback, never simultaneous
   // ═══════════════════════════════════════════════════════════════════════════
-  
+
   const stopCurrentAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -168,11 +254,29 @@ export default function InterviewPanel({
         const blob = new Blob([bytes], { type: "audio/mpeg" });
         audioUrl = URL.createObjectURL(blob);
       } else {
-        // fetch mode - item.data is the text to speak
+        // fetch mode - item.data is either plain text or JSON with title/content
+        let requestBody: Record<string, string>;
+
+        // Try to parse as JSON for structured data (title + content)
+        try {
+          const parsed = JSON.parse(item.data);
+          if (parsed.questionTitle !== undefined || parsed.questionContent !== undefined) {
+            requestBody = {
+              questionTitle: parsed.questionTitle || "",
+              questionContent: parsed.questionContent || ""
+            };
+          } else {
+            requestBody = { question: item.data };
+          }
+        } catch {
+          // Plain text - use as question
+          requestBody = { question: item.data };
+        }
+
         const response = await fetch("/api/interview/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question: item.data }),
+          body: JSON.stringify(requestBody),
         });
         if (!response.ok) {
           throw new Error("TTS failed");
@@ -198,8 +302,14 @@ export default function InterviewPanel({
         setIsSpeaking(false);
         setSpeakingProgress(0);
         item.onComplete?.();
-        // Process next item in queue
-        processNextInQueue();
+
+        // Process next item in queue, or auto-listen if queue is empty
+        if (audioQueueRef.current.length > 0) {
+          processNextInQueue();
+        } else {
+          // Queue is empty - trigger auto-listen for hands-free conversation
+          triggerAutoListen();
+        }
       });
 
       audio.addEventListener("error", () => {
@@ -209,7 +319,12 @@ export default function InterviewPanel({
         isPlayingRef.current = false;
         setIsSpeaking(false);
         item.onComplete?.();
-        processNextInQueue();
+
+        if (audioQueueRef.current.length > 0) {
+          processNextInQueue();
+        } else {
+          triggerAutoListen();
+        }
       });
 
       audio.addEventListener("pause", () => {
@@ -234,7 +349,7 @@ export default function InterviewPanel({
       id: Date.now().toString(),
     };
     audioQueueRef.current.push(queueItem);
-    
+
     // Start processing if not already playing
     if (!isPlayingRef.current) {
       processNextInQueue();
@@ -253,9 +368,126 @@ export default function InterviewPanel({
     queueAudio({ source: "base64", data: base64, onComplete });
   }, [queueAudio]);
 
+  /**
+   * Trigger auto-listen after AI finishes speaking
+   * This creates the hands-free conversation experience
+   * Uses refs to avoid stale closure issues in setTimeout
+   */
+  const triggerAutoListen = useCallback(() => {
+    // Only auto-listen in conversational states (use refs for current values)
+    if (!autoListenEnabledRef.current) {
+      console.log("[Auto-Listen] Disabled, skipping");
+      return;
+    }
+
+    const currentPanelState = panelStateRef.current;
+    if (currentPanelState !== "coding" && currentPanelState !== "review" && currentPanelState !== "followup") {
+      console.log("[Auto-Listen] Not in conversational state:", currentPanelState);
+      return;
+    }
+
+    const currentRecordingState = conversationRecordingStateRef.current;
+    if (currentRecordingState !== "idle") {
+      console.log("[Auto-Listen] Already recording or processing:", currentRecordingState);
+      return;
+    }
+
+    // Clear any existing delay
+    if (autoListenDelayRef.current) {
+      clearTimeout(autoListenDelayRef.current);
+    }
+
+    console.log("[Auto-Listen] Scheduling auto-listen in 800ms...");
+
+    // Delay before starting to listen (800ms per design spec for natural conversation flow)
+    autoListenDelayRef.current = setTimeout(() => {
+      // Double-check state hasn't changed using refs
+      const stillIdle = conversationRecordingStateRef.current === "idle";
+      const notPlaying = !isPlayingRef.current;
+      const queueEmpty = audioQueueRef.current.length === 0;
+      const enabled = autoListenEnabledRef.current;
+
+      console.log("[Auto-Listen] Timeout fired. idle:", stillIdle, "notPlaying:", notPlaying, "queueEmpty:", queueEmpty, "enabled:", enabled);
+
+      if (enabled && stillIdle && notPlaying && queueEmpty) {
+        console.log("[Auto-Listen] Starting to listen...");
+        setConversationRecordingState("listening");
+      }
+    }, 800); // 800ms delay per design spec - allows natural speech pauses
+  }, []); // No dependencies - uses refs for all values
+
   // ═══════════════════════════════════════════════════════════════════════════
   // INITIALIZATION
   // ═══════════════════════════════════════════════════════════════════════════
+
+  // Request microphone permission immediately on mount
+  // This ensures the permission prompt appears as soon as the user enters the interview
+  useEffect(() => {
+    const requestMicrophonePermission = async () => {
+      try {
+        console.log("[Init] Requesting microphone permission...");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+        // Store the stream for later use
+        streamRef.current = stream;
+
+        const tracks = stream.getAudioTracks();
+        console.log("[Init] Microphone permission granted. Tracks:", tracks.length);
+        console.log("[Init] Track settings:", tracks[0]?.getSettings());
+      } catch (err) {
+        console.error("[Init] Microphone permission denied:", err);
+        setError("Microphone access is required for the interview. Please allow microphone access and refresh.");
+      }
+    };
+
+    requestMicrophonePermission();
+
+    // Cleanup on unmount
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    };
+  }, []);
+
+  // Stop audio playback on page reload/navigation
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Stop any playing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+      // Clear the audio queue
+      audioQueueRef.current = [];
+      // Stop media recorder
+      if (conversationMediaRecorderRef.current?.state === "recording") {
+        conversationMediaRecorderRef.current.stop();
+      }
+      // Stop microphone stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Also run cleanup on unmount
+      handleBeforeUnload();
+    };
+  }, []);
 
   // Animate panel in
   useEffect(() => {
@@ -273,14 +505,27 @@ export default function InterviewPanel({
     initialQuestionPlayedRef.current = true;
 
     const onQuestionComplete = () => {
+      console.log("[Init] Question audio complete, transitioning to coding state");
+      // Update ref synchronously so triggerAutoListen sees the correct state immediately
+      // React's setState is async and the useEffect that syncs the ref may not run in time
+      panelStateRef.current = "coding";
       setPanelState("coding");
+      // Trigger auto-listen after a short delay to ensure audio queue is cleared
+      setTimeout(() => {
+        console.log("[Init] Triggering auto-listen after question");
+        triggerAutoListen();
+      }, 100);
     };
 
     if (preloadedAudioUrl) {
       playAudioUrl(preloadedAudioUrl, onQuestionComplete);
     } else {
-      const fullQuestion = `${question.title}. ${question.prompt}`;
-      speakText(fullQuestion, onQuestionComplete);
+      // Pass structured data so the AI knows title is the topic name, content is instructions
+      const structuredQuestion = JSON.stringify({
+        questionTitle: question.title,
+        questionContent: question.prompt
+      });
+      speakText(structuredQuestion, onQuestionComplete);
     }
 
     return () => {
@@ -288,7 +533,7 @@ export default function InterviewPanel({
         activeSessionId = null;
       }
     };
-  }, [question, preloadedAudioUrl, playAudioUrl, speakText]);
+  }, [question, preloadedAudioUrl, playAudioUrl, speakText, triggerAutoListen]);
 
   // Load previous interview
   useEffect(() => {
@@ -301,6 +546,38 @@ export default function InterviewPanel({
   }, [question.id]);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO CLEANUP UTILITIES (defined early for use in handlers)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Clean up audio analysis resources
+   */
+  const cleanupAudioAnalysis = useCallback(() => {
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => { });
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    silenceStartRef.current = null;
+    setAudioLevel(0);
+  }, []);
+
+  /**
+   * Clear continuation timeout and reset auto-send flag
+   */
+  const clearContinuationTimeout = useCallback(() => {
+    if (continuationTimeoutRef.current) {
+      clearTimeout(continuationTimeoutRef.current);
+      continuationTimeoutRef.current = null;
+    }
+    shouldAutoSendRef.current = false; // Always reset flag when clearing timeout
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // HANDLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -308,66 +585,119 @@ export default function InterviewPanel({
     setIsClosing(true);
     setIsVisible(false);
     clearAudioQueue();
-    
+
+    // Clean up media resources to release microphone
+    clearContinuationTimeout();
+    cleanupAudioAnalysis();
+    if (conversationMediaRecorderRef.current?.state === "recording") {
+      conversationMediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    // Save conversation progress before closing (if we have an evaluation)
+    // This ensures follow-up Q&A is not lost
+    if (evaluation) {
+      const conversationForStorage = conversation.map(turn => ({
+        role: turn.role,
+        content: turn.content
+      }));
+      saveInterview(question.id, evaluation, code, language, undefined, conversationForStorage);
+    }
+
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;
     }
-    
+
     setTimeout(() => {
       onClose();
     }, 300);
-  }, [onClose, clearAudioQueue]);
+  }, [onClose, clearAudioQueue, clearContinuationTimeout, cleanupAudioAnalysis, evaluation, conversation, question.id, code, language]);
 
   const handleTryAgain = useCallback(() => {
     clearAudioQueue();
     initialQuestionPlayedRef.current = false;
-    
+
+    // Stop any active recording and clean up media resources
+    clearContinuationTimeout();
+    cleanupAudioAnalysis();
+    pendingTranscriptRef.current = ""; // Sync clear to prevent stale reads
+    setPendingTranscript("");
+    conversationChunksRef.current = [];
+    if (conversationMediaRecorderRef.current?.state === "recording") {
+      conversationMediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
     // Reset all state for a fresh attempt
     setEvaluation(null);
     setConversation([]);
-    setClarifications([]);
     setFollowUpCount(0);
     setCurrentFollowUp(null);
-    setClarifyingQuestion("");
-    setShowClarifyInput(true);
+    setIsConversing(false);
+    setConversationRecordingState("idle");
     setError(null);
-    
+
     // Reset code to starter
     const lang = getSupportedLanguage(question.language);
     setLanguage(lang);
     setCode(question.starterCode || DEFAULT_STARTER_CODE[lang]);
-    
+
     // Go back to coding state (skip intro on retry)
     setPanelState("coding");
-  }, [clearAudioQueue, question.language, question.starterCode]);
+  }, [clearAudioQueue, clearContinuationTimeout, cleanupAudioAnalysis, question.language, question.starterCode]);
 
   const handleNavigation = useCallback((direction: "next" | "prev") => {
     clearAudioQueue();
     initialQuestionPlayedRef.current = false;
-    
+
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;
     }
-    
+
+    // Stop any active recording and clean up media resources
+    clearContinuationTimeout();
+    cleanupAudioAnalysis();
+    pendingTranscriptRef.current = ""; // Sync clear to prevent stale reads
+    setPendingTranscript("");
+    conversationChunksRef.current = [];
+    if (conversationMediaRecorderRef.current?.state === "recording") {
+      conversationMediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
     // Reset state
     setEvaluation(null);
     setConversation([]);
-    setClarifications([]);
     setFollowUpCount(0);
     setCurrentFollowUp(null);
+    setIsConversing(false);
+    setConversationRecordingState("idle");
     setPanelState("speaking");
-    
+
     if (direction === "next" && onNext) {
       onNext();
     } else if (direction === "prev" && onPrev) {
       onPrev();
     }
-  }, [onNext, onPrev, clearAudioQueue]);
+  }, [onNext, onPrev, clearAudioQueue, clearContinuationTimeout, cleanupAudioAnalysis]);
 
   const skipToCode = useCallback(() => {
     clearAudioQueue();
+    // Update ref synchronously for triggerAutoListen
+    panelStateRef.current = "coding";
     setPanelState("coding");
-  }, [clearAudioQueue]);
+    // Trigger auto-listen since we're now in coding state
+    triggerAutoListen();
+  }, [clearAudioQueue, triggerAutoListen]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CODE SUBMISSION & EVALUATION
@@ -386,21 +716,19 @@ export default function InterviewPanel({
     abortControllerRef.current = new AbortController();
 
     try {
-      // Include clarifications in context for evaluation
-      const clarificationContext = clarifications.length > 0
-        ? `\n\nClarifying questions asked:\n${clarifications.map(c => `Q: ${c.question}\nA: ${c.answer}`).join("\n\n")}`
-        : "";
-
+      // Submit code with full conversation history for evaluation
+      // The conversationHistory captures the user's thinking process, questions asked,
+      // and how they responded to guidance - this factors into the Problem-Solving score
       const response = await fetch("/api/interview/evaluate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: `${question.title}\n\n${question.prompt}${clarificationContext}`,
+          question: `${question.title}\n\n${question.prompt}`,
           code,
           language,
           difficulty: question.difficultyLabel,
           expectedComplexity: question.expectedComplexity,
-          clarifications, // Pass clarifications for context
+          conversationHistory: conversation,  // Full thinking/questioning process
         }),
         signal: abortControllerRef.current.signal,
       });
@@ -410,8 +738,13 @@ export default function InterviewPanel({
       const data = await response.json();
       setEvaluation(data.evaluation);
 
-      // Save to localStorage
-      saveInterview(question.id, data.evaluation, code, language);
+      // Save to localStorage with conversation history for future reference
+      // Convert ConversationTurn[] to the storage format
+      const conversationForStorage = conversation.map(turn => ({
+        role: turn.role,
+        content: turn.content
+      }));
+      saveInterview(question.id, data.evaluation, code, language, undefined, conversationForStorage);
       onScoreUpdate?.(question.id, data.evaluation.overallScore);
 
       // Speak feedback
@@ -427,14 +760,23 @@ export default function InterviewPanel({
   const speakFeedbackAndFollowUp = async (evalResult: CodingEvaluationResult) => {
     const score = evalResult.overallScore;
     const verdict = score >= 4 ? "Strong work!" : score >= 3 ? "Good effort." : "Let's talk about some improvements.";
-    
+
     const feedbackText = `Alright, I've reviewed your solution. ${verdict} Your score is ${score.toFixed(1)} out of 5. ${evalResult.overallFeedback || ""}`;
 
     speakText(feedbackText, () => {
       // After feedback, decide whether to ask follow-up or show final feedback
+      // Use conversationRef.current to get latest conversation state at execution time
+      // (callback executes asynchronously after audio playback, conversation may have changed)
+      const currentConversation = conversationRef.current;
       if (followUpCount < MAX_FOLLOWUPS) {
-        generateFollowUp("", conversation);
+        generateFollowUp("", currentConversation);
       } else {
+        // All follow-ups complete - save final conversation state
+        const conversationForStorage = currentConversation.map(turn => ({
+          role: turn.role,
+          content: turn.content
+        }));
+        saveInterview(question.id, evalResult, code, language, undefined, conversationForStorage);
         setPanelState("feedback");
       }
     });
@@ -446,7 +788,11 @@ export default function InterviewPanel({
   // FOLLOW-UP QUESTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const generateFollowUp = async (lastResponse: string, conv: ConversationTurn[]) => {
+  /**
+   * Generate a follow-up question based on the conversation
+   * Memoized to prevent stale closures and cascading dependency updates
+   */
+  const generateFollowUp = useCallback(async (lastResponse: string, conv: ConversationTurn[]) => {
     setFollowUpCount(prev => prev + 1);
     setProcessingStep("Thinking of a follow-up question...");
 
@@ -458,9 +804,9 @@ export default function InterviewPanel({
           conversationHistory: conv,
           code,
           language,
-          question: question.prompt,
-          evaluation,
-          clarifications, // Include clarification context
+          questionTitle: question.title,
+          questionContent: question.prompt,
+          previousEvaluation: evaluation,  // Backend expects "previousEvaluation" key
         }),
       });
 
@@ -472,218 +818,584 @@ export default function InterviewPanel({
       const data = await response.json();
       setCurrentFollowUp(data.followUpQuestion);
 
+      // Add to conversation history
+      setConversation(prev => [...prev, {
+        role: "interviewer" as const,
+        content: data.followUpQuestion,
+        timestamp: Date.now()
+      }]);
+
       // Speak follow-up question
       speakText(data.followUpQuestion, () => {
+        // Update ref synchronously so triggerAutoListen (called next by processNextInQueue) sees correct state
+        panelStateRef.current = "followup";
         setPanelState("followup");
       });
     } catch {
       setPanelState("feedback");
     }
+  }, [code, language, question.title, question.prompt, evaluation, speakText]);
+
+  /**
+   * Skip to final results/feedback
+   */
+  const skipToResults = () => {
+    clearAudioQueue();
+    setPanelState("feedback");
   };
 
-  const handleRecordingToggle = () => {
-    if (recorderState === "idle") {
-      startRecording();
-    } else if (recorderState === "recording") {
-      stopRecording();
-    }
-  };
+  // ═══════════════════════════════════════════════════════════════════════════
+  // UNIFIED CONVERSATION SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // Process follow-up response after recording
+  // Scroll to bottom of conversation when new messages arrive
   useEffect(() => {
-    if (audioBlob && panelState === "followup") {
-      processFollowUpResponse();
+    if (conversationEndRef.current) {
+      conversationEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [audioBlob, panelState]);
+  }, [conversation]);
 
-  const processFollowUpResponse = async () => {
-    if (!audioBlob) return;
+  /**
+   * Send a message to the conversational AI and get a response
+   * Memoized to prevent stale closures in setTimeout callbacks
+   */
+  const sendConversationMessage = useCallback(async (userMessage: string) => {
+    if (!userMessage.trim() || isConversing) return;
 
-    clearAudioQueue(); // Stop any audio before processing
-    setProcessingStep("Processing your response...");
+    // Stop any playing audio before processing
+    clearAudioQueue();
+    setIsConversing(true);
+
+    // Add user message to conversation immediately for UI display
+    const userTurn: ConversationTurn = {
+      role: "candidate",
+      content: userMessage.trim(),
+      timestamp: Date.now()
+    };
+    // Keep previous conversation for API (excludes current message to avoid duplication)
+    const previousConversation = [...conversation];
+    setConversation(prev => [...prev, userTurn]);
 
     try {
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "response.webm");
-
-      const response = await fetch("/api/interview/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error("Transcription failed");
-
-      const { transcript } = await response.json();
-
-      const candidateTurn: ConversationTurn = {
-        role: "candidate",
-        content: transcript,
-        timestamp: Date.now(),
-      };
-
-      const updatedConversation = currentFollowUp
-        ? [...conversation, { role: "interviewer" as const, content: currentFollowUp, timestamp: Date.now() - 1 }, candidateTurn]
-        : [...conversation, candidateTurn];
-
-      setConversation(updatedConversation);
-      resetRecording();
-
-      if (followUpCount < MAX_FOLLOWUPS) {
-        await generateFollowUp(transcript, updatedConversation);
-      } else {
-        setPanelState("feedback");
-      }
-    } catch {
-      setError("Failed to process response");
-      resetRecording();
-    }
-  };
-
-  const skipFollowUp = () => {
-    clearAudioQueue();
-    if (followUpCount < MAX_FOLLOWUPS) {
-      generateFollowUp("", conversation);
-    } else {
-      setPanelState("feedback");
-    }
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // CLARIFYING QUESTIONS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  const submitClarification = async (questionText: string) => {
-    if (!questionText.trim() || isAskingClarification || clarifications.length >= MAX_CLARIFICATIONS) {
-      return;
-    }
-
-    // Stop current audio before asking clarification
-    clearAudioQueue();
-    setIsAskingClarification(true);
-
-    try {
-      const response = await fetch("/api/interview/clarify", {
+      const response = await fetch("/api/interview/converse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: `${question.title}\n\n${question.prompt}`,
-          clarifyingQuestion: questionText.trim(),
-          previousClarifications: clarifications,
+          questionTitle: question.title,
+          questionContent: question.prompt,
+          userMessage: userMessage.trim(),
+          // Only send previous turns - current message is in userMessage field
+          conversationHistory: previousConversation,
+          code,
+          language,
+          evaluation,
+          interviewState: panelState
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get clarification");
+        throw new Error("Failed to get response");
       }
 
       const data = await response.json();
-      
-      // Add to clarifications list
-      setClarifications(prev => [
-        ...prev,
-        { question: questionText.trim(), answer: data.answer }
-      ]);
-      setClarifyingQuestion("");
 
-      // Play audio response using queue (will wait for any current audio)
+      // Add AI response to conversation
+      const aiTurn: ConversationTurn = {
+        role: "interviewer",
+        content: data.response,
+        timestamp: Date.now()
+      };
+      setConversation(prev => [...prev, aiTurn]);
+
+      // Play audio response if available
       if (data.audio) {
         playBase64Audio(data.audio);
       }
-    } catch (err) {
-      setError("Failed to get clarification. Please try again.");
-    } finally {
-      setIsAskingClarification(false);
-    }
-  };
 
-  const handleAskClarification = () => {
-    submitClarification(clarifyingQuestion);
-  };
-
-  // Voice recording for clarification
-  const startClarifyRecording = async () => {
-    // Stop any playing audio first
-    clearAudioQueue();
-    
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4"
-      });
-      
-      clarifyChunksRef.current = [];
-      clarifyMediaRecorderRef.current = mediaRecorder;
-      
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          clarifyChunksRef.current.push(e.data);
-        }
-      };
-      
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop());
+      // If in followup state, continue the follow-up flow after response
+      if (panelState === "followup") {
+        // Build the full conversation including user turn and AI response
+        const fullConversation = [...previousConversation, userTurn, aiTurn];
         
-        if (clarifyChunksRef.current.length === 0) {
-          setClarifyRecordingState("idle");
+        // After the conversational response, generate the next follow-up question
+        // Note: followUpCount is incremented inside generateFollowUp
+        if (followUpCount < MAX_FOLLOWUPS) {
+          // Wait for audio to finish, then generate next follow-up
+          // The generateFollowUp function will handle incrementing count and calling the API
+          setTimeout(() => {
+            generateFollowUp(userMessage, fullConversation);
+          }, 1500); // Small delay to let the conversational response play
+        } else {
+          // Max follow-ups reached - save final conversation state before showing feedback
+          if (evaluation) {
+            const conversationForStorage = fullConversation.map(turn => ({
+              role: turn.role,
+              content: turn.content
+            }));
+            saveInterview(question.id, evaluation, code, language, undefined, conversationForStorage);
+          }
+          // Show feedback
+          setTimeout(() => {
+            setPanelState("feedback");
+          }, 2000);
+        }
+      }
+    } catch (err) {
+      setError("Failed to get response. Please try again.");
+      // Remove the user message if we couldn't get a response
+      setConversation(prev => prev.slice(0, -1));
+    } finally {
+      setIsConversing(false);
+    }
+  }, [
+    isConversing,
+    clearAudioQueue,
+    conversation,
+    question.id,
+    question.title,
+    question.prompt,
+    code,
+    language,
+    evaluation,
+    panelState,
+    followUpCount,
+    generateFollowUp,
+    playBase64Audio
+  ]);
+
+  /**
+   * Monitor audio levels for silence detection
+   * Uses a ref for pauseRecording to avoid stale closure issues
+   */
+  const pauseRecordingRef = useRef<() => Promise<void>>();
+
+  const startAudioLevelMonitoring = useCallback(async (stream: MediaStream) => {
+    try {
+      console.log("[Audio] Starting audio level monitoring...");
+
+      // Clean up existing audio context
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+
+      const audioContext = new AudioContext();
+
+      // Resume AudioContext if suspended (browsers block until user interaction)
+      if (audioContext.state === 'suspended') {
+        console.log("[Audio] AudioContext suspended, resuming...");
+        await audioContext.resume();
+      }
+
+      console.log("[Audio] AudioContext state:", audioContext.state);
+
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.5; // More responsive
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -10;
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      let frameCount = 0;
+
+      const checkAudioLevel = () => {
+        if (!analyserRef.current || !audioContextRef.current) {
+          console.log("[Audio] Analyser or context gone, stopping monitoring");
           return;
         }
-        
-        setClarifyRecordingState("processing");
-        
-        const recordedBlob = new Blob(clarifyChunksRef.current, { 
-          type: mediaRecorder.mimeType 
-        });
-        
-        try {
-          const formData = new FormData();
-          formData.append("audio", recordedBlob, "clarification.webm");
-          
-          const transcribeResponse = await fetch("/api/interview/transcribe", {
-            method: "POST",
-            body: formData,
-          });
-          
-          if (!transcribeResponse.ok) {
-            throw new Error("Transcription failed");
+
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        const normalizedLevel = average / 255;
+        setAudioLevel(normalizedLevel);
+
+        // Log every 30 frames (~0.5 seconds) for debugging
+        frameCount++;
+        if (frameCount % 30 === 0) {
+          console.log("[Audio] Level:", normalizedLevel.toFixed(3), "Avg raw:", average.toFixed(1));
+        }
+
+        // Silence detection
+        if (normalizedLevel < SILENCE_THRESHOLD) {
+          if (!silenceStartRef.current) {
+            silenceStartRef.current = Date.now();
+          } else if (Date.now() - silenceStartRef.current > SILENCE_DURATION) {
+            console.log("[Audio] Silence detected, auto-pausing");
+            // Auto-pause after silence
+            // The pauseRecording function is async - we call it and let it handle
+            // transcription in the background. The return statement stops the monitoring loop.
+            // Using void to explicitly indicate we're intentionally not awaiting.
+            if (pauseRecordingRef.current) {
+              void pauseRecordingRef.current().catch(err => 
+                console.error("[Audio] Pause recording error:", err)
+              );
+            }
+            return; // Stop monitoring loop - pauseRecording handles state transition
           }
-          
-          const { transcript } = await transcribeResponse.json();
-          
-          if (transcript && transcript.trim()) {
-            await submitClarification(transcript);
-          } else {
-            setError("Couldn't hear your question. Please try again.");
+        } else {
+          silenceStartRef.current = null;
+        }
+
+        requestAnimationFrame(checkAudioLevel);
+      };
+
+      checkAudioLevel();
+      console.log("[Audio] Audio level monitoring started");
+    } catch (err) {
+      console.error("[Audio] Audio level monitoring failed:", err);
+    }
+  }, []);
+
+  /**
+   * Transcribe the current recording chunk
+   */
+  const transcribeCurrentChunk = async (): Promise<string | null> => {
+    if (conversationChunksRef.current.length === 0) {
+      return null;
+    }
+
+    const mimeType = conversationMediaRecorderRef.current?.mimeType || "audio/webm";
+    const recordedBlob = new Blob(conversationChunksRef.current, { type: mimeType });
+
+    try {
+      const formData = new FormData();
+      formData.append("audio", recordedBlob, "conversation.webm");
+
+      const transcribeResponse = await fetch("/api/interview/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!transcribeResponse.ok) {
+        throw new Error("Transcription failed");
+      }
+
+      const { transcript } = await transcribeResponse.json();
+      return transcript?.trim() || null;
+    } catch (err) {
+      console.error("Transcription error:", err);
+      return null;
+    }
+  };
+
+  // Use a ref to track if we should auto-send when continuation timer expires
+  const shouldAutoSendRef = useRef(false);
+  const pendingTranscriptRef = useRef<string>("");
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    pendingTranscriptRef.current = pendingTranscript;
+  }, [pendingTranscript]);
+
+  /**
+   * Send the accumulated pending transcript
+   */
+  const finalizePendingMessage = useCallback(async () => {
+    clearContinuationTimeout();
+    shouldAutoSendRef.current = false;
+
+    const messageToSend = pendingTranscriptRef.current.trim();
+
+    // Check if the message appears complete
+    // If it seems incomplete, give the user a bit more time
+    if (messageToSend && !isCompleteSentence(messageToSend)) {
+      // Message seems incomplete - extend the window slightly
+      // But only do this once to avoid infinite waiting
+      const extendedWait = 2000; // 2 more seconds
+      console.log("[Conversation] Message seems incomplete, extending wait:", messageToSend);
+
+      shouldAutoSendRef.current = true;
+      continuationTimeoutRef.current = setTimeout(async () => {
+        if (shouldAutoSendRef.current && pendingTranscriptRef.current.trim()) {
+          // Force send even if still incomplete after extended wait
+          shouldAutoSendRef.current = false;
+          const finalMessage = pendingTranscriptRef.current.trim();
+          pendingTranscriptRef.current = ""; // Sync clear
+          setPendingTranscript("");
+
+          if (finalMessage) {
+            setConversationRecordingState("processing");
+            try {
+              await sendConversationMessage(finalMessage);
+            } catch (err) {
+              console.error("[Conversation] Failed to send message:", err);
+            }
           }
-        } catch (err) {
-          setError("Failed to process your question. Please try typing instead.");
-        } finally {
-          setClarifyRecordingState("idle");
+
+          // Always cleanup after message sending completes (success or failure)
+          setConversationRecordingState("idle");
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+          }
+        }
+      }, extendedWait);
+      return;
+    }
+
+    pendingTranscriptRef.current = ""; // Sync clear
+    setPendingTranscript("");
+
+    if (messageToSend) {
+      setConversationRecordingState("processing");
+      try {
+        await sendConversationMessage(messageToSend);
+      } catch (err) {
+        console.error("[Conversation] Failed to send message:", err);
+      }
+    }
+
+    // Always cleanup - use finally-like pattern to ensure this runs
+    setConversationRecordingState("idle");
+
+    // Stop the stream if still active
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, [clearContinuationTimeout, sendConversationMessage]);
+
+  /**
+   * Pause recording (for silence detection / user pause)
+   * Enters continuation window where user can resume
+   */
+  const pauseRecording = useCallback(async () => {
+    if (conversationMediaRecorderRef.current?.state === "recording") {
+      conversationMediaRecorderRef.current.stop();
+    }
+
+    cleanupAudioAnalysis();
+    setConversationRecordingState("paused");
+
+    // Transcribe what we have so far
+    const transcript = await transcribeCurrentChunk();
+    if (transcript) {
+      // Update both ref and state to ensure finalizePendingMessage sees the new value
+      // Ref is updated synchronously to avoid race with continuation timeout
+      // State is updated for UI reactivity
+      const currentPending = pendingTranscriptRef.current;
+      const combined = currentPending ? `${currentPending} ${transcript}` : transcript;
+      pendingTranscriptRef.current = combined; // Sync update for timeout
+      setPendingTranscript(combined); // Async update for UI
+    }
+
+    // Clear chunks for potential continuation
+    conversationChunksRef.current = [];
+
+    // Start continuation window timer
+    clearContinuationTimeout();
+    shouldAutoSendRef.current = true;
+    continuationTimeoutRef.current = setTimeout(() => {
+      // Time's up - send the accumulated message
+      if (shouldAutoSendRef.current) {
+        finalizePendingMessage();
+      }
+    }, CONTINUATION_WINDOW);
+  }, [cleanupAudioAnalysis, clearContinuationTimeout, finalizePendingMessage]);
+
+  // Keep pauseRecording ref in sync for use in audio monitoring
+  useEffect(() => {
+    pauseRecordingRef.current = pauseRecording;
+  }, [pauseRecording]);
+
+  /**
+   * Start or resume recording
+   * Wrapped in useCallback to ensure stable reference for useEffect dependencies
+   */
+  const startConversationRecording = useCallback(async () => {
+    console.log("[Recording] startConversationRecording called");
+
+    // Stop any playing audio first (allows interruption)
+    clearAudioQueue();
+
+    // If we're in paused state, cancel the send timer and continue
+    // clearContinuationTimeout also resets shouldAutoSendRef to prevent any race conditions
+    if (conversationRecordingStateRef.current === "paused") {
+      clearContinuationTimeout();
+    }
+
+    try {
+      // Reuse existing stream or create new one
+      let stream = streamRef.current;
+      if (!stream || !stream.active) {
+        console.log("[Recording] Requesting microphone access...");
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        console.log("[Recording] Microphone access granted");
+      }
+
+      // Verify stream has active audio tracks BEFORE starting recorder
+      const audioTracks = stream.getAudioTracks();
+      console.log("[Recording] Audio tracks:", audioTracks.length, "enabled:", audioTracks[0]?.enabled, "muted:", audioTracks[0]?.muted);
+
+      if (audioTracks.length === 0 || !audioTracks[0].enabled) {
+        console.error("[Recording] No active audio tracks!");
+        setError("Microphone not available. Please check your microphone settings.");
+        setConversationRecordingState("idle");
+        return;
+      }
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      console.log("[Recording] Using MIME type:", mimeType);
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+
+      conversationChunksRef.current = [];
+      conversationMediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          conversationChunksRef.current.push(e.data);
+          console.log("[Recording] Audio chunk received, size:", e.data.size);
         }
       };
-      
-      mediaRecorder.start();
-      setClarifyRecordingState("recording");
-      setIsRecordingClarification(true);
+
+      mediaRecorder.onstop = () => {
+        console.log("[Recording] MediaRecorder stopped");
+      };
+
+      mediaRecorder.onerror = (e) => {
+        console.error("[Recording] MediaRecorder error:", e);
+        setError("Recording error occurred");
+        setConversationRecordingState("idle");
+      };
+
+      mediaRecorder.start(100); // Collect data every 100ms for smoother processing
+      console.log("[Recording] MediaRecorder started, state:", mediaRecorder.state);
+      setConversationRecordingState("recording");
+      silenceStartRef.current = null;
+
+      // Start audio level monitoring
+      await startAudioLevelMonitoring(stream);
     } catch (err) {
-      setError("Microphone access denied. Please type your question instead.");
-      setClarifyRecordingState("idle");
+      console.error("[Recording] Error starting recording:", err);
+      setError("Microphone access denied. Please allow microphone access.");
+      setConversationRecordingState("idle");
+    }
+  }, [clearAudioQueue, clearContinuationTimeout, startAudioLevelMonitoring]);
+
+  /**
+   * Manually stop recording and enter pause state
+   */
+  const stopConversationRecording = () => {
+    pauseRecording();
+  };
+
+  /**
+   * Cancel recording without sending
+   */
+  const cancelRecording = useCallback(() => {
+    clearContinuationTimeout();
+    cleanupAudioAnalysis();
+    pendingTranscriptRef.current = ""; // Sync clear to prevent stale reads
+    setPendingTranscript("");
+    conversationChunksRef.current = [];
+
+    if (conversationMediaRecorderRef.current?.state === "recording") {
+      conversationMediaRecorderRef.current.stop();
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    setConversationRecordingState("idle");
+    // Disable auto-listen temporarily after cancel
+    autoListenEnabledRef.current = false;
+    setTimeout(() => {
+      autoListenEnabledRef.current = true;
+    }, 5000); // Re-enable after 5 seconds
+  }, [clearContinuationTimeout, cleanupAudioAnalysis]);
+
+  /**
+   * Effect: Auto-start recording when state becomes "listening"
+   */
+  useEffect(() => {
+    if (conversationRecordingState === "listening") {
+      console.log("[Recording] State is 'listening', starting recording...");
+      startConversationRecording();
+    }
+  }, [conversationRecordingState, startConversationRecording]);
+
+  /**
+   * Debug: Log state changes
+   */
+  useEffect(() => {
+    console.log("[State] conversationRecordingState:", conversationRecordingState);
+  }, [conversationRecordingState]);
+
+  useEffect(() => {
+    console.log("[State] panelState:", panelState, "isSpeaking:", isSpeaking);
+  }, [panelState, isSpeaking]);
+
+  /**
+   * Auto-trigger listening when idle in a conversational state
+   * This ensures hands-free operation - no button clicks needed
+   */
+  useEffect(() => {
+    // Only auto-listen in conversational states when idle and not playing audio
+    if (
+      conversationRecordingState === "idle" &&
+      !isSpeaking &&
+      !isConversing &&
+      (panelState === "coding" || panelState === "review" || panelState === "followup")
+    ) {
+      console.log("[Auto] Idle in conversational state, triggering auto-listen");
+      // Small delay to ensure state is stable
+      const timer = setTimeout(() => {
+        if (autoListenEnabledRef.current && conversationRecordingStateRef.current === "idle") {
+          triggerAutoListen();
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [conversationRecordingState, isSpeaking, isConversing, panelState, triggerAutoListen]);
+
+  /**
+   * Cleanup auto-listen timeout on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (autoListenDelayRef.current) {
+        clearTimeout(autoListenDelayRef.current);
+      }
+    };
+  }, []);
+
+  /**
+   * Send immediately without waiting for continuation window
+   */
+  const sendNow = useCallback(() => {
+    finalizePendingMessage();
+  }, [finalizePendingMessage]);
+
+  /**
+   * Toggle recording state (main button action)
+   */
+  const toggleConversationRecording = () => {
+    if (conversationRecordingState === "recording") {
+      stopConversationRecording();
+    } else if (conversationRecordingState === "idle" || conversationRecordingState === "paused") {
+      startConversationRecording();
     }
   };
 
-  const stopClarifyRecording = () => {
-    if (clarifyMediaRecorderRef.current && clarifyMediaRecorderRef.current.state === "recording") {
-      clarifyMediaRecorderRef.current.stop();
-      setIsRecordingClarification(false);
-    }
-  };
-
-  const toggleClarifyRecording = () => {
-    if (clarifyRecordingState === "recording") {
-      stopClarifyRecording();
-    } else if (clarifyRecordingState === "idle") {
-      startClarifyRecording();
-    }
-  };
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearContinuationTimeout();
+      cleanupAudioAnalysis();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [clearContinuationTimeout, cleanupAudioAnalysis]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
@@ -787,159 +1499,131 @@ export default function InterviewPanel({
             )}
           </div>
 
-          {/* Clarifying Questions Section */}
-          {(panelState === "coding" || panelState === "speaking") && !isSpeaking && (
-            <div className={styles.clarifySection}>
-              {/* Previous Clarifications */}
-              {clarifications.length > 0 && (
-                <div className={styles.clarifyHistory}>
-                  <h4 className={styles.clarifyHistoryTitle}>Clarifications</h4>
-                  {clarifications.map((c, i) => (
-                    <div key={i} className={styles.clarifyItem}>
-                      <div className={styles.clarifyQuestion}>
-                        <span className={styles.clarifyIcon}>Q:</span>
-                        {c.question}
+          {/* Unified Conversation Section */}
+          {(panelState === "coding" || panelState === "speaking" || panelState === "review" || panelState === "followup") && (
+            <div className={styles.conversationSection}>
+              {/* Conversation Thread */}
+              {conversation.length > 0 && (
+                <div className={styles.conversationThread}>
+                  <h4 className={styles.conversationTitle}>Conversation</h4>
+                  <div className={styles.conversationMessages}>
+                    {conversation.map((turn, i) => (
+                      <div
+                        key={i}
+                        className={`${styles.conversationMessage} ${turn.role === "interviewer" ? styles.messageInterviewer : styles.messageCandidate
+                          }`}
+                      >
+                        <span className={styles.messageRole}>
+                          {turn.role === "interviewer" ? "Interviewer" : "You"}
+                        </span>
+                        <p className={styles.messageContent}>{turn.content}</p>
                       </div>
-                      <div className={styles.clarifyAnswer}>
-                        <span className={styles.clarifyIcon}>A:</span>
-                        {c.answer}
+                    ))}
+                    {isConversing && (
+                      <div className={`${styles.conversationMessage} ${styles.messageInterviewer}`}>
+                        <span className={styles.messageRole}>Interviewer</span>
+                        <div className={styles.typingIndicator}>
+                          <span></span><span></span><span></span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )}
+                    <div ref={conversationEndRef} />
+                  </div>
                 </div>
               )}
 
-              {/* Ask Clarification Input */}
-              {clarifications.length < MAX_CLARIFICATIONS && (
-                <div className={styles.clarifyInput}>
-                  {clarifyRecordingState === "processing" ? (
-                    <div className={styles.clarifyProcessing}>
+              {/* Hands-free Conversation Interface */}
+              <div className={styles.conversationInput}>
+                  {conversationRecordingState === "processing" ? (
+                    <div className={styles.conversationProcessing}>
                       <span className={styles.spinnerSmall} />
-                      <span>Processing your question...</span>
+                      <span>Processing...</span>
                     </div>
-                  ) : clarifyRecordingState === "recording" ? (
-                    <div className={styles.clarifyRecording}>
-                      <div className={styles.clarifyRecordingIndicator}>
-                        <span className={styles.recordingDotSmall} />
-                        <span>Recording... Ask your question</span>
+                  ) : conversationRecordingState === "recording" ? (
+                    <div className={styles.recordingActive}>
+                      {/* Audio waveform visualizer - shows audio is being captured */}
+                      <div className={styles.audioVisualizerDark}>
+                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(15, 15 + audioLevel * 500)}%` }} />
+                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(25, 25 + audioLevel * 450)}%` }} />
+                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(35, 35 + audioLevel * 400)}%` }} />
+                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(25, 25 + audioLevel * 450)}%` }} />
+                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(15, 15 + audioLevel * 500)}%` }} />
                       </div>
-                      <button
-                        className={styles.clarifyStopRecordBtn}
-                        onClick={stopClarifyRecording}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <rect x="6" y="6" width="12" height="12" rx="2" />
-                        </svg>
-                        Done
-                      </button>
+                      <div className={styles.listeningStatusDark}>
+                        <span>Listening...</span>
+                      </div>
                     </div>
-                  ) : (
-                    <div className={styles.clarifyInputRow}>
-                      <input
-                        type="text"
-                        value={clarifyingQuestion}
-                        onChange={(e) => setClarifyingQuestion(e.target.value)}
-                        placeholder="Type or speak your question..."
-                        className={styles.clarifyTextInput}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAskClarification();
-                          }
-                        }}
-                        disabled={isAskingClarification || isSpeaking}
-                      />
-                      <button
-                        className={styles.clarifyMicBtn}
-                        onClick={toggleClarifyRecording}
-                        title="Ask with voice"
-                        disabled={isAskingClarification || isSpeaking}
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  ) : conversationRecordingState === "paused" ? (
+                    <div className={styles.userThinkingState}>
+                      {/* Show pending transcript with thinking animation */}
+                      {pendingTranscript && (
+                        <div className={styles.userTranscript}>
+                          <p className={styles.userTranscriptText}>{pendingTranscript}</p>
+                        </div>
+                      )}
+                      <div className={styles.userThinkingIndicator}>
+                        <span></span><span></span><span></span>
+                      </div>
+                    </div>
+                  ) : conversationRecordingState === "listening" ? (
+                    <div className={styles.listeningStarting}>
+                      <div className={styles.listeningPulse}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                           <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                          <line x1="12" y1="19" x2="12" y2="23" />
-                          <line x1="8" y1="23" x2="16" y2="23" />
                         </svg>
-                      </button>
-                      <button
-                        className={styles.clarifySubmitBtn}
-                        onClick={handleAskClarification}
-                        disabled={!clarifyingQuestion.trim() || isAskingClarification || isSpeaking}
-                      >
-                        {isAskingClarification ? (
-                          <>
-                            <span className={styles.spinnerSmall} />
-                            Asking...
-                          </>
-                        ) : (
-                          "Ask"
-                        )}
-                      </button>
+                      </div>
+                      <span>Starting microphone...</span>
+                    </div>
+                  ) : isSpeaking ? (
+                    // AI is speaking - show visual indicator, allow interrupt by speaking
+                    <div
+                      className={styles.aiSpeakingIndicator}
+                      onClick={startConversationRecording}
+                    >
+                      <div className={styles.speakingWave}>
+                        <span></span><span></span><span></span><span></span><span></span>
+                      </div>
+                      <span>Interviewer is speaking... </span>
+                    </div>
+                  ) : (
+                    // Idle state - auto-listening should start, show passive indicator
+                    <div
+                      className={styles.autoListenIndicator}
+                      onClick={startConversationRecording}
+                    >
+                      <div className={styles.autoListenPulse}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        </svg>
+                      </div>
+                      <span>{isConversing ? "Processing..." : "Ready to listen..."}</span>
                     </div>
                   )}
+
+                  {/* Skip to Results - show after code is evaluated */}
+                  {evaluation && (panelState === "followup" || panelState === "review") &&
+                    (conversationRecordingState === "idle" || conversationRecordingState === "listening") &&
+                    !isSpeaking && (
+                      <button
+                        className={styles.skipToResultsBtn}
+                        onClick={skipToResults}
+                      >
+                        Skip to Results
+                      </button>
+                    )}
                 </div>
-              )}
-
-              {clarifications.length >= MAX_CLARIFICATIONS && (
-                <p className={styles.clarifyLimitReached}>
-                  Maximum clarifications reached. Time to start coding!
-                </p>
-              )}
             </div>
           )}
 
-          {/* Follow-up Recording Area */}
-          {panelState === "followup" && !isSpeaking && (
-            <div className={styles.followupRecording}>
-              <p className={styles.followupPrompt}>
-                {currentFollowUp || "Answer the follow-up question:"}
-              </p>
-              
-              <div className={styles.recordingControls}>
-                <button
-                  className={`${styles.recordBtn} ${recorderState === "recording" ? styles.recordBtnActive : ""}`}
-                  onClick={handleRecordingToggle}
-                >
-                  {recorderState === "recording" ? (
-                    <>
-                      <span className={styles.recordingDot} />
-                      Recording... ({Math.floor(duration)}s) - Click to stop
-                    </>
-                  ) : (
-                    <>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <line x1="12" y1="19" x2="12" y2="23" />
-                        <line x1="8" y1="23" x2="16" y2="23" />
-                      </svg>
-                      Record your answer
-                    </>
-                  )}
-                </button>
-                
-                {recorderState === "recording" && (
-                  <div className={styles.audioLevelContainer}>
-                    <div 
-                      className={styles.audioLevelBar} 
-                      style={{ width: `${Math.min(100, audioLevel * 100)}%` }}
-                    />
-                  </div>
-                )}
-                
-                <button className={styles.skipFollowUpBtn} onClick={skipFollowUp}>
-                  Skip
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Follow-up is now handled by the unified conversation section above */}
 
           {/* Feedback Section */}
           {panelState === "feedback" && evaluation && (
             <div className={styles.feedbackSection}>
-              <FeedbackCards 
-                evaluation={evaluation} 
+              <FeedbackCards
+                evaluation={evaluation}
                 conversation={conversation}
                 onTryAgain={handleTryAgain}
                 onClose={handleClose}

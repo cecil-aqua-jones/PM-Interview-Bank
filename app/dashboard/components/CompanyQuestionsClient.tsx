@@ -13,6 +13,23 @@ import InterviewPanel from "./InterviewPanel";
 import BehavioralInterviewPanel from "./BehavioralInterviewPanel";
 import FormattedContent from "./FormattedContent";
 
+/**
+ * Format a date string to "Mon D, YYYY" format (e.g., "Feb 6, 2025")
+ */
+function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  } catch {
+    return dateString;
+  }
+}
+
 type CompanyQuestionsClientProps = {
   companyName: string;
   companySlug: string;
@@ -35,7 +52,7 @@ export default function CompanyQuestionsClient({
   const [isInterviewClosing, setIsInterviewClosing] = useState(false);
 
   // TTS preloader for instant audio playback
-  const { preload, preloadImmediate, preloadBatch, preloadAdjacent, getPreloadedAudio, isPreloaded, clearCache } = useTTSPreloader();
+  const { preload, preloadImmediate, preloadBatch, preloadAdjacent, getPreloadedAudio, isPreloaded, isLoading, getProgress, clearCache } = useTTSPreloader();
 
   // Load interview records from localStorage on mount
   useEffect(() => {
@@ -86,7 +103,8 @@ export default function CompanyQuestionsClient({
     if (filteredQuestions.length > 0) {
       const initialBatch = filteredQuestions.slice(0, 5).map(q => ({
         id: q.id,
-        text: `${q.title}. ${q.prompt}`
+        title: q.title,
+        content: q.prompt
       }));
       preloadBatch(initialBatch, 7);
     }
@@ -102,9 +120,8 @@ export default function CompanyQuestionsClient({
   useEffect(() => {
     if (filteredQuestions[selectedIndex]) {
       const q = filteredQuestions[selectedIndex];
-      const fullText = `${q.title}. ${q.prompt}`;
-      // High priority for selected question
-      preloadImmediate(q.id, fullText);
+      // Pass title and content separately for proper interview introduction
+      preloadImmediate(q.id, q.title, q.prompt);
       // Also preload adjacent questions
       preloadAdjacent(filteredQuestions, selectedIndex);
     }
@@ -275,7 +292,7 @@ export default function CompanyQuestionsClient({
                   onClick={() => setSelectedIndex(idx)}
                   onMouseEnter={() => {
                     // Preload on hover for instant experience
-                    preload(q.id, `${q.title}. ${q.prompt}`, 6);
+                    preload(q.id, q.title, q.prompt, 6);
                   }}
                   className={`${styles.questionListItem} ${idx === selectedIndex ? styles.questionListItemActive : ""
                     }`}
@@ -465,6 +482,12 @@ export default function CompanyQuestionsClient({
                           <polyline points="4 17 10 11 4 5" />
                           <line x1="12" y1="19" x2="20" y2="19" />
                         </svg>
+                      ) : selectedQuestionType === "system_design" ? (
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <rect x="2" y="3" width="20" height="14" rx="2" />
+                          <line x1="8" y1="21" x2="16" y2="21" />
+                          <line x1="12" y1="17" x2="12" y2="21" />
+                        </svg>
                       ) : (
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -473,8 +496,10 @@ export default function CompanyQuestionsClient({
                     </div>
                     <p className={styles.noPracticeText}>
                       {selectedQuestionType === "coding"
-                        ? "Write your solution, submit, and get grilled by an AI interviewer"
-                        : "Practice your communication skills with back-and-forth conversation"
+                        ? "Code your solution, submit, get real-time feedback"
+                        : selectedQuestionType === "system_design"
+                          ? "Design and explain your architecture with an AI interviewer"
+                          : "Practice your communication skills with back-and-forth conversation"
                       }
                     </p>
                     <button
@@ -486,15 +511,35 @@ export default function CompanyQuestionsClient({
                       }}
                       disabled={isInterviewClosing || !!interviewQuestion}
                     >
-                      {isPreloaded(selectedQuestion.id) && (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
+                      {isPreloaded(selectedQuestion.id) ? (
+                        <>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                          {selectedQuestionType === "coding"
+                            ? "Start Coding Interview"
+                            : selectedQuestionType === "system_design"
+                              ? "Start System Design Interview"
+                              : "Start Behavioral Interview"
+                          }
+                        </>
+                      ) : isLoading(selectedQuestion.id) ? (
+                        <>
+                          <span className={styles.loadingSpinner} />
+                          Preparing...
+                        </>
+                      ) : (
+                        // Not preloaded and not loading - either failed or not started
+                        // Allow user to proceed anyway (audio will load on demand)
+                        <>
+                          {selectedQuestionType === "coding"
+                            ? "Start Coding Interview"
+                            : selectedQuestionType === "system_design"
+                              ? "Start System Design Interview"
+                              : "Start Behavioral Interview"
+                          }
+                        </>
                       )}
-                      {selectedQuestionType === "coding"
-                        ? "Start Coding Interview"
-                        : "Start Behavioral Interview"
-                      }
                     </button>
                   </div>
                 )}
@@ -513,7 +558,7 @@ export default function CompanyQuestionsClient({
                   <div className={styles.questionMetaItem}>
                     <span className={styles.questionMetaLabel}>Last Verified</span>
                     <span className={styles.questionMetaValue}>
-                      {selectedQuestion.lastVerified}
+                      {formatDate(selectedQuestion.lastVerified)}
                     </span>
                   </div>
                 )}
@@ -548,6 +593,7 @@ export default function CompanyQuestionsClient({
       </div>
 
       {/* Interview Panel - Elegant slide-out */}
+      {/* coding uses InterviewPanel, behavioral uses BehavioralInterviewPanel, system_design shows coming soon */}
       {interviewQuestion && (
         getQuestionType(interviewQuestion) === "coding" ? (
           <InterviewPanel
@@ -584,6 +630,48 @@ export default function CompanyQuestionsClient({
             questionIndex={filteredQuestions.findIndex(q => q.id === interviewQuestion.id)}
             totalQuestions={filteredQuestions.length}
           />
+        ) : getQuestionType(interviewQuestion) === "system_design" ? (
+          /* System Design Interview - Coming Soon placeholder */
+          <div className={`${styles.interviewPanel} ${styles.interviewPanelVisible}`}>
+            <div className={styles.interviewPanelHeader}>
+              <button
+                className={styles.closeInterviewBtn}
+                onClick={() => {
+                  setIsInterviewClosing(true);
+                  setInterviewQuestion(null);
+                  setTimeout(() => setIsInterviewClosing(false), 200);
+                }}
+                aria-label="Close interview"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <div className={styles.questionCounter}>
+                System Design
+              </div>
+            </div>
+            <div className={styles.interviewPanelContent} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px' }}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--graphite)" strokeWidth="1.5" style={{ marginBottom: '24px', opacity: 0.6 }}>
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+              <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--charcoal)', marginBottom: '12px' }}>
+                System Design Interview
+              </h3>
+              <p style={{ fontSize: '15px', color: 'var(--graphite)', lineHeight: 1.6, maxWidth: '400px', marginBottom: '8px' }}>
+                <strong>{interviewQuestion.title}</strong>
+              </p>
+              <p style={{ fontSize: '14px', color: 'var(--graphite)', lineHeight: 1.6, maxWidth: '400px', marginBottom: '24px' }}>
+                System design interviews with AI-powered whiteboarding and architecture feedback are coming soon.
+              </p>
+              <div style={{ padding: '16px 24px', background: 'var(--ivory)', borderRadius: '8px', fontSize: '13px', color: 'var(--graphite)' }}>
+                For now, review the question and practice your approach mentally or on paper.
+              </div>
+            </div>
+          </div>
         ) : (
           <BehavioralInterviewPanel
             question={interviewQuestion}

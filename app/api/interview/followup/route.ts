@@ -20,7 +20,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     let { 
-      question, 
+      question,        // DEPRECATED: Combined question (for backwards compat)
+      questionTitle,   // The question title (e.g., "Answer Caching Strategy")
+      questionContent, // The detailed problem description
       code, 
       language = "python",
       conversationHistory = [],
@@ -28,12 +30,17 @@ export async function POST(request: NextRequest) {
       clarifications = []
     } = body;
 
-    // Validate required fields
-    if (!question) {
+    // Support both new format (title + content) and old format (combined question)
+    if (!questionTitle && !question) {
       return NextResponse.json(
         { error: "Question is required" },
         { status: 400 }
       );
+    }
+    
+    // If using old format, use it directly (questionTitle stays undefined)
+    if (!questionTitle && question) {
+      questionContent = question;
     }
 
     if (!code) {
@@ -43,10 +50,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sanitize inputs
-    question = sanitizeForLLM(question);
+    // Sanitize inputs BEFORE building structured question to prevent prompt injection
+    // Preserve undefined for questionTitle to indicate "not provided"
+    if (questionTitle) {
+      questionTitle = sanitizeForLLM(questionTitle);
+    }
+    questionContent = questionContent ? sanitizeForLLM(questionContent) : "";
     code = sanitizeForLLM(code);
     language = typeof language === "string" ? sanitizeForLLM(language) : "python";
+    
+    // Build structured question for context AFTER sanitization
+    const structuredQuestion = questionTitle 
+      ? `Topic: "${questionTitle}"\n\nProblem: ${questionContent}`
+      : questionContent;
 
     // Sanitize conversation history
     const sanitizedHistory: ConversationTurn[] = [];
@@ -67,9 +83,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate lengths
-    const questionValidation = validateLength(question, 10, 2000);
-    if (!questionValidation.valid) {
-      return NextResponse.json({ error: questionValidation.error }, { status: 400 });
+    const contentValidation = validateLength(questionContent, 5, 5000);
+    if (!contentValidation.valid) {
+      return NextResponse.json({ error: contentValidation.error }, { status: 400 });
     }
 
     const codeValidation = validateLength(code, 10, 15000);
@@ -91,9 +107,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build the follow-up prompt
+    // Build the follow-up prompt using structured question
     const prompt = buildFollowUpPrompt(
-      question,
+      structuredQuestion,
       code,
       language,
       sanitizedHistory,
@@ -112,19 +128,26 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `You are a friendly senior engineer at a FAANG company conducting a coding interview. Your style:
+            content: `You are a senior, empathetic engineer conducting a technical interview. You prioritize listening and natural conversation flow.
 
-- Talk like a real person having a conversation, not reading from a script
-- Use natural language: "So I'm curious...", "What if...", "Help me understand..."
-- Be genuinely interested in their thinking, not trying to trip them up
+### CONVERSATION RULES
+- Ask ONE question only. Never two questions in one response.
+- Keep it to 1-2 sentences max. Long questions feel robotic.
+- Use natural language: "So I'm curious...", "What about...", "Help me understand..."
 - Use contractions (you've, that's, wouldn't)
-- Keep follow-ups SHORT - one question at a time, 1-2 sentences max
-- It's okay to acknowledge good parts before probing: "Nice approach here. What about..."
-- Sound like a colleague, not an interrogator
+- Sound like a peer, not an interrogator
 
-Example good follow-up: "I like that you went with a hash map here. What's the trade-off you're making with that choice?"
+### PACING
+- Don't rapid-fire. Let there be conversational space.
+- If acknowledging something good, keep it brief: "Nice. What about X?"
+- Backchanneling is okay: "I see", "Gotcha", "Right"
 
-Example bad follow-up: "Please explain the time complexity of your solution and how it would scale with larger inputs."`,
+### EXAMPLES
+Good: "What made you choose a hash map here?"
+Good: "Nice approach. What's the trade-off?"
+Bad: "Please explain the time complexity of your solution and how it would scale with larger inputs and also discuss any edge cases."
+
+Generate ONE natural follow-up question.`,
           },
           {
             role: "user",

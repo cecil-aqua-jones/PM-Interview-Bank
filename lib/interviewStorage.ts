@@ -22,6 +22,7 @@ export type CodingInterviewRecord = BaseInterviewRecord & {
   evaluation: CodingEvaluationResult;
   code: string;
   language: string;
+  conversationHistory?: { role: "interviewer" | "candidate"; content: string }[];
 };
 
 // Behavioral interview record
@@ -96,7 +97,8 @@ export function saveCodingInterview(
   evaluation: CodingEvaluationResult,
   code: string,
   language: string,
-  transcript?: string
+  transcript?: string,
+  conversationHistory?: { role: "interviewer" | "candidate"; content: string }[]
 ): void {
   const data = getStorage();
 
@@ -108,6 +110,7 @@ export function saveCodingInterview(
     code,
     language,
     transcript,
+    conversationHistory,
     timestamp: Date.now(),
   };
 
@@ -147,9 +150,10 @@ export function saveInterview(
   evaluation: CodingEvaluationResult,
   code: string,
   language: string,
-  transcript?: string
+  transcript?: string,
+  conversationHistory?: { role: "interviewer" | "candidate"; content: string }[]
 ): void {
-  saveCodingInterview(questionId, evaluation, code, language, transcript);
+  saveCodingInterview(questionId, evaluation, code, language, transcript, conversationHistory);
 }
 
 export function getInterview(questionId: string): InterviewRecord | null {

@@ -124,7 +124,6 @@ export default async function Home() {
         <section className="hero">
           <div className="container hero-grid">
             <div className="hero-copy">
-              <p className="eyebrow">For Software Engineers</p>
               <h1>
                 Ace your FAANG coding interview.
               </h1>

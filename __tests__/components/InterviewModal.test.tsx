@@ -105,13 +105,14 @@ describe("InterviewModal Business Logic", () => {
 
   describe("Evaluation Response Processing", () => {
     const validEvaluation: CodingEvaluationResult = {
-      overallScore: 8,
+      overallScore: 4,
+      verdict: "Strong Pass",
       breakdown: {
-        correctness: 9,
-        timeComplexity: 8,
-        spaceComplexity: 7,
-        codeQuality: 8,
-        edgeCases: 8,
+        correctness: 4.5,
+        timeComplexity: 4,
+        spaceComplexity: 3.5,
+        codeQuality: 4,
+        problemSolving: 4,
       },
       strengths: ["Efficient approach", "Clean code"],
       improvements: ["Add comments", "Handle edge cases"],
@@ -119,6 +120,7 @@ describe("InterviewModal Business Logic", () => {
       complexityAnalysis: {
         time: "O(n)",
         space: "O(n)",
+        isOptimal: true,
         explanation: "Single pass with hash map",
       },
     };
@@ -128,12 +130,12 @@ describe("InterviewModal Business Logic", () => {
     });
 
     it("should extract overall score", () => {
-      expect(validEvaluation.overallScore).toBe(8);
+      expect(validEvaluation.overallScore).toBe(4);
     });
 
     it("should extract breakdown scores", () => {
-      expect(validEvaluation.breakdown.correctness).toBe(9);
-      expect(validEvaluation.breakdown.timeComplexity).toBe(8);
+      expect(validEvaluation.breakdown.correctness).toBe(4.5);
+      expect(validEvaluation.breakdown.timeComplexity).toBe(4);
     });
 
     it("should have strengths and improvements", () => {

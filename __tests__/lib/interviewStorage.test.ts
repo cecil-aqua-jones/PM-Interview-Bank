@@ -8,6 +8,8 @@
 import {
   saveInterview,
   getInterview,
+  getCodingInterview,
+  getBehavioralInterview,
   clearInterview,
   getAllInterviews,
   getInterviewScore,
@@ -410,6 +412,163 @@ describe("Interview Storage", () => {
       expect(result?.evaluation.breakdown.spaceComplexity).toBe(3.5);
       expect(result?.evaluation.breakdown.codeQuality).toBe(4.0);
       expect(result?.evaluation.breakdown.problemSolving).toBe(4.0);
+    });
+  });
+
+  describe("getCodingInterview (Type-Safe Retrieval)", () => {
+    it("should return coding interview record with correct type", () => {
+      const questionId = "q-coding-typed";
+      saveInterview(questionId, mockCodingEvaluation, mockCode, mockLanguage);
+
+      const result = getCodingInterview(questionId);
+
+      expect(result).not.toBeNull();
+      expect(result?.type).toBe("coding");
+      expect(result?.code).toBe(mockCode);
+      expect(result?.language).toBe(mockLanguage);
+    });
+
+    it("should return null for non-existent question", () => {
+      const result = getCodingInterview("non-existent-question");
+      expect(result).toBeNull();
+    });
+
+    it("should handle legacy records without type field", () => {
+      // Simulate legacy record without type field
+      const legacyRecord = {
+        questionId: "q-legacy",
+        score: 4.0,
+        evaluation: mockCodingEvaluation,
+        code: "def legacy(): pass",
+        language: "python",
+        timestamp: Date.now(),
+        // Note: no 'type' field
+      };
+
+      const data = { "q-legacy": legacyRecord };
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(data));
+
+      const result = getCodingInterview("q-legacy");
+
+      expect(result).not.toBeNull();
+      expect(result?.type).toBe("coding");
+      expect(result?.code).toBe("def legacy(): pass");
+    });
+
+    it("should return null for behavioral interview records when asking for coding", () => {
+      const behavioralRecord = {
+        "q-behavioral": {
+          type: "behavioral",
+          questionId: "q-behavioral",
+          score: 4.0,
+          evaluation: { overallScore: 4.0 },
+          transcript: "Interview transcript",
+          timestamp: Date.now(),
+        }
+      };
+
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(behavioralRecord));
+
+      const result = getCodingInterview("q-behavioral");
+      expect(result).toBeNull();
+    });
+
+    it("should preserve all coding-specific fields", () => {
+      const questionId = "q-full-coding";
+      const transcript = "User explained their approach";
+      
+      saveInterview(questionId, mockCodingEvaluation, mockCode, mockLanguage, transcript);
+
+      const result = getCodingInterview(questionId);
+
+      expect(result?.code).toBe(mockCode);
+      expect(result?.language).toBe(mockLanguage);
+      expect(result?.transcript).toBe(transcript);
+      expect(result?.evaluation.overallScore).toBe(4.2);
+      expect(result?.evaluation.verdict).toBe("Pass");
+    });
+  });
+
+  describe("getBehavioralInterview", () => {
+    it("should return behavioral interview record", () => {
+      const behavioralData = {
+        "q-behavior": {
+          type: "behavioral",
+          questionId: "q-behavior",
+          score: 4.5,
+          evaluation: {
+            overallScore: 4.5,
+            overallFeedback: "Strong communication",
+          },
+          transcript: "Behavioral interview transcript",
+          conversationHistory: [
+            { role: "interviewer", content: "Tell me about a time..." },
+            { role: "candidate", content: "In my previous role..." }
+          ],
+          timestamp: Date.now(),
+        }
+      };
+
+      localStorageMock.getItem.mockReturnValueOnce(JSON.stringify(behavioralData));
+
+      const result = getBehavioralInterview("q-behavior");
+
+      expect(result).not.toBeNull();
+      expect(result?.type).toBe("behavioral");
+      expect(result?.conversationHistory).toHaveLength(2);
+    });
+
+    it("should return null for coding interview records", () => {
+      const questionId = "q-coding-only";
+      saveInterview(questionId, mockCodingEvaluation, mockCode, mockLanguage);
+
+      const result = getBehavioralInterview(questionId);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("Interview Type Filtering", () => {
+    it("should correctly identify interview types", () => {
+      const mixedData = {
+        "q-code-1": {
+          type: "coding",
+          questionId: "q-code-1",
+          score: 4.0,
+          evaluation: mockCodingEvaluation,
+          code: "# code 1",
+          language: "python",
+          timestamp: Date.now(),
+        },
+        "q-behavior-1": {
+          type: "behavioral",
+          questionId: "q-behavior-1",
+          score: 3.5,
+          evaluation: { overallScore: 3.5 },
+          transcript: "transcript",
+          timestamp: Date.now(),
+        },
+        "q-code-2": {
+          type: "coding",
+          questionId: "q-code-2",
+          score: 4.5,
+          evaluation: mockCodingEvaluation,
+          code: "# code 2",
+          language: "javascript",
+          timestamp: Date.now(),
+        },
+      };
+
+      localStorageMock.getItem.mockReturnValue(JSON.stringify(mixedData));
+
+      // getCodingInterview should only return coding types
+      expect(getCodingInterview("q-code-1")).not.toBeNull();
+      expect(getCodingInterview("q-behavior-1")).toBeNull();
+      expect(getCodingInterview("q-code-2")).not.toBeNull();
+
+      // getBehavioralInterview should only return behavioral types
+      expect(getBehavioralInterview("q-code-1")).toBeNull();
+      expect(getBehavioralInterview("q-behavior-1")).not.toBeNull();
+      expect(getBehavioralInterview("q-code-2")).toBeNull();
     });
   });
 });

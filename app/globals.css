@@ -131,11 +131,25 @@ a {
 }
 
 .brand-name {
-  font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 18px;
-  font-weight: 400;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.brand-primary {
+  font-family: var(--font-playfair), "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: -0.02em;
+}
+
+.brand-sub {
+  font-family: var(--font-code), monospace;
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--graphite);
+  letter-spacing: 0;
 }
 
 .nav-links {

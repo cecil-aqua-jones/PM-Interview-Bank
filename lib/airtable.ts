@@ -134,9 +134,11 @@ const toQuestion = (record: any): Question => {
     difficultyLabel = String(aiDifficulty.value);
   } else if (fields.Difficulty) {
     difficultyLabel = fields.Difficulty;
-  } else if (fields.Frequency) {
+  } else if (fields.Frequency !== undefined || fields.Freq !== undefined) {
     // Map frequency to difficulty: 1-3 = Easy, 4-6 = Medium, 7+ = Hard
-    const freq = Number(fields.Frequency);
+    // Support both "Frequency" and "Freq" field names
+    // Use !== undefined to handle frequency value of 0 correctly
+    const freq = Number(fields.Frequency ?? fields.Freq);
     if (freq >= 7) difficultyLabel = "Hard";
     else if (freq >= 4) difficultyLabel = "Medium";
     else difficultyLabel = "Easy";
@@ -148,7 +150,7 @@ const toQuestion = (record: any): Question => {
     prompt: fields.Content ?? fields.Description ?? fields.Question ?? "",
     tags,
     difficultyLabel,
-    difficultyScore: fields.Frequency ? Number(fields.Frequency) : undefined,
+    difficultyScore: (fields.Frequency !== undefined || fields.Freq !== undefined) ? Number(fields.Frequency ?? fields.Freq) : undefined,
     companySlug: fields.Company ? toSlug(fields.Company) : undefined,
     companyName: fields.Company,
     lastVerified: fields["Last Reported"] ?? fields["Last Updated"],

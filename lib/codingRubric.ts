@@ -216,6 +216,7 @@ function getVerdict(score: number): CodingEvaluationResult["verdict"] {
 
 /**
  * Builds the FAANG-level evaluation prompt for coding interviews
+ * Now includes conversation history to factor in the candidate's thinking process
  */
 export const buildCodingEvaluationPrompt = (
   question: string,
@@ -223,7 +224,8 @@ export const buildCodingEvaluationPrompt = (
   language: string,
   transcript: string,
   difficulty?: string,
-  expectedComplexity?: { time?: string; space?: string }
+  expectedComplexity?: { time?: string; space?: string },
+  conversationHistory?: { role: "interviewer" | "candidate"; content: string }[]
 ): string => {
   const rubricText = CODING_RUBRIC_CRITERIA.map((criterion) => {
     const levelsText = criterion.levels
@@ -239,6 +241,33 @@ export const buildCodingEvaluationPrompt = (
     ? `\nExpected optimal: Time ${expectedComplexity.time || "N/A"}, Space ${expectedComplexity.space || "N/A"}`
     : "";
 
+  // Build conversation history section
+  let conversationSection = "";
+  if (conversationHistory && conversationHistory.length > 0) {
+    const historyText = conversationHistory
+      .map(turn => `${turn.role === "interviewer" ? "Interviewer" : "Candidate"}: ${turn.content}`)
+      .join("\n");
+    conversationSection = `
+## CONVERSATION DURING INTERVIEW
+The following is the conversation between the interviewer and candidate during the coding session.
+This reveals the candidate's thought process, questions asked, and how they responded to guidance.
+
+${historyText}
+
+**Important:** Factor this conversation into the Problem-Solving score. Credit candidates who:
+- Asked good clarifying questions
+- Thought through their approach before coding
+- Responded well to hints/guidance
+- Explained their reasoning clearly
+- Handled follow-up questions well
+
+Penalize candidates who:
+- Couldn't explain their own code
+- Ignored interviewer guidance
+- Gave up too easily
+- Showed no systematic thinking`;
+  }
+
   return `You are a FAANG coding interviewer (Google/Meta/Amazon level) evaluating a candidate's solution.
 
 ## PROBLEM
@@ -250,8 +279,9 @@ ${difficultyNote}${complexityNote}
 ${code}
 \`\`\`
 
-## CANDIDATE'S EXPLANATION (transcribed from audio)
-${transcript || "No verbal explanation provided"}
+## CANDIDATE'S INITIAL EXPLANATION (transcribed from audio)
+${transcript || "No initial verbal explanation provided"}
+${conversationSection}
 
 ## EVALUATION RUBRIC (Score 1-5, half-points allowed)
 ${rubricText}
@@ -271,6 +301,11 @@ Be strict but fair. A 3.0 is "meets bar" not good. A 5.0 is rare - reserved for 
 Verify the solution's correctness mentally. Check edge cases.
 Consider difficulty when scoring - harder problems get slight leniency.
 
+**CRITICAL: The Problem-Solving score MUST reflect the conversation history.**
+- A candidate with mediocre code but excellent thinking process shown in conversation deserves higher Problem-Solving marks.
+- A candidate who asked great clarifying questions and handled follow-ups well should be credited.
+- A candidate who couldn't explain their code or ignored guidance should be penalized.
+
 Return JSON with this structure:
 {
   "overallScore": <number 1-5>,
@@ -280,7 +315,7 @@ Return JSON with this structure:
     "timeComplexity": <1-5>,
     "spaceComplexity": <1-5>,
     "codeQuality": <1-5>,
-    "problemSolving": <1-5>
+    "problemSolving": <1-5>  // Factor in conversation quality!
   },
   "complexityAnalysis": {
     "time": "<e.g., O(n log n)>",
@@ -292,7 +327,7 @@ Return JSON with this structure:
   "improvements": ["<actionable improvement>", "<improvement 2>", "<improvement 3>"],
   "redFlagsIdentified": ["<red flag if any>"],
   "suggestedOptimization": "<how to improve if suboptimal, or null>",
-  "overallFeedback": "<2-3 sentence summary>",
+  "overallFeedback": "<2-3 sentence summary that references conversation quality>",
   "nextFollowUp": "<follow-up question to probe understanding>"
 }`;
 };
@@ -396,12 +431,18 @@ export const validateCodingEvaluation = (result: unknown): result is CodingEvalu
   // Validate breakdown object
   if (!r.breakdown || typeof r.breakdown !== "object") return false;
   const breakdown = r.breakdown as Record<string, unknown>;
+  
+  // Helper to validate individual breakdown scores are numbers in 1-5 range
+  const isValidBreakdownScore = (score: unknown): boolean => {
+    return typeof score === "number" && score >= 1 && score <= 5;
+  };
+  
   if (
-    typeof breakdown.correctness !== "number" ||
-    typeof breakdown.timeComplexity !== "number" ||
-    typeof breakdown.spaceComplexity !== "number" ||
-    typeof breakdown.codeQuality !== "number" ||
-    typeof breakdown.problemSolving !== "number"
+    !isValidBreakdownScore(breakdown.correctness) ||
+    !isValidBreakdownScore(breakdown.timeComplexity) ||
+    !isValidBreakdownScore(breakdown.spaceComplexity) ||
+    !isValidBreakdownScore(breakdown.codeQuality) ||
+    !isValidBreakdownScore(breakdown.problemSolving)
   ) {
     return false;
   }
@@ -412,6 +453,7 @@ export const validateCodingEvaluation = (result: unknown): result is CodingEvalu
   if (
     typeof complexity.time !== "string" ||
     typeof complexity.space !== "string" ||
+    typeof complexity.isOptimal !== "boolean" ||
     typeof complexity.explanation !== "string"
   ) {
     return false;

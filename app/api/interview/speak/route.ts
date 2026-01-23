@@ -128,33 +128,54 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    let { question, category, forceFullRead } = body;
+    let { 
+      question,        // DEPRECATED: Combined question (for backwards compat)
+      questionTitle,   // The question title (e.g., "Answer Caching Strategy")
+      questionContent, // The detailed problem description
+      category, 
+      forceFullRead 
+    } = body;
 
-    if (!question) {
+    // Support both new format (title + content) and old format (combined question)
+    if (!questionTitle && !question) {
       return NextResponse.json(
         { error: "Question is required" },
         { status: 400 }
       );
     }
+    
+    // If using old format, use it directly (questionTitle stays undefined)
+    if (!questionTitle && question) {
+      questionContent = question;
+    }
 
-    // Sanitize inputs
-    question = sanitizeForLLM(question);
+    // Sanitize inputs - preserve undefined for questionTitle to indicate "not provided"
+    if (questionTitle) {
+      questionTitle = sanitizeForLLM(questionTitle);
+    }
+    questionContent = questionContent ? sanitizeForLLM(questionContent) : "";
     category = typeof category === "string" ? sanitizeForLLM(category) : undefined;
 
     // Validate length (allow longer questions, we'll summarize them)
-    const questionValidation = validateLength(question, 10, 5000);
-    if (!questionValidation.valid) {
-      return NextResponse.json({ error: questionValidation.error }, { status: 400 });
+    const contentValidation = validateLength(questionContent, 10, 5000);
+    if (!contentValidation.valid) {
+      return NextResponse.json({ error: contentValidation.error }, { status: 400 });
     }
 
     // Determine if this is a long question that needs summarization
-    const isLongQuestion = question.length > LONG_QUESTION_THRESHOLD && !forceFullRead;
+    const isLongQuestion = questionContent.length > LONG_QUESTION_THRESHOLD && !forceFullRead;
     
-    let spokenQuestion = question;
+    let spokenQuestion = questionContent;
     
     if (isLongQuestion) {
-      // Summarize long questions using GPT
-      spokenQuestion = await summarizeQuestion(question, category);
+      // Summarize long questions using GPT, including title for context
+      const fullContext = questionTitle 
+        ? `Topic: "${questionTitle}"\n\nInstructions: ${questionContent}`
+        : questionContent;
+      spokenQuestion = await summarizeQuestion(fullContext, category);
+    } else if (questionTitle) {
+      // For short questions with a title, introduce the topic
+      spokenQuestion = `This problem is called "${questionTitle}". ${questionContent}`;
     }
 
     // Build the natural interview prompt

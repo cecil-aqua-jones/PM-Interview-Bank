@@ -18,15 +18,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className={styles.topNavInner}>
           <Link href="/dashboard" className={styles.brand}>
             <AnimatedMascot size={32} />
-            <span className={styles.brandName}>Apex Interviewer</span>
+            <span className={styles.brandName}>
+              <span className={styles.brandPrimary}>APEX</span>
+              <span className={styles.brandSub}>|</span>
+              <span className={styles.brandSub}>&lt;interviewer/&gt;</span>
+            </span>
           </Link>
 
           <div className={styles.navLinks}>
             <Link
               href="/dashboard"
-              className={`${styles.navLink} ${
-                isActive("/dashboard") ? styles.navLinkActive : ""
-              }`}
+              className={`${styles.navLink} ${isActive("/dashboard") ? styles.navLinkActive : ""
+                }`}
             >
               Companies
             </Link>
@@ -49,7 +52,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className={styles.mobileNavHeader}>
             <Link href="/dashboard" className={styles.brand} onClick={() => setMobileMenuOpen(false)}>
               <AnimatedMascot size={32} />
-              <span className={styles.brandName}>Apex Interviewer</span>
+              <span className={styles.brandName}>
+                <span className={styles.brandPrimary}>APEX</span>
+                <span className={styles.brandSub}>|</span>
+                <span className={styles.brandSub}>&lt;interviewer/&gt;</span>
+              </span>
             </Link>
             <button
               className={styles.mobileMenuBtn}
