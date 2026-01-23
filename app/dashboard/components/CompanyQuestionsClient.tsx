@@ -9,6 +9,7 @@ import { Question, getQuestionType, QuestionType } from "@/lib/types";
 import { getBrandIcon } from "@/lib/brandfetch";
 import { getInterview, InterviewRecord } from "@/lib/interviewStorage";
 import { useTTSPreloader } from "@/lib/hooks/useTTSPreloader";
+import { useQuestionEnhancer } from "@/lib/hooks/useQuestionEnhancer";
 import InterviewPanel from "./InterviewPanel";
 import BehavioralInterviewPanel from "./BehavioralInterviewPanel";
 import FormattedContent from "./FormattedContent";
@@ -53,6 +54,9 @@ export default function CompanyQuestionsClient({
 
   // TTS preloader for instant audio playback
   const { preload, preloadImmediate, preloadBatch, preloadAdjacent, getPreloadedAudio, isPreloaded, isLoading, getProgress, clearCache } = useTTSPreloader();
+  
+  // AI-powered question content enhancer for incomplete/poorly formatted questions
+  const { enhanceMultiple, getEnhancedContent } = useQuestionEnhancer();
 
   // Load interview records from localStorage on mount
   useEffect(() => {
@@ -161,6 +165,38 @@ export default function CompanyQuestionsClient({
   const selectedQuestion = filteredQuestions[selectedIndex] ?? null;
   const selectedRecord = selectedQuestion ? interviewRecords[selectedQuestion.id] : null;
   const selectedQuestionType = selectedQuestion ? getQuestionType(selectedQuestion) : "coding";
+  
+  // Batch enhance questions that need AI improvement on page load
+  // Process in background without blocking UI
+  useEffect(() => {
+    const questionsNeedingEnhancement = questions.filter(q => q.needsAIEnhancement);
+    if (questionsNeedingEnhancement.length > 0) {
+      // Run in background - don't await
+      enhanceMultiple(questionsNeedingEnhancement);
+    }
+  }, [questions, enhanceMultiple]);
+  
+  // Get enhanced content for selected question (or original if not enhanced)
+  const displayQuestion = useMemo(() => {
+    if (!selectedQuestion) return null;
+    const enhanced = getEnhancedContent(selectedQuestion);
+    return {
+      ...selectedQuestion,
+      title: enhanced.title,
+      prompt: enhanced.prompt,
+    };
+  }, [selectedQuestion, getEnhancedContent]);
+
+  // Get enhanced content for interview question (used when starting interview)
+  const enhancedInterviewQuestion = useMemo(() => {
+    if (!interviewQuestion) return null;
+    const enhanced = getEnhancedContent(interviewQuestion);
+    return {
+      ...interviewQuestion,
+      title: enhanced.title,
+      prompt: enhanced.prompt,
+    };
+  }, [interviewQuestion, getEnhancedContent]);
 
   const goToPrev = () => {
     if (selectedIndex > 0) setSelectedIndex(selectedIndex - 1);
@@ -368,7 +404,7 @@ export default function CompanyQuestionsClient({
 
                 {/* Title */}
                 <h2 className={styles.questionCardTitle}>
-                  {selectedQuestion.title}
+                  {displayQuestion?.title || selectedQuestion.title}
                 </h2>
 
                 <div className={styles.questionCardTags}>
@@ -390,10 +426,10 @@ export default function CompanyQuestionsClient({
               </div>
 
               {/* Problem Description */}
-              {selectedQuestion.prompt && (
+              {(displayQuestion?.prompt || selectedQuestion.prompt) && (
                 <div className={styles.questionContent}>
                   <h3 className={styles.questionContentTitle}>Problem Description</h3>
-                  <FormattedContent content={selectedQuestion.prompt} />
+                  <FormattedContent content={displayQuestion?.prompt || selectedQuestion.prompt} />
                 </div>
               )}
 
@@ -594,10 +630,10 @@ export default function CompanyQuestionsClient({
 
       {/* Interview Panel - Elegant slide-out */}
       {/* coding uses InterviewPanel, behavioral uses BehavioralInterviewPanel, system_design shows coming soon */}
-      {interviewQuestion && (
+      {interviewQuestion && enhancedInterviewQuestion && (
         getQuestionType(interviewQuestion) === "coding" ? (
           <InterviewPanel
-            question={interviewQuestion}
+            question={enhancedInterviewQuestion}
             preloadedAudioUrl={getPreloadedAudio(interviewQuestion.id)?.audioUrl}
             onClose={() => {
               setIsInterviewClosing(true);
@@ -662,7 +698,7 @@ export default function CompanyQuestionsClient({
                 System Design Interview
               </h3>
               <p style={{ fontSize: '15px', color: 'var(--graphite)', lineHeight: 1.6, maxWidth: '400px', marginBottom: '8px' }}>
-                <strong>{interviewQuestion.title}</strong>
+                <strong>{enhancedInterviewQuestion.title}</strong>
               </p>
               <p style={{ fontSize: '14px', color: 'var(--graphite)', lineHeight: 1.6, maxWidth: '400px', marginBottom: '24px' }}>
                 System design interviews with AI-powered whiteboarding and architecture feedback are coming soon.
@@ -674,7 +710,7 @@ export default function CompanyQuestionsClient({
           </div>
         ) : (
           <BehavioralInterviewPanel
-            question={interviewQuestion}
+            question={enhancedInterviewQuestion}
             preloadedAudioUrl={getPreloadedAudio(interviewQuestion.id)?.audioUrl}
             onClose={() => {
               setIsInterviewClosing(true);

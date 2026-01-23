@@ -202,6 +202,9 @@ export default function InterviewPanel({
   const audioQueueRef = useRef<AudioQueueItem[]>([]);
   const isPlayingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const audioAbortControllerRef = useRef<AbortController | null>(null); // For TTS fetch requests
+  const isClosingRef = useRef(false); // Track if panel is closing to prevent new audio
+  const isInitialMountRef = useRef(true); // Track initial mount to prevent animation conflict
   const sessionIdRef = useRef<string>(Date.now().toString());
   const conversationMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const conversationChunksRef = useRef<Blob[]>([]);
@@ -216,6 +219,12 @@ export default function InterviewPanel({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const stopCurrentAudio = useCallback(() => {
+    // Abort any in-flight TTS fetch requests
+    if (audioAbortControllerRef.current) {
+      audioAbortControllerRef.current.abort();
+      audioAbortControllerRef.current = null;
+    }
+    // Stop and clean up current audio element
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -231,8 +240,8 @@ export default function InterviewPanel({
   }, [stopCurrentAudio]);
 
   const processNextInQueue = useCallback(async () => {
-    // If already playing or queue empty, do nothing
-    if (isPlayingRef.current || audioQueueRef.current.length === 0) {
+    // If already playing, queue empty, or panel is closing, do nothing
+    if (isPlayingRef.current || audioQueueRef.current.length === 0 || isClosingRef.current) {
       return;
     }
 
@@ -273,16 +282,38 @@ export default function InterviewPanel({
           requestBody = { question: item.data };
         }
 
+        // Create abort controller for this fetch
+        audioAbortControllerRef.current = new AbortController();
+
         const response = await fetch("/api/interview/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
+          signal: audioAbortControllerRef.current.signal,
         });
+        
+        // Check if panel closed while fetching
+        if (isClosingRef.current) {
+          isPlayingRef.current = false;
+          setIsSpeaking(false);
+          return;
+        }
+        
         if (!response.ok) {
           throw new Error("TTS failed");
         }
         const blob = await response.blob();
         audioUrl = URL.createObjectURL(blob);
+      }
+
+      // Final check before playing - ensure panel is still open
+      if (isClosingRef.current) {
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+        if (item.source !== "url") {
+          URL.revokeObjectURL(audioUrl);
+        }
+        return;
       }
 
       const audio = new Audio(audioUrl);
@@ -301,6 +332,10 @@ export default function InterviewPanel({
         isPlayingRef.current = false;
         setIsSpeaking(false);
         setSpeakingProgress(0);
+        
+        // Don't continue if panel is closing
+        if (isClosingRef.current) return;
+        
         item.onComplete?.();
 
         // Process next item in queue, or auto-listen if queue is empty
@@ -318,6 +353,10 @@ export default function InterviewPanel({
         }
         isPlayingRef.current = false;
         setIsSpeaking(false);
+        
+        // Don't continue if panel is closing
+        if (isClosingRef.current) return;
+        
         item.onComplete?.();
 
         if (audioQueueRef.current.length > 0) {
@@ -335,9 +374,19 @@ export default function InterviewPanel({
 
       await audio.play();
     } catch (err) {
+      // Ignore abort errors - they're expected when closing
+      if (err instanceof Error && err.name === "AbortError") {
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+        return;
+      }
       console.error("[Audio Queue] Error:", err);
       isPlayingRef.current = false;
       setIsSpeaking(false);
+      
+      // Don't continue if panel is closing
+      if (isClosingRef.current) return;
+      
       item.onComplete?.();
       processNextInQueue();
     }
@@ -374,6 +423,12 @@ export default function InterviewPanel({
    * Uses refs to avoid stale closure issues in setTimeout
    */
   const triggerAutoListen = useCallback(() => {
+    // Don't auto-listen if panel is closing
+    if (isClosingRef.current) {
+      console.log("[Auto-Listen] Panel closing, skipping");
+      return;
+    }
+    
     // Only auto-listen in conversational states (use refs for current values)
     if (!autoListenEnabledRef.current) {
       console.log("[Auto-Listen] Disabled, skipping");
@@ -401,7 +456,9 @@ export default function InterviewPanel({
 
     // Delay before starting to listen (800ms per design spec for natural conversation flow)
     autoListenDelayRef.current = setTimeout(() => {
-      // Double-check state hasn't changed using refs
+      // Double-check state hasn't changed using refs (including closing state)
+      if (isClosingRef.current) return;
+      
       const stillIdle = conversationRecordingStateRef.current === "idle";
       const notPlaying = !isPlayingRef.current;
       const queueEmpty = audioQueueRef.current.length === 0;
@@ -489,12 +546,25 @@ export default function InterviewPanel({
     };
   }, []);
 
-  // Animate panel in
+  // Animate panel in on initial mount
   useEffect(() => {
     requestAnimationFrame(() => {
       setIsVisible(true);
     });
   }, []);
+
+  // Reset closing state when question changes (navigation completed)
+  // Skip on initial mount to avoid conflicting with the animation effect above
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+    // Only reset on subsequent question changes (navigation)
+    isClosingRef.current = false;
+    setIsClosing(false);
+    setIsVisible(true);
+  }, [question.id]);
 
   // Play initial question audio (only once)
   useEffect(() => {
@@ -582,9 +652,26 @@ export default function InterviewPanel({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleClose = useCallback(() => {
+    // IMMEDIATELY mark as closing to prevent any new audio/actions
+    isClosingRef.current = true;
+    
     setIsClosing(true);
     setIsVisible(false);
+    
+    // Stop all audio immediately - this aborts any in-flight TTS fetches
     clearAudioQueue();
+
+    // Clear any pending auto-listen timeout
+    if (autoListenDelayRef.current) {
+      clearTimeout(autoListenDelayRef.current);
+      autoListenDelayRef.current = null;
+    }
+
+    // Abort any pending evaluation requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
 
     // Clean up media resources to release microphone
     clearContinuationTimeout();
@@ -653,8 +740,17 @@ export default function InterviewPanel({
   }, [clearAudioQueue, clearContinuationTimeout, cleanupAudioAnalysis, question.language, question.starterCode]);
 
   const handleNavigation = useCallback((direction: "next" | "prev") => {
+    // Mark as closing to prevent any pending callbacks from firing
+    isClosingRef.current = true;
+    
     clearAudioQueue();
     initialQuestionPlayedRef.current = false;
+
+    // Clear any pending auto-listen timeout (same as handleClose)
+    if (autoListenDelayRef.current) {
+      clearTimeout(autoListenDelayRef.current);
+      autoListenDelayRef.current = null;
+    }
 
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;

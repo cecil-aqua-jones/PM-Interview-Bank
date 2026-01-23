@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { mockCompanies, mockQuestions } from "./mockData";
 import { Company, Question, CodeExample } from "./types";
+import { quickSanitize, isIncomplete, hasUnformattedCode, formatForDisplay } from "./questionSanitizer";
 
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
@@ -144,10 +145,21 @@ const toQuestion = (record: any): Question => {
     else difficultyLabel = "Easy";
   }
 
+  // Get raw content
+  const rawTitle = fields.Question ?? fields.Title ?? "Untitled";
+  const rawPrompt = fields.Content ?? fields.Description ?? fields.Question ?? "";
+  
+  // Apply quick sanitization to clean up formatting
+  const sanitizedPrompt = quickSanitize(rawPrompt);
+  const sanitizedTitle = rawTitle.trim();
+  
+  // Check if this question needs AI enhancement (incomplete or has unformatted code)
+  const needsAIEnhancement = isIncomplete(rawPrompt) || hasUnformattedCode(sanitizedPrompt);
+  
   return {
     id: record.id,
-    title: fields.Question ?? fields.Title ?? "Untitled",
-    prompt: fields.Content ?? fields.Description ?? fields.Question ?? "",
+    title: sanitizedTitle,
+    prompt: sanitizedPrompt,
     tags,
     difficultyLabel,
     difficultyScore: (fields.Frequency !== undefined || fields.Freq !== undefined) ? Number(fields.Frequency ?? fields.Freq) : undefined,
@@ -163,7 +175,9 @@ const toQuestion = (record: any): Question => {
     expectedComplexity: (fields.TimeComplexity || fields["Time Complexity"] || fields.SpaceComplexity || fields["Space Complexity"]) ? {
       time: fields.TimeComplexity ?? fields["Time Complexity"],
       space: fields.SpaceComplexity ?? fields["Space Complexity"]
-    } : undefined
+    } : undefined,
+    // Flag for questions that may need AI enhancement
+    needsAIEnhancement,
   };
 };
 

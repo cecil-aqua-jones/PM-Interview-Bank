@@ -31,6 +31,9 @@ export type Question = {
     time?: string;
     space?: string;
   };
+  // Flag indicating this question may have incomplete/poorly formatted content
+  // and could benefit from AI enhancement
+  needsAIEnhancement?: boolean;
 };
 
 // Question type classification - 3 distinct interview formats
@@ -123,46 +126,23 @@ const CODING_TAGS = [
 
 /**
  * Determines the question type based on tags and content
- * Priority: System Design > Coding > Behavioral > Default (coding)
+ * Priority: Coding (if strong indicators) > System Design > Behavioral > Default (coding)
+ * 
+ * NOTE: We check coding FIRST if there are strong coding indicators, because
+ * questions like "Design a HashMap" or "Design a LRU Cache" are coding problems,
+ * not system design interviews.
  */
 export function getQuestionType(question: Question): QuestionType {
   const tagsLower = question.tags.map(t => t.toLowerCase());
   const promptLower = question.prompt.toLowerCase();
   const titleLower = question.title.toLowerCase();
   
-  // 1. Check for SYSTEM DESIGN first (highest priority)
-  const hasSystemDesignTag = tagsLower.some(tag => 
-    SYSTEM_DESIGN_TAGS.some(sdTag => tag.includes(sdTag))
-  );
-  
-  const hasSystemDesignIndicators = 
-    titleLower.includes("design a") ||
-    titleLower.includes("design an") ||
-    titleLower.includes("system design") ||
-    promptLower.includes("design a system") ||
-    promptLower.includes("how would you design") ||
-    promptLower.includes("architect a") ||
-    promptLower.includes("scalability") ||
-    promptLower.includes("load balancing") ||
-    promptLower.includes("distributed") ||
-    promptLower.includes("microservice") ||
-    promptLower.includes("api gateway") ||
-    promptLower.includes("database schema for") ||
-    promptLower.includes("millions of users") ||
-    promptLower.includes("high availability") ||
-    promptLower.includes("fault tolerance");
-  
-  // System design takes precedence if detected
-  if (hasSystemDesignTag || hasSystemDesignIndicators) {
-    return "system_design";
-  }
-  
-  // 2. Check for CODING indicators
+  // Check for CODING indicators
   const hasCodingTag = tagsLower.some(tag => 
     CODING_TAGS.some(codingTag => tag.includes(codingTag))
   );
   
-  const hasCodeIndicators = 
+  const hasStrongCodeIndicators = 
     promptLower.includes("write a function") ||
     promptLower.includes("implement a function") ||
     promptLower.includes("return the") ||
@@ -182,6 +162,51 @@ export function getQuestionType(question: Question): QuestionType {
     question.examples !== undefined ||
     question.constraints !== undefined;
   
+  // 1. If there are STRONG coding indicators, it's definitely coding
+  // This prevents "Design a HashMap" from being classified as system design
+  if (hasCodingTag || hasStrongCodeIndicators) {
+    return "coding";
+  }
+  
+  // 2. Check for SYSTEM DESIGN
+  const hasSystemDesignTag = tagsLower.some(tag => 
+    SYSTEM_DESIGN_TAGS.some(sdTag => tag.includes(sdTag))
+  );
+  
+  // System design indicators
+  // NOTE: We already filtered out coding problems above, so generic "Design a/an"
+  // patterns are now safe to include here. "Design a HashMap" already returned "coding"
+  // due to coding indicators, so "Design a Chat Application" will correctly be system design.
+  const hasSystemDesignIndicators = 
+    titleLower.includes("system design") ||
+    titleLower.includes("design a ") ||           // "Design a Chat Application" (space prevents "Design a")
+    titleLower.includes("design an ") ||          // "Design an Elevator System"
+    titleLower.includes("how would you design") || // "How would you design a URL shortener?"
+    promptLower.includes("design a system") ||
+    promptLower.includes("design a service") ||
+    promptLower.includes("design a platform") ||
+    promptLower.includes("design a distributed") ||
+    promptLower.includes("how would you design") ||
+    promptLower.includes("how would you architect") ||
+    promptLower.includes("architect a system") ||
+    promptLower.includes("architect a service") ||
+    promptLower.includes("load balancing") ||
+    promptLower.includes("microservice") ||
+    promptLower.includes("api gateway") ||
+    promptLower.includes("database schema for") ||
+    promptLower.includes("millions of users") ||
+    promptLower.includes("billions of") ||
+    promptLower.includes("high availability") ||
+    promptLower.includes("fault tolerance") ||
+    promptLower.includes("horizontal scaling") ||
+    promptLower.includes("vertical scaling") ||
+    promptLower.includes("cap theorem") ||
+    promptLower.includes("eventual consistency");
+  
+  if (hasSystemDesignTag || hasSystemDesignIndicators) {
+    return "system_design";
+  }
+  
   // 3. Check for BEHAVIORAL indicators
   const hasBehavioralTag = tagsLower.some(tag => 
     BEHAVIORAL_TAGS.some(behavioralTag => tag.includes(behavioralTag))
@@ -197,12 +222,6 @@ export function getQuestionType(question: Question): QuestionType {
     promptLower.includes("describe a situation") ||
     promptLower.includes("give an example of");
   
-  // Coding indicators take precedence if present
-  if (hasCodingTag || hasCodeIndicators) {
-    return "coding";
-  }
-  
-  // Then check behavioral
   if (hasBehavioralTag || hasBehavioralContent) {
     return "behavioral";
   }

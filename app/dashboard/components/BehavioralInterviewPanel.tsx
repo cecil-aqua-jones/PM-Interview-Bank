@@ -67,6 +67,8 @@ export default function BehavioralInterviewPanel({
   const abortControllerRef = useRef<AbortController | null>(null);
   const sessionIdRef = useRef<string>(Date.now().toString());
   const conversationEndRef = useRef<HTMLDivElement | null>(null);
+  const isClosingRef = useRef(false); // Track if panel is closing to prevent new audio
+  const isInitialMountRef = useRef(true); // Track initial mount to prevent animation conflict
 
   const {
     state: recorderState,
@@ -79,12 +81,25 @@ export default function BehavioralInterviewPanel({
     audioLevel,
   } = useAudioRecorder();
 
-  // Animate panel in
+  // Animate panel in on initial mount
   useEffect(() => {
     requestAnimationFrame(() => {
       setIsVisible(true);
     });
   }, []);
+
+  // Reset closing state when question changes (navigation completed)
+  // Skip on initial mount to avoid conflicting with the animation effect above
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+    // Only reset on subsequent question changes (navigation)
+    isClosingRef.current = false;
+    setIsClosing(false);
+    setIsVisible(true);
+  }, [question.id]);
 
   // Auto-scroll conversation
   useEffect(() => {
@@ -194,15 +209,21 @@ export default function BehavioralInterviewPanel({
   }, [question.id]);
 
   const handleClose = useCallback(() => {
+    // IMMEDIATELY mark as closing to prevent any new audio/actions
+    isClosingRef.current = true;
+    
     setIsClosing(true);
     setIsVisible(false);
 
+    // Stop all audio immediately
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;
     }
+    setIsSpeaking(false);
 
+    // Abort any pending requests
     abortControllerRef.current?.abort();
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;
@@ -214,15 +235,21 @@ export default function BehavioralInterviewPanel({
   }, [onClose]);
 
   const handleNavigation = useCallback((direction: "next" | "prev") => {
+    // IMMEDIATELY mark as closing to prevent any new audio/actions
+    isClosingRef.current = true;
+    
     setIsClosing(true);
     setIsVisible(false);
 
+    // Stop all audio immediately
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;
     }
+    setIsSpeaking(false);
 
+    // Abort any pending requests
     abortControllerRef.current?.abort();
     if (activeSessionId === sessionIdRef.current) {
       activeSessionId = null;
@@ -344,6 +371,9 @@ export default function BehavioralInterviewPanel({
   };
 
   const speakFeedback = async (eval_result: BehavioralEvaluationResult, conv: ConversationTurn[]) => {
+    // Don't speak if panel is closing
+    if (isClosingRef.current) return;
+    
     try {
       // Generate short verbal feedback
       const feedbackText = eval_result.suggestedFollowUp || 
@@ -355,6 +385,9 @@ export default function BehavioralInterviewPanel({
         body: JSON.stringify({ question: feedbackText }),
       });
 
+      // Check if panel closed while fetching
+      if (isClosingRef.current) return;
+
       if (!response.ok) {
         await generateFollowUp(conv);
         return;
@@ -362,6 +395,13 @@ export default function BehavioralInterviewPanel({
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
+      
+      // Final check before playing
+      if (isClosingRef.current) {
+        URL.revokeObjectURL(url);
+        return;
+      }
+      
       const audio = new Audio(url);
       audioRef.current = audio;
 
@@ -370,6 +410,8 @@ export default function BehavioralInterviewPanel({
       audio.addEventListener("ended", async () => {
         setIsSpeaking(false);
         URL.revokeObjectURL(url);
+        // Don't continue if closing
+        if (isClosingRef.current) return;
         await generateFollowUp(conv);
       });
 
@@ -383,11 +425,15 @@ export default function BehavioralInterviewPanel({
 
       await audio.play();
     } catch {
+      if (isClosingRef.current) return;
       await generateFollowUp(conv);
     }
   };
 
   const generateFollowUp = async (conv: ConversationTurn[]) => {
+    // Don't generate follow-up if panel is closing
+    if (isClosingRef.current) return;
+    
     if (followUpCount >= MAX_FOLLOWUPS) {
       setPanelState("feedback");
       return;
@@ -408,6 +454,9 @@ export default function BehavioralInterviewPanel({
         }),
       });
 
+      // Check if panel closed while fetching
+      if (isClosingRef.current) return;
+
       if (!response.ok) {
         setPanelState("feedback");
         return;
@@ -425,6 +474,9 @@ export default function BehavioralInterviewPanel({
       };
       setConversation([...conv, interviewerTurn]);
 
+      // Don't speak if panel is closing
+      if (isClosingRef.current) return;
+
       // Speak follow-up
       const ttsResponse = await fetch("/api/interview/speak", {
         method: "POST",
@@ -432,9 +484,19 @@ export default function BehavioralInterviewPanel({
         body: JSON.stringify({ question: followUpQuestion }),
       });
 
+      // Check if panel closed while fetching TTS
+      if (isClosingRef.current) return;
+
       if (ttsResponse.ok) {
         const blob = await ttsResponse.blob();
         const url = URL.createObjectURL(blob);
+        
+        // Final check before playing
+        if (isClosingRef.current) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        
         const audio = new Audio(url);
         audioRef.current = audio;
 

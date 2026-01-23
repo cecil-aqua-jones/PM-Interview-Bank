@@ -1,7 +1,7 @@
 {
-  "name": "Product Leaks",
-  "short_name": "Product Leaks",
-  "description": "PM Interview Questions for Top Tech Companies",
+  "name": "Apex Interviewer",
+  "short_name": "Apex",
+  "description": "FAANG Coding Interview Questions & AI Practice",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
