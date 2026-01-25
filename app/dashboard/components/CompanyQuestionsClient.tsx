@@ -46,7 +46,7 @@ export default function CompanyQuestionsClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
-  const [activeTags, setActiveTags] = useState<string[]>([]);
+  const [activeTypeFilter, setActiveTypeFilter] = useState<QuestionType | "all">("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [interviewQuestion, setInterviewQuestion] = useState<Question | null>(null);
@@ -88,6 +88,7 @@ export default function CompanyQuestionsClient({
   const filteredQuestions = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return questions.filter((q) => {
+      // Text search filter
       if (
         normalized &&
         !q.title.toLowerCase().includes(normalized) &&
@@ -95,13 +96,14 @@ export default function CompanyQuestionsClient({
       ) {
         return false;
       }
-      if (activeTags.length) {
-        const matchesTag = activeTags.some((tag) => q.tags.includes(tag));
-        if (!matchesTag) return false;
+      // Question type filter
+      if (activeTypeFilter !== "all") {
+        const qType = getQuestionType(q);
+        if (qType !== activeTypeFilter) return false;
       }
       return true;
     });
-  }, [questions, query, activeTags]);
+  }, [questions, query, activeTypeFilter]);
 
   // Aggressive preloading: load first 5 questions on mount
   useEffect(() => {
@@ -118,7 +120,7 @@ export default function CompanyQuestionsClient({
   // Reset selection when filters change
   useEffect(() => {
     setSelectedIndex(0);
-  }, [query, activeTags]);
+  }, [query, activeTypeFilter]);
 
   // Preload TTS when a question is selected (before user clicks start)
   // Also preload adjacent questions for smooth navigation
@@ -135,13 +137,12 @@ export default function CompanyQuestionsClient({
   // URL sync
   useEffect(() => {
     const paramQuery = searchParams.get("q") ?? "";
-    const paramTags = searchParams.get("tags");
+    const paramType = searchParams.get("type") as QuestionType | "all" | null;
     const paramIndex = searchParams.get("i");
 
     if (paramQuery !== query) setQuery(paramQuery);
-    if (paramTags) {
-      const parsed = paramTags.split(",").filter(Boolean);
-      if (parsed.join(",") !== activeTags.join(",")) setActiveTags(parsed);
+    if (paramType && paramType !== activeTypeFilter) {
+      setActiveTypeFilter(paramType);
     }
     if (paramIndex) {
       const idx = parseInt(paramIndex, 10);
@@ -153,7 +154,7 @@ export default function CompanyQuestionsClient({
   useEffect(() => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
-    if (activeTags.length) params.set("tags", activeTags.join(","));
+    if (activeTypeFilter !== "all") params.set("type", activeTypeFilter);
     if (selectedIndex > 0) params.set("i", String(selectedIndex));
 
     const next = params.toString();
@@ -161,7 +162,7 @@ export default function CompanyQuestionsClient({
     if (next !== current) {
       router.replace(`?${next}`, { scroll: false });
     }
-  }, [query, activeTags, selectedIndex, router, searchParams]);
+  }, [query, activeTypeFilter, selectedIndex, router, searchParams]);
 
   const selectedQuestion = filteredQuestions[selectedIndex] ?? null;
   const selectedRecord = selectedQuestion ? interviewRecords[selectedQuestion.id] : null;
@@ -209,16 +210,18 @@ export default function CompanyQuestionsClient({
     }
   };
 
-  const toggleTag = (tag: string) => {
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
-
   const clearFilters = () => {
     setQuery("");
-    setActiveTags([]);
+    setActiveTypeFilter("all");
   };
+  
+  // Question type filter options
+  const typeFilters: { id: QuestionType | "all"; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "behavioral", label: "Behavioral" },
+    { id: "coding", label: "Coding" },
+    { id: "system_design", label: "System Design" },
+  ];
 
   return (
     <>
@@ -281,21 +284,22 @@ export default function CompanyQuestionsClient({
           />
         </div>
 
-        <div className={styles.filterGroup}>
-          {tags.slice(0, 8).map((tag) => (
+        <div className={styles.filterTypeGroup}>
+          {typeFilters.map((filter) => (
             <button
-              key={tag}
+              key={filter.id}
               type="button"
-              onClick={() => toggleTag(tag)}
-              className={`${styles.filterChip} ${activeTags.includes(tag) ? styles.filterChipActive : ""
-                }`}
+              onClick={() => setActiveTypeFilter(filter.id)}
+              className={`${styles.filterTypeChip} ${
+                activeTypeFilter === filter.id ? styles.filterTypeChipActive : ""
+              }`}
             >
-              {tag}
+              {filter.label}
             </button>
           ))}
         </div>
 
-        {(query || activeTags.length > 0) && (
+        {(query || activeTypeFilter !== "all") && (
           <div className={styles.filterActions}>
             <button
               type="button"

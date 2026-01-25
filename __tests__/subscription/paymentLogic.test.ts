@@ -257,10 +257,10 @@ describe("Checkout Session Configuration", () => {
         price_data: {
           currency: "usd",
           product_data: {
-            name: "Product Leaks - Annual Access",
-            description: "1 year access to all PM interview questions and AI mock interviews",
+            name: "Apex Interviewer - Annual Access",
+            description: "1 year access to all coding interview questions and AI mock interviews",
           },
-          unit_amount: 25000,
+          unit_amount: 15000,
         },
         quantity: 1,
       },
@@ -270,18 +270,18 @@ describe("Checkout Session Configuration", () => {
     cancel_url: `${appUrl || "https://productleaks.co"}/?canceled=true`,
     customer_email: email || undefined,
     metadata: {
-      product: "product_leaks_annual",
+      product: "apex_interviewer_annual",
     },
   });
 
   it("should have correct product name", () => {
     const config = getCheckoutConfig();
-    expect(config.line_items[0].price_data.product_data.name).toBe("Product Leaks - Annual Access");
+    expect(config.line_items[0].price_data.product_data.name).toBe("Apex Interviewer - Annual Access");
   });
 
   it("should have correct price", () => {
     const config = getCheckoutConfig();
-    expect(config.line_items[0].price_data.unit_amount).toBe(25000);
+    expect(config.line_items[0].price_data.unit_amount).toBe(15000);
   });
 
   it("should have payment mode (not subscription)", () => {

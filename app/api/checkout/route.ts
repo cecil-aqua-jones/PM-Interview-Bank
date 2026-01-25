@@ -23,14 +23,14 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: "usd",
             product_data: {
-              name: "Product Leaks - Annual Access",
+              name: "Apex Interviewer - Annual Access",
               description:
-                "1 year access to all PM interview questions and AI mock interviews",
+                "1 year access to all coding interview questions and AI mock interviews",
               images: [
                 `${process.env.NEXT_PUBLIC_APP_URL || "https://productleaks.co"}/ai-owl-mascot.png`,
               ],
             },
-            unit_amount: 25000, // $250.00 in cents
+            unit_amount: 15000, // $150.00 in cents (discounted from $300)
           },
           quantity: 1,
         },
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get("origin")}/?canceled=true`,
       customer_email: email || undefined,
       metadata: {
-        product: "product_leaks_annual",
+        product: "apex_interviewer_annual",
       },
     });
 

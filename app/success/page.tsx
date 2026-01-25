@@ -4,7 +4,7 @@ import AnimatedMascot from "@/components/AnimatedMascot";
 
 export const metadata: Metadata = {
   title: "Payment Successful",
-  description: "Welcome to Product Leaks! Your payment was successful.",
+  description: "Welcome to Apex Interviewer! Your payment was successful.",
   robots: {
     index: false,
     follow: false
@@ -18,7 +18,7 @@ export default function SuccessPage() {
         <div className="container header-inner">
           <Link href="/" className="brand">
             <AnimatedMascot size={36} />
-            <span className="brand-name">Product Leaks</span>
+            <span className="brand-name">Apex Interviewer</span>
           </Link>
         </div>
       </header>
@@ -42,11 +42,11 @@ export default function SuccessPage() {
             </div>
             
             <h1 style={{ fontSize: "clamp(2rem, 5vw, 3rem)", marginBottom: "16px" }}>
-              Welcome to Product Leaks!
+              Welcome to Apex Interviewer!
             </h1>
             
             <p className="lead" style={{ marginBottom: "32px", color: "var(--graphite)" }}>
-              Your payment was successful. You now have full access to all PM interview 
+              Your payment was successful. You now have full access to all coding interview 
               questions and AI mock interviews for the next year.
             </p>
 
@@ -77,7 +77,7 @@ export default function SuccessPage() {
 
       <footer className="site-footer">
         <div className="container footer-inner">
-          <p>Product Leaks • Built for ambitious product leaders.</p>
+          <p>Apex Interviewer • Built for ambitious engineers.</p>
         </div>
       </footer>
     </>

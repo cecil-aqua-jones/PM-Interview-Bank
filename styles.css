@@ -390,6 +390,20 @@ a {
 
 .price-label {
   color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.price-original {
+  font-size: 1.4rem;
+  color: var(--muted);
+  text-decoration: line-through;
+  margin-bottom: 4px;
+}
+
+.price-savings {
+  color: #16a34a;
+  font-size: 0.95rem;
+  font-weight: 500;
   margin-bottom: 24px;
 }
 

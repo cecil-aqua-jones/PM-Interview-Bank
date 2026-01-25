@@ -44,7 +44,7 @@ function JsonLd() {
     },
     offers: {
       "@type": "Offer",
-      price: "250.00",
+      price: "150.00",
       priceCurrency: "USD",
       availability: "https://schema.org/InStock",
       priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -163,8 +163,8 @@ export default async function Home() {
                 <div className="pill">Sorting & Searching</div>
               </div>
               <div className="card-bottom">
-                <p className="price-tag">$250</p>
-                <span className="price-note">One-time purchase</span>
+                <p className="price-tag"><s style={{ color: "#9ca3af", fontWeight: 400 }}>$300</s> $150</p>
+                <span className="price-note">per year • 50% off</span>
               </div>
             </div>
           </div>
@@ -498,9 +498,9 @@ export default async function Home() {
           <div className="container pricing-grid">
             <div>
               <p className="eyebrow">Pricing</p>
-              <h2>One-time purchase. Unlimited practice.</h2>
+              <h2>Annual access. Unlimited practice.</h2>
               <p>
-                No subscriptions, no premium tiers. Get the questions and AI-powered
+                One simple price for a full year. All the questions and AI-powered
                 mock interviews to prep for your FAANG interviews.
               </p>
               <ul className="checklist">

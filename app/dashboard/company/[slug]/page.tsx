@@ -23,8 +23,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   return {
-    title: `${company.name} PM Interview Questions`,
-    description: `Practice ${company.name} Product Manager interview questions with AI-powered mock interviews. Real questions from ${company.name} PM interviews.`,
+    title: `${company.name} Coding Interview Questions`,
+    description: `Practice ${company.name} coding interview questions with AI-powered mock interviews. Real questions from ${company.name} software engineering interviews.`,
     robots: {
       index: false, // Protected content
       follow: false

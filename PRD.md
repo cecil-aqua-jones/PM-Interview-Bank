@@ -1,10 +1,9 @@
-# PRD: Product Leaks Landing Page
+# PRD: Apex Interviewer Landing Page
 
 ## Overview
-Build a premium, tech-focused landing page that sells a curated interview
-question bank for mid to senior Product Management roles at America’s top 30
-tech companies. The page should feel editorial and timeless, with understated
-luxury and high trust.
+Build a premium, tech-focused landing page that sells a curated coding interview
+question bank for software engineering roles at FAANG and top tech companies. 
+The page should feel editorial and timeless, with understated luxury and high trust.
 
 ## Goals
 - Increase purchase conversions for the question bank.
@@ -17,14 +16,19 @@ luxury and high trust.
 - No marketplace or community features.
 
 ## Target Users
-- Mid-level PMs transitioning to senior roles.
-- Senior PMs applying to top-tier tech companies.
-- PM managers running internal interview prep sessions.
+- Mid-level software engineers transitioning to senior roles.
+- Senior engineers applying to FAANG and top-tier tech companies.
+- Engineering managers running internal interview prep sessions.
 
 ## Core Value Proposition
-An interview question bank calibrated to the hiring bar of America’s top 30
-tech companies, with rubrics and follow-up ladders that reveal true senior PM
-signal.
+A coding interview question bank calibrated to the hiring bar of FAANG and top
+tech companies, with AI-powered mock interviews that provide real-time feedback
+on code quality, complexity analysis, and problem-solving approach.
+
+## Pricing
+- Annual access: $300/year
+- Launch discount: $150/year (50% off)
+- 30-day money-back guarantee
 
 ## Success Metrics
 - Conversion rate (visit → purchase).
@@ -34,42 +38,38 @@ signal.
 - Refund rate within 30 days.
 
 ## User Stories
-- As a senior PM, I want to know the exact evaluation criteria so I can answer
-  with the right depth.
-- As a mid-level PM, I want to feel confident this resource reflects real top
-  company expectations.
-- As a PM manager, I want a credible question set for internal mocks.
+- As a senior engineer, I want to practice with real interview questions so I can
+  prepare for FAANG interviews.
+- As a mid-level engineer, I want AI feedback on my code to identify weaknesses.
+- As an engineering manager, I want a credible question set for internal mocks.
 
 ## Functional Requirements
 - Single-page, responsive marketing layout.
-- Clearly defined sections: Hero, Trust/Calibration, Curriculum, Samples,
+- Clearly defined sections: Hero, Trust/Calibration, Features, Samples,
   Social Proof, Pricing, FAQ, Final CTA.
 - Primary CTA anchored to pricing section.
-- Secondary CTA to curriculum section.
+- Secondary CTA to features section.
 - Footer with legal links placeholders.
 - Copy structured for scannability with short paragraphs and lists.
 
 ## Content Requirements
-- Executive headline that references “top 30 tech companies” and “mid–senior PM”.
+- Executive headline that references "FAANG" and "coding interview".
 - Product overview with clear promise and outcomes.
-- Credibility block with counts (questions, modules, calibration) and references
-  to top-tier companies without using logos.
+- Credibility block with counts (questions, companies, topics) and references
+  to top-tier companies with logos.
 - Testimonials with role and short outcome.
-- Sample questions showcasing strategy, execution, analytics, and leadership.
-- Pricing display with one-time purchase and refund policy mention.
-- FAQ for common objections (level fit, frameworks, updates, use cases).
+- Sample questions showcasing algorithms, data structures, and system design.
+- Pricing display with annual subscription and discount.
+- FAQ for common objections (level fit, languages, updates, AI features).
 
 ## Social Proof Strategy
-- Testimonials from senior PMs (role, domain, short quote).
-- “Calibrated to the bar at” section with company name list (text only).
+- Testimonials from engineers with offers (company, level, short quote).
+- Company logo marquee showing question sources.
 - Quantitative proof:
   - Total number of questions.
-  - Number of modules.
-  - Calibration coverage across top companies.
-- Optional future add-ons:
-  - “As seen in” press strip.
-  - Aggregate rating (e.g., 4.8/5) once real data exists.
-  - Case studies with anonymized outcomes.
+  - Number of companies.
+  - Number of topic categories.
+- AI mock interview feature highlight.
 
 ## Design System Guidance
 - Typography: Playfair Display (headings), Inter (body).
@@ -80,31 +80,34 @@ signal.
 
 ## Information Architecture
 1. Hero (value proposition + CTA + product snapshot)
-2. Calibration / trust section
-3. Curriculum and modules
+2. Company logos / trust section
+3. AI Mock Interview feature
 4. Sample questions
 5. Social proof and stats
-6. Pricing
-7. FAQ
-8. Final CTA
-9. Footer
+6. How it works
+7. Why us / comparison
+8. Pricing
+9. FAQ
+10. Final CTA
+11. Footer
 
 ## Technical Requirements
-- Static HTML/CSS.
+- Next.js with React.
 - Mobile-first responsiveness.
-- Performance budget: < 200kb CSS + HTML.
-- No external JS required.
+- Performance budget: optimized for Core Web Vitals.
 - Fonts loaded from Google Fonts.
+- Stripe integration for payments.
+- Supabase for authentication.
 
 ## Analytics (V1)
 - Track CTA clicks (top and pricing CTA).
 - Track scroll depth (25/50/75/100).
 - Track pricing section views.
-- Track outbound purchase link click.
+- Track checkout conversion.
 
 ## Legal & Compliance
 - Do not imply official partnership with listed companies.
-- Use text-only company references.
+- Use logos under fair use for editorial reference.
 - Provide clear refund policy.
 
 ## QA Checklist
@@ -113,19 +116,16 @@ signal.
 - Contrast ratio for text vs background meets accessibility guidelines.
 - All links have hover states.
 - No layout shifts from font loading.
-
-## Out of Scope
-- Payment integration.
-- User accounts or gated content.
-- Localization.
+- Stripe checkout flow works end-to-end.
 
 ## Launch Plan
 - Internal review of copy and design.
 - Accessibility check.
 - Performance check (Lighthouse).
-- Deploy static page to hosting (Netlify/Vercel).
+- Deploy to Vercel.
 
 ## Future Enhancements
 - A/B test hero headline and pricing.
-- Video preview or short founder story.
-- Interactive sample question download.
+- Video preview of AI mock interview.
+- Progress tracking dashboard.
+- Community features.
