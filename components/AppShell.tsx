@@ -33,6 +33,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Companies
             </Link>
+            <Link
+              href="/dashboard/progress"
+              className={`${styles.navLink} ${isActive("/dashboard/progress") ? styles.navLinkActive : ""
+                }`}
+            >
+              Progress
+            </Link>
           </div>
 
           <button
@@ -75,6 +82,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileMenuOpen(false)}
             >
               Companies
+            </Link>
+            <Link
+              href="/dashboard/progress"
+              className={styles.mobileNavLink}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Progress
             </Link>
           </div>
         </div>

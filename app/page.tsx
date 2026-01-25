@@ -4,6 +4,9 @@ import LandingHeader from "./components/LandingHeader";
 import PricingCard from "./components/PricingCard";
 import CTAButton from "./components/CTAButton";
 
+// Increase function timeout (requires Vercel Pro - 10s default on Hobby)
+export const maxDuration = 30;
+
 // JSON-LD Structured Data for SEO
 function JsonLd() {
   const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";

@@ -392,6 +392,16 @@ export default function SystemDesignInterviewPanel({
         const normalizedScore = Math.round((data.evaluation.overallScore / 5) * 100);
         onScoreUpdate(question.id, normalizedScore);
       }
+
+      // Save to progress tracking (async, don't block)
+      fetch("/api/progress/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "system_design",
+          evaluation: data.evaluation,
+        }),
+      }).catch(err => console.warn("[Progress] Failed to save progress:", err));
     } catch (err) {
       console.error("[SystemDesign] Evaluation error:", err);
       setError("Failed to evaluate response");
@@ -869,7 +879,7 @@ export default function SystemDesignInterviewPanel({
           </button>
           <span className={styles.panelTitle}>System Design Interview</span>
           <span className={styles.panelQuestionNumber}>
-            Question {questionIndex + 1} of {totalQuestions}
+            Question {(questionIndex ?? 0) + 1} of {totalQuestions ?? 1}
           </span>
         </div>
 

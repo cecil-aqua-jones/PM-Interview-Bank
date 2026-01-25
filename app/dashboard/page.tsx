@@ -5,6 +5,9 @@ import CompanyGridClientWrapper from "./components/CompanyGridClientWrapper";
 // Force dynamic rendering - don't pre-render during build
 export const dynamic = "force-dynamic";
 
+// Increase function timeout (requires Vercel Pro - 10s default on Hobby)
+export const maxDuration = 30;
+
 export const metadata: Metadata = {
   title: "Dashboard",
   description: "Browse coding interview questions from FAANG companies. Practice with an AI interviewer that reviews your code and asks follow-up questions.",

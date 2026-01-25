@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 // Set to true to bypass auth during development (MUST be false in production)
-const BYPASS_AUTH = true;
+const BYPASS_AUTH = false;
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();

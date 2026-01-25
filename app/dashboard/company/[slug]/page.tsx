@@ -6,6 +6,9 @@ import CompanyQuestionsWrapper from "../../components/CompanyQuestionsWrapper";
 // Force dynamic rendering - don't pre-render during build
 export const dynamic = "force-dynamic";
 
+// Increase function timeout (requires Vercel Pro - 10s default on Hobby)
+export const maxDuration = 30;
+
 type Props = {
   params: { slug: string };
 };

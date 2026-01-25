@@ -1209,6 +1209,16 @@ export default function InterviewPanel({
       saveInterview(question.id, data.evaluation, code, language, undefined, conversationForStorage);
       onScoreUpdate?.(question.id, data.evaluation.overallScore);
 
+      // Save to progress tracking (async, don't block)
+      fetch("/api/progress/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "coding",
+          evaluation: data.evaluation,
+        }),
+      }).catch(err => console.warn("[Progress] Failed to save progress:", err));
+
       // Speak feedback
       setProcessingStep("Generating feedback...");
       await speakFeedbackAndFollowUp(data.evaluation);

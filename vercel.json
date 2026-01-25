@@ -1,5 +1,13 @@
 {
   "name": "product-leaks",
   "buildCommand": "next build",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "app/dashboard/company/[slug]/page.tsx": {
+      "maxDuration": 30
+    },
+    "app/page.tsx": {
+      "maxDuration": 30
+    }
+  }
 }

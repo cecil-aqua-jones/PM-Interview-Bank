@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { mockCompanies, mockQuestions } from "./mockData";
 import { Company, Question, CodeExample } from "./types";
 import { quickSanitize, isIncomplete, hasUnformattedCode, formatForDisplay } from "./questionSanitizer";
@@ -181,8 +182,8 @@ const toQuestion = (record: any): Question => {
   };
 };
 
-// Fetch all questions and derive companies from them
-const fetchAllQuestions = cache(async (): Promise<Question[]> => {
+// Core fetch function (not cached - wrapped by caching layers)
+const fetchAllQuestionsCore = async (): Promise<Question[]> => {
   if (!hasAirtableConfig) {
     console.log("[Airtable] No config, using mock data");
     return mockQuestions;
@@ -220,6 +221,25 @@ const fetchAllQuestions = cache(async (): Promise<Question[]> => {
     console.error("[Airtable] Failed to fetch, falling back to mock data:", error);
     return mockQuestions;
   }
+};
+
+// Cross-request cache using Next.js unstable_cache
+// This caches the Airtable data across ALL requests for 60 seconds
+// Prevents multiple simultaneous requests from each hitting Airtable
+const fetchAllQuestionsCached = unstable_cache(
+  fetchAllQuestionsCore,
+  ["airtable-questions"], // Cache key
+  {
+    revalidate: 60, // Cache for 60 seconds
+    tags: ["questions"], // Tag for on-demand revalidation if needed
+  }
+);
+
+// Fetch all questions and derive companies from them
+// Uses React cache for deduplication within a single request
+// AND unstable_cache for cross-request caching
+const fetchAllQuestions = cache(async (): Promise<Question[]> => {
+  return fetchAllQuestionsCached();
 });
 
 // Derive companies from questions (no separate Companies table needed)

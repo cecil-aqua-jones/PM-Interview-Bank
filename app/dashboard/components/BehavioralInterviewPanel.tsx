@@ -385,6 +385,16 @@ export default function BehavioralInterviewPanel({
       saveBehavioralInterview(question.id, data.evaluation, candidateResponses, conversationRef.current);
       onScoreUpdate?.(question.id, data.evaluation.overallScore);
 
+      // Save to progress tracking (async, don't block)
+      fetch("/api/progress/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "behavioral",
+          evaluation: data.evaluation,
+        }),
+      }).catch(err => console.warn("[Progress] Failed to save progress:", err));
+
       setPanelState("feedback");
     } catch (err) {
       console.error("[Behavioral] Evaluation error:", err);
