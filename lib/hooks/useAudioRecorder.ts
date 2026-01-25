@@ -60,21 +60,26 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       setError(null);
       chunksRef.current = [];
 
-      // Request microphone access
+      // Request microphone access with enhanced noise suppression
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true, // Helps normalize volume for close speech
           sampleRate: 44100,
         },
       });
       streamRef.current = stream;
 
       // Set up audio analysis for visualization
+      // Balanced settings for typical desktop/laptop microphones
       const audioContext = new AudioContext();
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
+      analyser.minDecibels = -70; // Balanced sensitivity
+      analyser.maxDecibels = -10;
+      analyser.smoothingTimeConstant = 0.8; // Smooth out noise spikes
       source.connect(analyser);
       analyserRef.current = analyser;
 

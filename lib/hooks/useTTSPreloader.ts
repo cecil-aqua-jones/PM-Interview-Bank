@@ -56,7 +56,8 @@ export function useTTSPreloader() {
 
     expired.forEach(id => {
       const cached = cacheRef.current.get(id);
-      if (cached?.audioUrl) {
+      // Only revoke blob URLs, not data URLs
+      if (cached?.audioUrl?.startsWith("blob:")) {
         URL.revokeObjectURL(cached.audioUrl);
       }
       cacheRef.current.delete(id);
@@ -79,7 +80,8 @@ export function useTTSPreloader() {
       
       if (oldestId) {
         const cached = cacheRef.current.get(oldestId);
-        if (cached?.audioUrl) {
+        // Only revoke blob URLs, not data URLs
+        if (cached?.audioUrl?.startsWith("blob:")) {
           URL.revokeObjectURL(cached.audioUrl);
         }
         cacheRef.current.delete(oldestId);
@@ -199,7 +201,15 @@ export function useTTSPreloader() {
       }
 
       const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // Convert to data URL instead of blob URL for better stability
+      // Data URLs don't have CSP issues and can't be revoked
+      const audioUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
 
       evictOldestIfNeeded();
 
@@ -333,7 +343,8 @@ export function useTTSPreloader() {
   const clearCache = useCallback((questionId?: string) => {
     if (questionId) {
       const cached = cacheRef.current.get(questionId);
-      if (cached?.audioUrl) {
+      // Only revoke blob URLs, not data URLs
+      if (cached?.audioUrl?.startsWith("blob:")) {
         URL.revokeObjectURL(cached.audioUrl);
       }
       cacheRef.current.delete(questionId);
@@ -364,7 +375,8 @@ export function useTTSPreloader() {
     } else {
       // Clear all
       cacheRef.current.forEach((audio) => {
-        if (audio.audioUrl) URL.revokeObjectURL(audio.audioUrl);
+        // Only revoke blob URLs, not data URLs
+        if (audio.audioUrl?.startsWith("blob:")) URL.revokeObjectURL(audio.audioUrl);
       });
       cacheRef.current.clear();
       loadingRef.current.forEach((controller) => controller.abort());

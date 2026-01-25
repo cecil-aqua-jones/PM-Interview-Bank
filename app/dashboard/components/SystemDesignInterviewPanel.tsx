@@ -1,17 +1,39 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useStreamingConversation } from "@/lib/hooks/useStreamingConversation";
 import { useStreamingSpeech } from "@/lib/hooks/useStreamingSpeech";
-import { saveBehavioralInterview, getBehavioralInterview } from "@/lib/interviewStorage";
-import { BehavioralEvaluationResult } from "@/lib/behavioralRubric";
+import { saveSystemDesignInterview, getSystemDesignInterview } from "@/lib/interviewStorage";
+import { SystemDesignEvaluationResult } from "@/lib/systemDesignRubric";
 import { Question } from "@/lib/types";
 import FormattedContent from "./FormattedContent";
 import styles from "../app.module.css";
 
-type BehavioralInterviewPanelProps = {
+// Prevent multiple simultaneous audio sessions
+let activeSessionId: string | null = null;
+
+type PanelState = 
+  | "speaking"     // AI reading the question
+  | "conversing"   // Active back-and-forth discussion
+  | "evaluating"   // Processing evaluation
+  | "feedback";    // Results displayed inline
+
+type RecordingState = 
+  | "idle" 
+  | "listening" 
+  | "recording" 
+  | "paused" 
+  | "processing";
+
+type ConversationTurn = {
+  role: "interviewer" | "candidate";
+  content: string;
+  timestamp: number;
+};
+
+interface Props {
   question: Question;
-  preloadedAudioUrl?: string | null;
+  preloadedAudioUrl?: string;
   onClose: () => void;
   onNext?: () => void;
   onPrev?: () => void;
@@ -20,43 +42,29 @@ type BehavioralInterviewPanelProps = {
   onScoreUpdate?: (questionId: string, score: number) => void;
   questionIndex?: number;
   totalQuestions?: number;
-};
+}
 
-type PanelState =
-  | "speaking"      // AI reads the question (only once)
-  | "conversing"    // Free-form conversation (clarifying questions, answers)
-  | "processing"    // Transcribing or AI responding
-  | "evaluating"    // Evaluating final response
-  | "feedback";     // Final evaluation display
-
-type ConversationTurn = {
-  role: "interviewer" | "candidate";
-  content: string;
-  timestamp: number;
-};
-
-type RecordingState = "idle" | "listening" | "recording" | "paused" | "processing";
-
-let activeSessionId: string | null = null;
-
-export default function BehavioralInterviewPanel({
+export default function SystemDesignInterviewPanel({
   question,
   preloadedAudioUrl,
   onClose,
   onNext,
   onPrev,
-  hasNext,
-  hasPrev,
+  hasNext = false,
+  hasPrev = false,
   onScoreUpdate,
-  questionIndex = 0,
-  totalQuestions = 1,
-}: BehavioralInterviewPanelProps) {
-  const [isVisible, setIsVisible] = useState(false);
+  questionIndex,
+  totalQuestions,
+}: Props) {
+  // Visibility & animation
+  const [isVisible, setIsVisible] = useState(true);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // Panel state
   const [panelState, setPanelState] = useState<PanelState>("speaking");
-  const [evaluation, setEvaluation] = useState<BehavioralEvaluationResult | null>(null);
+  const [evaluation, setEvaluation] = useState<SystemDesignEvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState("");
-  const [isClosing, setIsClosing] = useState(false);
   const [isPlayingPreloadedAudio, setIsPlayingPreloadedAudio] = useState(false);
 
   // Conversation state - initialize with the question
@@ -66,7 +74,7 @@ export default function BehavioralInterviewPanel({
     timestamp: Date.now(),
   }]);
 
-  // Hands-free conversation state
+  // Recording state
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const [pendingTranscript, setPendingTranscript] = useState<string>("");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -81,7 +89,7 @@ export default function BehavioralInterviewPanel({
   const initialQuestionPlayedRef = useRef(false);
   const activeMountIdRef = useRef<string | null>(null);
 
-  // Question refs to avoid stale closures
+  // Question refs
   const questionTitleRef = useRef(question.title);
   const questionPromptRef = useRef(question.prompt);
 
@@ -91,15 +99,14 @@ export default function BehavioralInterviewPanel({
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const silenceStartRef = useRef<number | null>(null);
-  const speechDetectedRef = useRef(false);
   const recordingStartTimeRef = useRef<number>(0);
   const continuationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoListenEnabledRef = useRef(true);
-  const shouldAutoSendRef = useRef(false);
-  const pendingTranscriptRef = useRef<string>("");
+  const pendingTranscriptRef = useRef("");
 
-  // State refs for async callbacks
+  // State refs for callbacks
   const recordingStateRef = useRef(recordingState);
   const panelStateRef = useRef(panelState);
   const conversationRef = useRef(conversation);
@@ -121,11 +128,11 @@ export default function BehavioralInterviewPanel({
   const streamingSpeechCallbacksRef = useRef<{ onComplete?: () => void }>({});
   const streamingSpeech = useStreamingSpeech({
     onComplete: () => {
-      console.log("[BehavioralPanel] Streaming speech complete");
+      console.log("[SystemDesign] Streaming speech complete");
       streamingSpeechCallbacksRef.current.onComplete?.();
     },
     onError: (err) => {
-      console.error("[BehavioralPanel] Streaming speech error:", err);
+      console.error("[SystemDesign] Streaming speech error:", err);
       streamingSpeechCallbacksRef.current.onComplete?.();
     },
   });
@@ -135,47 +142,14 @@ export default function BehavioralInterviewPanel({
   const streamingSpeechStop = streamingSpeech.stop;
   const streamingSpeechIsPlaying = streamingSpeech.isPlaying;
 
-  // Configuration for natural conversation flow
-  const SILENCE_THRESHOLD = 0.015;
-  const SPEECH_THRESHOLD = 0.025;
-  const SILENCE_DURATION = 1500;
-  const CONTINUATION_WINDOW = 3500;
-  const MIN_RECORDING_DURATION = 500;
+  // Computed states
+  const isAISpeaking = useMemo(() => 
+    isPlayingPreloadedAudio || streamingSpeechIsPlaying || streamingConversation.isStreaming,
+    [isPlayingPreloadedAudio, streamingSpeechIsPlaying, streamingConversation.isStreaming]
+  );
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SENTENCE COMPLETENESS CHECK
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  const isCompleteSentence = (text: string): boolean => {
-    if (!text || text.trim().length === 0) return false;
-    const trimmed = text.trim();
-
-    const incompleteEndings = [
-      /\s(and|but|so|or|because|if|when|while|although|though|since|unless|after|before|that|which|who|where|what|how|why|the|a|an|to|for|with|in|on|at|by|of|is|are|was|were|have|has|had|will|would|could|should|can|may|might|must|shall|do|does|did|be|being|been|it's|its|this|these|those|like|such|as|than|then|just|also|only|even|still|yet|already|about|into|from|over|under|between|through|during|toward|towards|against|among|within|without|upon|along|across|behind|beside|besides|beyond|except|around|above|below|beneath|inside|outside|i|we|you|they|he|she|it|my|our|your|their|his|her|its|im|i'm|i'll|i've|i'd|we're|we'll|we've|they're|they'll|they've|he's|she's|it's)$/i,
-    ];
-
-    for (const pattern of incompleteEndings) {
-      if (pattern.test(trimmed)) return false;
-    }
-
-    if (/[…\-–—]$/.test(trimmed) || trimmed.endsWith('...')) return false;
-
-    const words = trimmed.split(/\s+/);
-    if (words.length <= 2) {
-      const lowerTrimmed = trimmed.toLowerCase();
-      const singleWordResponses = ['yes', 'no', 'okay', 'sure', 'right', 'correct', 'exactly', 'agreed', 'understood', 'thanks', 'yep', 'nope', 'yeah', 'nah', 'ok', 'alright', 'definitely', 'absolutely'];
-      const multiWordResponses = ['got it', 'makes sense', 'i see', 'thank you', 'of course', 'for sure'];
-      
-      if (singleWordResponses.includes(lowerTrimmed)) return true;
-      if (multiWordResponses.includes(lowerTrimmed)) return true;
-      if (words.length === 2 && singleWordResponses.includes(words[0].toLowerCase())) return true;
-    }
-
-    return /[.!?]$/.test(trimmed) || words.length >= 5;
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // AUDIO UTILITIES
+  // AUDIO CLEANUP
   // ═══════════════════════════════════════════════════════════════════════════
 
   const stopCurrentAudio = useCallback(() => {
@@ -184,54 +158,80 @@ export default function BehavioralInterviewPanel({
       audioRef.current.src = "";
       audioRef.current = null;
     }
-    setIsPlayingPreloadedAudio(false);
     streamingSpeechStop();
+    setIsPlayingPreloadedAudio(false);
   }, [streamingSpeechStop]);
-
-  const cleanupAudioAnalysis = useCallback(() => {
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-    analyserRef.current = null;
-    silenceStartRef.current = null;
-    setAudioLevel(0);
-  }, []);
 
   const clearContinuationTimeout = useCallback(() => {
     if (continuationTimeoutRef.current) {
       clearTimeout(continuationTimeoutRef.current);
       continuationTimeoutRef.current = null;
     }
-    shouldAutoSendRef.current = false;
+  }, []);
+
+  const cleanupAudioAnalysis = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioContextRef.current?.state !== "closed") {
+      audioContextRef.current?.close().catch(() => {});
+    }
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    silenceStartRef.current = null;
+    setAudioLevel(0);
   }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // AUTO-LISTEN SYSTEM
+  // TRANSCRIPTION
   // ═══════════════════════════════════════════════════════════════════════════
 
+  const transcribeAudio = useCallback(async (audioBlob: Blob): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append("audio", audioBlob, "recording.webm");
+
+    try {
+      const response = await fetch("/api/interview/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        console.error("[Transcribe] Failed:", response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      return data.transcript || null;
+    } catch (err) {
+      console.error("[Transcribe] Error:", err);
+      return null;
+    }
+  }, []);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CONVERSATION MESSAGE HANDLING (No auto-evaluation)
+  // DUPLICATE PREVENTION
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Track last sent message and response to prevent duplicates
   const lastSentMessageRef = useRef<string>("");
   const lastAddedResponseRef = useRef<string>("");
   const isProcessingMessageRef = useRef(false);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONVERSATION MESSAGE HANDLING
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const sendConversationMessage = useCallback(async (message: string) => {
     if (!message.trim() || isClosingRef.current) return;
 
-    // Prevent duplicate sends of the same message
     if (lastSentMessageRef.current === message.trim()) {
-      console.log("[Behavioral] Duplicate message detected, skipping");
+      console.log("[SystemDesign] Duplicate message detected, skipping");
       return;
     }
     
-    // Prevent concurrent processing
     if (isProcessingMessageRef.current) {
-      console.log("[Behavioral] Already processing a message, skipping");
+      console.log("[SystemDesign] Already processing a message, skipping");
       return;
     }
     
@@ -244,16 +244,9 @@ export default function BehavioralInterviewPanel({
       content: message,
       timestamp: Date.now(),
     };
-    
-    // Capture history BEFORE adding new message to avoid duplication
-    // (userMessage is passed separately to the API)
-    const historyBeforeNewMessage = conversationRef.current.map(t => ({ role: t.role, content: t.content }));
-    
     const updatedConversation = [...conversationRef.current, candidateTurn];
     setConversation(updatedConversation);
 
-    // Get AI response (clarifying question response, acknowledgment, or probe)
-    // This is NOT evaluation - just natural conversation
     setRecordingState("processing");
     setProcessingStep("AI is thinking...");
 
@@ -262,8 +255,8 @@ export default function BehavioralInterviewPanel({
         questionTitle: questionTitleRef.current,
         questionContent: questionPromptRef.current,
         userMessage: message,
-        conversationHistory: historyBeforeNewMessage, // Don't include current message - it's in userMessage
-        interviewState: "followup", // Use followup state for conversational responses
+        conversationHistory: updatedConversation.map(t => ({ role: t.role, content: t.content })),
+        interviewState: "followup",
       });
 
       if (isClosingRef.current) {
@@ -272,12 +265,10 @@ export default function BehavioralInterviewPanel({
       }
 
       if (response?.fullText) {
-        // Clear streaming text FIRST to prevent duplicate display
         setStreamingText("");
         
-        // Prevent duplicate responses
         if (lastAddedResponseRef.current === response.fullText) {
-          console.log("[Behavioral] Duplicate response content, skipping add");
+          console.log("[SystemDesign] Duplicate response content, skipping add");
         } else {
           lastAddedResponseRef.current = response.fullText;
           setConversation(prev => [...prev, {
@@ -291,9 +282,8 @@ export default function BehavioralInterviewPanel({
         // Poll the isPlaying state to avoid cutting off audio mid-sentence
         const wordCount = response.fullText.split(/\s+/).length;
         const minDelay = Math.max(3000, Math.min(12000, wordCount * 350));
-        console.log(`[Behavioral] Waiting at least ${minDelay}ms for ${wordCount} words, then polling for audio completion`);
+        console.log(`[SystemDesign] Waiting at least ${minDelay}ms for ${wordCount} words, then polling for audio completion`);
         
-        // Set to idle first
         setRecordingState("idle");
         isProcessingMessageRef.current = false;
         
@@ -301,20 +291,20 @@ export default function BehavioralInterviewPanel({
         setTimeout(() => {
           const pollForAudioCompletion = () => {
             if (isClosingRef.current || panelStateRef.current !== "conversing") {
-              console.log("[Behavioral] Panel state changed, cancelling auto-listen");
+              console.log("[SystemDesign] Panel state changed, cancelling auto-listen");
               return;
             }
             
             // Check if audio is still playing (both streaming text and audio playback)
             if (streamingConversation.isStreaming || streamingConversation.isPlaying) {
-              console.log("[Behavioral] Audio still playing, waiting 500ms...");
+              console.log("[SystemDesign] Audio still playing, waiting 500ms...");
               setTimeout(pollForAudioCompletion, 500);
               return;
             }
             
             // Audio done - start recording if still in idle state
             if (recordingStateRef.current === "idle") {
-              console.log("[Behavioral] Audio complete, auto-starting recording now");
+              console.log("[SystemDesign] Audio complete, auto-starting recording now");
               recordingStateRef.current = "listening";
               setRecordingState("listening");
             }
@@ -327,7 +317,7 @@ export default function BehavioralInterviewPanel({
         isProcessingMessageRef.current = false;
       }
     } catch (err) {
-      console.error("[Behavioral] Conversation error:", err);
+      console.error("[SystemDesign] Conversation error:", err);
       setError("Failed to get response");
       setRecordingState("idle");
       isProcessingMessageRef.current = false;
@@ -335,7 +325,7 @@ export default function BehavioralInterviewPanel({
   }, [streamingConversation]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SUBMIT RESPONSE (Triggers Evaluation)
+  // SUBMIT FOR EVALUATION
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleSubmitResponse = useCallback(async () => {
@@ -344,7 +334,6 @@ export default function BehavioralInterviewPanel({
       return;
     }
 
-    // Stop any recording
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
@@ -355,253 +344,123 @@ export default function BehavioralInterviewPanel({
     pendingTranscriptRef.current = "";
 
     setPanelState("evaluating");
-    setProcessingStep("Evaluating your response...");
+    setProcessingStep("Evaluating your design...");
 
     try {
-      // Combine all candidate responses for evaluation
       const candidateResponses = conversationRef.current
         .filter(t => t.role === "candidate")
         .map(t => t.content)
         .join("\n\n");
 
-      const evalResponse = await fetch("/api/interview/evaluate-behavioral", {
+      const evalResponse = await fetch("/api/interview/evaluate-system-design", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question: `${questionTitleRef.current}\n\n${questionPromptRef.current}`,
           transcript: candidateResponses,
-          conversationHistory: conversationRef.current.map(t => ({ role: t.role, content: t.content })),
-          tags: question.tags,
-          difficulty: question.difficultyLabel,
+          conversationHistory: conversationRef.current.map(t => ({
+            role: t.role,
+            content: t.content
+          })),
         }),
       });
 
-      if (!evalResponse.ok) throw new Error("Evaluation failed");
+      if (!evalResponse.ok) {
+        throw new Error("Evaluation failed");
+      }
 
       const data = await evalResponse.json();
       setEvaluation(data.evaluation);
-
-      // Save to localStorage
-      saveBehavioralInterview(question.id, data.evaluation, candidateResponses, conversationRef.current);
-      onScoreUpdate?.(question.id, data.evaluation.overallScore);
-
       setPanelState("feedback");
+
+      // Save to storage
+      const candidateTranscript = conversationRef.current
+        .filter(t => t.role === "candidate")
+        .map(t => t.content)
+        .join("\n\n");
+      
+      saveSystemDesignInterview(
+        question.id,
+        data.evaluation,
+        candidateTranscript,
+        undefined, // diagramDescription
+        conversationRef.current.map(t => ({ role: t.role, content: t.content }))
+      );
+
+      // Update score in parent
+      if (onScoreUpdate && data.evaluation?.overallScore) {
+        const normalizedScore = Math.round((data.evaluation.overallScore / 5) * 100);
+        onScoreUpdate(question.id, normalizedScore);
+      }
     } catch (err) {
-      console.error("[Behavioral] Evaluation error:", err);
-      setError("Failed to evaluate response. Please try again.");
+      console.error("[SystemDesign] Evaluation error:", err);
+      setError("Failed to evaluate response");
       setPanelState("conversing");
     }
-  }, [question, onScoreUpdate, cleanupAudioAnalysis, clearContinuationTimeout]);
+  }, [question.id, onScoreUpdate, cleanupAudioAnalysis, clearContinuationTimeout]);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // RECORDING & TRANSCRIPTION
+  // AUDIO LEVEL MONITORING
   // ═══════════════════════════════════════════════════════════════════════════
-
-  const pauseRecordingRef = useRef<() => Promise<void>>();
-
-  const isLikelyHallucination = (text: string): boolean => {
-    if (!text) return true;
-    const normalized = text.toLowerCase().trim();
-    if (normalized.length < 4) return true;
-
-    const words = normalized.split(/\s+/);
-    if (words.length === 1) {
-      const allowedSingleWords = ["yes", "no", "sure", "correct", "right", "wrong", "done", "finished", "ready", "help"];
-      if (!allowedSingleWords.includes(normalized.replace(/[.!?]$/, ""))) return true;
-    }
-
-    const hallucinationPatterns = [
-      /^thanks?\s*(for\s*)?(watching|listening|viewing)/i,
-      /subscribe/i, /like\s*(and|&)\s*subscribe/i, /see\s*you\s*(next|later|soon)/i,
-      /\botter\.ai\b/i, /transcribed\s*by/i, /^beep\.?$/i, /^\[.*\]$/, /^\(.*\)$/,
-      /^\.{2,}$/, /^music\.?$/i, /^the\s*end\.?$/i, /^bye\.?$/i, /^goodbye\.?$/i,
-      /^hello\.?$/i, /^hey\.?$/i, /^you\.?$/i, /^i\.?$/i, /^okay\.?$/i, /^ok\.?$/i,
-      /^um+\.?$/i, /^uh+\.?$/i, /^hmm+\.?$/i, /^mm+\.?$/i, /^ah+\.?$/i, /^oh+\.?$/i,
-      /^huh\.?$/i, /^mhm+\.?$/i, /^yeah\.?$/i, /^yep\.?$/i, /^nope\.?$/i, /^nah\.?$/i,
-      /^wow\.?$/i, /^whoa\.?$/i, /please\s*subscribe/i, /don'?t\s*forget\s*to/i,
-      /hit\s*the\s*(like|bell)/i, /comment\s*(below|down)/i, /^\s*$/,
-    ];
-
-    for (const pattern of hallucinationPatterns) {
-      if (pattern.test(normalized)) return true;
-    }
-
-    if (/^(.)\1{3,}$/.test(normalized)) return true;
-    if (/^(\w+\s*)\1{2,}$/.test(normalized)) return true;
-
-    return false;
-  };
-
-  const transcribeCurrentChunk = async (): Promise<string | null> => {
-    if (audioChunksRef.current.length === 0) return null;
-    if (!speechDetectedRef.current) {
-      console.log("[Transcribe] No speech detected, skipping");
-      return null;
-    }
-
-    const recordingDuration = Date.now() - recordingStartTimeRef.current;
-    if (recordingDuration < MIN_RECORDING_DURATION) return null;
-
-    const mimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
-    const recordedBlob = new Blob(audioChunksRef.current, { type: mimeType });
-    if (recordedBlob.size < 1000) return null;
-
-    try {
-      const formData = new FormData();
-      formData.append("audio", recordedBlob, "behavioral.webm");
-
-      const response = await fetch("/api/interview/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error("Transcription failed");
-
-      const { transcript } = await response.json();
-      const trimmed = transcript?.trim() || null;
-
-      if (trimmed && isLikelyHallucination(trimmed)) return null;
-
-      console.log("[Transcribe] Got transcript:", trimmed);
-      return trimmed;
-    } catch (err) {
-      console.error("[Transcribe] Error:", err);
-      return null;
-    }
-  };
-
-  const finalizePendingMessage = useCallback(async () => {
-    clearContinuationTimeout();
-    shouldAutoSendRef.current = false;
-
-    const messageToSend = pendingTranscriptRef.current.trim();
-
-    if (messageToSend && !isCompleteSentence(messageToSend)) {
-      const extendedWait = 2000;
-      console.log("[Conversation] Message seems incomplete, extending wait");
-
-      shouldAutoSendRef.current = true;
-      continuationTimeoutRef.current = setTimeout(async () => {
-        if (shouldAutoSendRef.current && pendingTranscriptRef.current.trim()) {
-          shouldAutoSendRef.current = false;
-          const finalMessage = pendingTranscriptRef.current.trim();
-          pendingTranscriptRef.current = "";
-          setPendingTranscript("");
-
-          if (finalMessage) {
-            await sendConversationMessage(finalMessage);
-          }
-        }
-      }, extendedWait);
-      return;
-    }
-
-    pendingTranscriptRef.current = "";
-    setPendingTranscript("");
-
-    if (messageToSend) {
-      await sendConversationMessage(messageToSend);
-    } else {
-      setRecordingState("idle");
-    }
-  }, [clearContinuationTimeout, sendConversationMessage]);
-
-  const pauseRecording = useCallback(async () => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-
-    cleanupAudioAnalysis();
-    setRecordingState("paused");
-
-    const transcript = await transcribeCurrentChunk();
-    if (transcript) {
-      const current = pendingTranscriptRef.current;
-      const combined = current ? `${current} ${transcript}` : transcript;
-      pendingTranscriptRef.current = combined;
-      setPendingTranscript(combined);
-    }
-
-    audioChunksRef.current = [];
-
-    clearContinuationTimeout();
-    shouldAutoSendRef.current = true;
-    continuationTimeoutRef.current = setTimeout(() => {
-      if (shouldAutoSendRef.current) {
-        finalizePendingMessage();
-      }
-    }, CONTINUATION_WINDOW);
-  }, [cleanupAudioAnalysis, clearContinuationTimeout, finalizePendingMessage]);
-
-  useEffect(() => {
-    pauseRecordingRef.current = pauseRecording;
-  }, [pauseRecording]);
 
   const startAudioLevelMonitoring = useCallback(async (stream: MediaStream) => {
     try {
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-      }
-
       const audioContext = new AudioContext();
-      if (audioContext.state === 'suspended') {
-        await audioContext.resume();
-      }
+      audioContextRef.current = audioContext;
 
-      const analyser = audioContext.createAnalyser();
       const source = audioContext.createMediaStreamSource(stream);
-
+      const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.5;
-      analyser.minDecibels = -80;
+      analyser.minDecibels = -90;
       analyser.maxDecibels = -10;
+      analyser.smoothingTimeConstant = 0.85;
+      analyserRef.current = analyser;
       source.connect(analyser);
 
-      audioContextRef.current = audioContext;
-      analyserRef.current = analyser;
-
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
-      let frameCount = 0;
+      const SILENCE_THRESHOLD = 0.02;
+      const SILENCE_DURATION = 1500;
 
-      const checkAudioLevel = () => {
-        if (!analyserRef.current || !audioContextRef.current) return;
+      const checkLevel = () => {
+        if (!analyserRef.current || recordingStateRef.current !== "recording") {
+          return;
+        }
 
         analyserRef.current.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        const normalizedLevel = average / 255;
+        const normalizedLevel = Math.min(average / 128, 1);
+
         setAudioLevel(normalizedLevel);
+        console.log("[Audio] Level:", normalizedLevel.toFixed(3));
 
-        frameCount++;
-        if (frameCount % 30 === 0) {
-          console.log("[Audio] Level:", normalizedLevel.toFixed(3));
-        }
-
-        const isActiveSpeech = normalizedLevel >= SPEECH_THRESHOLD;
-        const isSilent = normalizedLevel < SILENCE_THRESHOLD;
-
-        if (isSilent) {
+        if (normalizedLevel < SILENCE_THRESHOLD) {
           if (!silenceStartRef.current) {
             silenceStartRef.current = Date.now();
           } else if (Date.now() - silenceStartRef.current > SILENCE_DURATION) {
-            console.log("[Audio] Silence detected, auto-pausing");
-            if (pauseRecordingRef.current) {
-              void pauseRecordingRef.current().catch(console.error);
+            const recordingDuration = Date.now() - recordingStartTimeRef.current;
+            if (recordingDuration > 1000) {
+              console.log("[Audio] Silence detected, auto-pausing");
+              silenceStartRef.current = null;
+              setRecordingState("paused");
+              return;
             }
-            return;
           }
-        } else if (isActiveSpeech) {
+        } else {
           silenceStartRef.current = null;
-          speechDetectedRef.current = true;
         }
 
-        requestAnimationFrame(checkAudioLevel);
+        animationFrameRef.current = requestAnimationFrame(checkLevel);
       };
 
-      checkAudioLevel();
+      checkLevel();
     } catch (err) {
       console.error("[Audio] Monitoring failed:", err);
     }
   }, []);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RECORDING
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const startRecording = useCallback(async () => {
     console.log("[Recording] Starting...");
@@ -609,61 +468,82 @@ export default function BehavioralInterviewPanel({
     streamingConversation.abort();
 
     if (recordingStateRef.current === "paused") {
-      clearContinuationTimeout();
+      audioChunksRef.current = [];
     }
 
     try {
-      let stream = streamRef.current;
-      if (!stream || !stream.active) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
-        streamRef.current = stream;
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+      streamRef.current = stream;
 
-      const audioTracks = stream.getAudioTracks();
-      if (audioTracks.length === 0 || !audioTracks[0].enabled) {
-        setError("Microphone not available");
-        setRecordingState("idle");
-        return;
-      }
-
+      // Use browser-supported mimeType (matches BehavioralInterviewPanel)
       const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
-      mediaRecorderRef.current = mediaRecorder;
 
-      mediaRecorder.ondataavailable = (e) => {
+      recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
         }
       };
 
-      mediaRecorder.onerror = () => {
-        setError("Recording error occurred");
-        setRecordingState("idle");
+      recorder.onstop = async () => {
+        if (audioChunksRef.current.length === 0) return;
+
+        // Use the recorder's actual mimeType for the blob
+        const blobMimeType = mediaRecorderRef.current?.mimeType || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: blobMimeType });
+        audioChunksRef.current = [];
+
+        if (audioBlob.size < 1000) {
+          console.log("[Transcribe] No speech detected, skipping");
+          if (!isClosingRef.current && panelStateRef.current === "conversing") {
+            recordingStateRef.current = "listening";
+            setRecordingState("listening");
+          }
+          return;
+        }
+
+        setRecordingState("processing");
+        setProcessingStep("Transcribing...");
+
+        const transcript = await transcribeAudio(audioBlob);
+
+        if (transcript && transcript.trim()) {
+          console.log("[Transcribe] Got transcript:", transcript);
+          await sendConversationMessage(transcript);
+        } else {
+          console.log("[Transcribe] Empty transcript");
+          if (!isClosingRef.current && panelStateRef.current === "conversing") {
+            recordingStateRef.current = "listening";
+            setRecordingState("listening");
+          }
+        }
       };
 
-      mediaRecorder.start(100);
+      recorder.start(100);
+      recordingStartTimeRef.current = Date.now();
       
       // CRITICAL: Update ref BEFORE starting audio monitoring
-      // (setRecordingState is async, but audio monitoring may read the ref immediately)
+      // (setRecordingState is async, but checkLevel reads the ref immediately)
       recordingStateRef.current = "recording";
       setRecordingState("recording");
-      silenceStartRef.current = null;
-      recordingStartTimeRef.current = Date.now();
-      speechDetectedRef.current = false;
 
       await startAudioLevelMonitoring(stream);
     } catch (err) {
-      console.error("[Recording] Error:", err);
+      console.error("[Recording] Failed:", err);
       setError("Microphone access denied");
       setRecordingState("idle");
     }
-  }, [stopCurrentAudio, streamingConversation, clearContinuationTimeout, startAudioLevelMonitoring]);
+  }, [stopCurrentAudio, streamingConversation, transcribeAudio, sendConversationMessage, startAudioLevelMonitoring]);
 
-  // Auto-start recording when state becomes "listening"
+  // Handle recording state changes
   useEffect(() => {
     if (recordingState === "listening") {
       console.log("[Recording] State is 'listening', starting...");
@@ -671,43 +551,48 @@ export default function BehavioralInterviewPanel({
     }
   }, [recordingState, startRecording]);
 
+  // Handle paused state - process and potentially continue
+  useEffect(() => {
+    if (recordingState === "paused") {
+      cleanupAudioAnalysis();
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    }
+  }, [recordingState, cleanupAudioAnalysis]);
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // INITIALIZATION & LIFECYCLE
+  // STREAMING TEXT SYNC
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Request microphone permission immediately
   useEffect(() => {
-    const requestMic = async () => {
-      try {
-        console.log("[Init] Requesting microphone permission...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
-        streamRef.current = stream;
+    if (streamingConversation.isStreaming) {
+      setStreamingText(streamingConversation.currentText);
+    } else {
+      setStreamingText("");
+    }
+  }, [streamingConversation.currentText, streamingConversation.isStreaming]);
+
+  // Auto-scroll
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [conversation, streamingText]);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INITIALIZATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Request microphone on mount
+  useEffect(() => {
+    console.log("[Init] Requesting microphone permission...");
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
         console.log("[Init] Microphone permission granted");
-      } catch (err) {
+        stream.getTracks().forEach(track => track.stop());
+      })
+      .catch(err => {
         console.error("[Init] Microphone permission denied:", err);
-        setError("Microphone access is required for the interview");
-      }
-    };
-
-    requestMic();
-
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-    };
-  }, []);
-
-  // Animate panel in
-  useEffect(() => {
-    requestAnimationFrame(() => setIsVisible(true));
+      });
   }, []);
 
   // Reset on question change - reinitialize conversation with new question
@@ -720,7 +605,7 @@ export default function BehavioralInterviewPanel({
     setIsClosing(false);
     setIsVisible(true);
     
-    // Reset conversation with the new question (like handleTryAgain does)
+    // Reset conversation with the new question
     setConversation([{
       role: "interviewer",
       content: `${question.title}\n\n${question.prompt}`,
@@ -728,15 +613,15 @@ export default function BehavioralInterviewPanel({
     }]);
     setEvaluation(null);
     setPanelState("speaking");
+    initialQuestionPlayedRef.current = false;
   }, [question.id, question.title, question.prompt]);
 
-  // Play initial question (ONLY ONCE per question)
+  // Play initial question
   useEffect(() => {
     let wasCleanedUp = false;
     const mountId = `mount-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     activeMountIdRef.current = mountId;
 
-    // Skip if already played (prevents double-play in strict mode second mount)
     if (initialQuestionPlayedRef.current) {
       console.log("[Init] Question already played, skipping");
       return;
@@ -745,7 +630,6 @@ export default function BehavioralInterviewPanel({
 
     activeSessionId = sessionIdRef.current;
     console.log("[Init] Playing question:", question.title);
-    console.log("[Init] Preloaded audio URL:", preloadedAudioUrl ? "available" : "not available");
 
     const onComplete = () => {
       if (wasCleanedUp || activeMountIdRef.current !== mountId) {
@@ -758,20 +642,17 @@ export default function BehavioralInterviewPanel({
       panelStateRef.current = "conversing";
       setPanelState("conversing");
       
-      // Auto-start recording IMMEDIATELY - set both ref and state
       recordingStateRef.current = "listening";
       setRecordingState("listening");
     };
 
     streamingSpeechCallbacksRef.current.onComplete = onComplete;
 
-    // Use preloaded audio if available, otherwise stream
     if (preloadedAudioUrl && preloadedAudioUrl.length > 0) {
       console.log("[Init] Using preloaded audio URL");
       const audio = new Audio(preloadedAudioUrl);
       audioRef.current = audio;
       
-      // Track if audio actually started playing and if fallback was triggered
       let audioStarted = false;
       let fallbackTriggered = false;
       
@@ -800,24 +681,28 @@ export default function BehavioralInterviewPanel({
         setIsPlayingPreloadedAudio(true);
       });
       
-      // Start playing immediately - set state optimistically
       setIsPlayingPreloadedAudio(true);
       
       audio.play()
-        .then(() => {
-          console.log("[Init] Preloaded audio play() promise resolved");
-        })
+        .then(() => console.log("[Init] Preloaded audio play() promise resolved"))
         .catch((err) => {
           console.error("[Init] Preloaded audio play failed:", err);
           setIsPlayingPreloadedAudio(false);
           triggerFallback();
         });
+        
+      setTimeout(() => {
+        if (!audioStarted && !fallbackTriggered) {
+          console.log("[Init] Audio didn't start after timeout, using fallback");
+          audio.pause();
+          triggerFallback();
+        }
+      }, 3000);
     } else {
       console.log("[Init] No preloaded audio, using streaming speech");
       streamingSpeechSpeak(question.title, question.prompt, question.tags?.[0]);
     }
 
-    // Fallback: If audio doesn't complete within 30 seconds, transition anyway
     const fallbackTimer = setTimeout(() => {
       if (panelStateRef.current === "speaking" && !wasCleanedUp) {
         console.log("[Init] Fallback timeout - transitioning to conversing");
@@ -843,14 +728,13 @@ export default function BehavioralInterviewPanel({
         audioRef.current.src = "";
         audioRef.current = null;
       }
-      // Reset for React Strict Mode - allows audio to play on remount
       initialQuestionPlayedRef.current = false;
     };
   }, [question.id, preloadedAudioUrl, streamingSpeechSpeak, streamingSpeechStop]);
 
   // Load previous interview
   useEffect(() => {
-    const previous = getBehavioralInterview(question.id);
+    const previous = getSystemDesignInterview(question.id);
     if (previous) {
       setEvaluation(previous.evaluation);
       if (previous.conversationHistory) {
@@ -859,30 +743,11 @@ export default function BehavioralInterviewPanel({
           timestamp: previous.timestamp - (previous.conversationHistory!.length - index) * 1000
         }));
         setConversation(historyWithTimestamps);
-        setPanelState("feedback"); // Go straight to feedback if already evaluated
-        initialQuestionPlayedRef.current = true; // Don't replay
+        setPanelState("feedback");
+        initialQuestionPlayedRef.current = true;
       }
     }
   }, [question.id]);
-
-  // Auto-scroll conversation
-  useEffect(() => {
-    conversationEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [conversation, streamingText]);
-
-  // Sync streaming text - only while actively streaming
-  useEffect(() => {
-    if (streamingConversation.isStreaming) {
-      setStreamingText(streamingConversation.currentText);
-    } else {
-      // Clear when streaming ends
-      setStreamingText("");
-    }
-  }, [streamingConversation.currentText, streamingConversation.isStreaming]);
-
-  // Store current text in ref for audio duration estimation
-  const streamingTextRef = useRef(streamingConversation.currentText);
-  streamingTextRef.current = streamingConversation.currentText;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // HANDLERS
@@ -926,17 +791,7 @@ export default function BehavioralInterviewPanel({
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
 
-    // Reset state for new question
-    // Note: conversation, evaluation, and panelState are reset in the question.id effect
-    setRecordingState("idle");
-    initialQuestionPlayedRef.current = false;
-
-    // Wait for 300ms closing animation to complete before navigating
     setTimeout(() => {
       if (direction === "next" && onNext) onNext();
       else if (direction === "prev" && onPrev) onPrev();
@@ -948,24 +803,20 @@ export default function BehavioralInterviewPanel({
     
     panelStateRef.current = "conversing";
     setPanelState("conversing");
-    // Auto-start recording immediately
     recordingStateRef.current = "listening";
     setRecordingState("listening");
   }, [stopCurrentAudio]);
 
-  // Interrupt handler - tap to stop AI speaking
   const handleInterrupt = useCallback(() => {
     if (isPlayingPreloadedAudio || streamingSpeechIsPlaying || streamingConversation.isStreaming) {
       stopCurrentAudio();
       streamingConversation.stopAudio();
       
-      // Transition to conversing if in speaking state
       if (panelStateRef.current === "speaking") {
         panelStateRef.current = "conversing";
         setPanelState("conversing");
       }
       
-      // Auto-start recording immediately after interrupt
       recordingStateRef.current = "listening";
       setRecordingState("listening");
     }
@@ -980,38 +831,33 @@ export default function BehavioralInterviewPanel({
     }]);
     panelStateRef.current = "conversing";
     setPanelState("conversing");
-    // Reset tracking refs
     lastSentMessageRef.current = "";
     lastAddedResponseRef.current = "";
     isProcessingMessageRef.current = false;
-    // Auto-start recording immediately
     recordingStateRef.current = "listening";
     setRecordingState("listening");
   }, []);
 
-  // Manual start recording
   const handleStartRecording = useCallback(() => {
     if (recordingState === "idle" || recordingState === "paused") {
       setRecordingState("listening");
     }
   }, [recordingState]);
 
-  // Manual stop recording
-  const handleStopRecording = useCallback(async () => {
+  const handleStopRecording = useCallback(() => {
     if (recordingState === "recording") {
-      await pauseRecording();
+      setRecordingState("paused");
     }
-  }, [recordingState, pauseRecording]);
+  }, [recordingState]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const isAISpeaking = isPlayingPreloadedAudio || streamingSpeechIsPlaying || streamingConversation.isStreaming;
-  const hasCandidateResponse = conversation.some(t => t.role === "candidate");
-
   return (
-    <div className={`${styles.interviewPanel} ${isVisible ? styles.interviewPanelVisible : ""}`}>
+    <div 
+      className={`${styles.interviewPanel} ${isVisible ? styles.interviewPanelVisible : ""} ${isClosing ? styles.interviewPanelClosing : ""}`}
+    >
       {/* Header */}
       <div className={styles.panelHeader}>
         <div className={styles.panelHeaderLeft}>
@@ -1021,7 +867,7 @@ export default function BehavioralInterviewPanel({
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
-          <span className={styles.panelTitle}>Behavioral Interview</span>
+          <span className={styles.panelTitle}>System Design Interview</span>
           <span className={styles.panelQuestionNumber}>
             Question {questionIndex + 1} of {totalQuestions}
           </span>
@@ -1049,16 +895,15 @@ export default function BehavioralInterviewPanel({
 
       {/* Main Content */}
       <div className={styles.behavioralPanelContent}>
-        {/* Conversation Area */}
         <div className={styles.conversationArea}>
-          {/* Speaking state hint - shown above conversation when AI is speaking */}
+          {/* Speaking State Hint */}
           {panelState === "speaking" && (
             <div className={styles.speakingHint}>
-              <p>Listen to the question, then respond when ready</p>
+              <p>Listen to the question, then discuss your design approach</p>
             </div>
           )}
 
-          {/* Conversation Thread - Always visible (initialized with question) */}
+          {/* Conversation Thread */}
           {conversation.length > 0 && (
             <div className={styles.conversationThread}>
               {conversation.map((turn, index) => (
@@ -1075,7 +920,10 @@ export default function BehavioralInterviewPanel({
                   </div>
                   <div className={styles.bubbleContent}>
                     {turn.role === "interviewer" && index === 0 ? (
-                      <FormattedContent content={turn.content} />
+                      <>
+                        <h3 className={styles.questionTitleInline}>{question.title}</h3>
+                        <FormattedContent content={question.prompt} />
+                      </>
                     ) : (
                       <p>{turn.content}</p>
                     )}
@@ -1095,7 +943,7 @@ export default function BehavioralInterviewPanel({
                 </div>
               )}
 
-              {/* Inline Feedback - Show below conversation when evaluated */}
+              {/* Inline Feedback */}
               {panelState === "feedback" && evaluation && (
                 <div className={styles.inlineFeedback}>
                   <div className={styles.feedbackDivider}>
@@ -1104,13 +952,49 @@ export default function BehavioralInterviewPanel({
                   
                   <div className={styles.inlineScoreRow}>
                     <div className={styles.scoreCircleSmall}>
-                      <span className={styles.scoreValue}>{evaluation.overallScore}</span>
-                      <span className={styles.scoreLabel}>/ 100</span>
+                      <span className={styles.scoreValue}>{evaluation.overallScore.toFixed(1)}</span>
+                      <span className={styles.scoreLabel}>/ 5</span>
                     </div>
                     <div className={styles.scoreSummary}>
+                      <div className={styles.verdictBadge} data-verdict={evaluation.verdict.toLowerCase().replace(" ", "-")}>
+                        {evaluation.verdict}
+                      </div>
                       <p>{evaluation.overallFeedback}</p>
                     </div>
                   </div>
+
+                  {/* Design Highlights */}
+                  {evaluation.designHighlights && (
+                    <div className={styles.feedbackBlock}>
+                      <h4>Design Highlights</h4>
+                      <div className={styles.highlightsGrid}>
+                        {evaluation.designHighlights.keyComponents?.length > 0 && (
+                          <div className={styles.highlightItem}>
+                            <span className={styles.highlightLabel}>Key Components</span>
+                            <span className={styles.highlightValue}>{evaluation.designHighlights.keyComponents.join(", ")}</span>
+                          </div>
+                        )}
+                        {evaluation.designHighlights.scalingStrategy && (
+                          <div className={styles.highlightItem}>
+                            <span className={styles.highlightLabel}>Scaling Strategy</span>
+                            <span className={styles.highlightValue}>{evaluation.designHighlights.scalingStrategy}</span>
+                          </div>
+                        )}
+                        {evaluation.designHighlights.dataStorage && (
+                          <div className={styles.highlightItem}>
+                            <span className={styles.highlightLabel}>Data Storage</span>
+                            <span className={styles.highlightValue}>{evaluation.designHighlights.dataStorage}</span>
+                          </div>
+                        )}
+                        {evaluation.designHighlights.mainTradeoff && (
+                          <div className={styles.highlightItem}>
+                            <span className={styles.highlightLabel}>Main Trade-off</span>
+                            <span className={styles.highlightValue}>{evaluation.designHighlights.mainTradeoff}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {evaluation.strengths.length > 0 && (
                     <div className={styles.feedbackBlock}>
@@ -1134,22 +1018,45 @@ export default function BehavioralInterviewPanel({
                     </div>
                   )}
 
+                  {evaluation.missedConsiderations && evaluation.missedConsiderations.length > 0 && (
+                    <div className={styles.feedbackBlock}>
+                      <h4>Missed Considerations</h4>
+                      <ul>
+                        {evaluation.missedConsiderations.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {/* Criteria Breakdown */}
                   <div className={styles.feedbackBlock}>
-                    <h4>Breakdown</h4>
+                    <h4>Detailed Breakdown</h4>
                     <div className={styles.criteriaGrid}>
-                      {Object.entries(evaluation.breakdown).map(([name, data]) => (
-                        <div key={name} className={styles.criterionItem}>
-                          <span className={styles.criterionLabel}>{name}</span>
-                          <div className={styles.criterionBarSmall}>
-                            <div 
-                              className={styles.criterionFillSmall} 
-                              style={{ width: `${(data.score / 4) * 100}%` }}
-                            />
+                      {Object.entries(evaluation.breakdown).map(([key, score]) => {
+                        const numScore = typeof score === 'number' ? score : 0;
+                        const labels: Record<string, string> = {
+                          requirements: "Requirements Gathering",
+                          architecture: "High-Level Architecture",
+                          scalability: "Scalability & Performance",
+                          dataModel: "Data Model & Storage",
+                          tradeoffs: "Trade-off Analysis",
+                          reliability: "Reliability & Fault Tolerance",
+                          communication: "Communication & Clarity",
+                        };
+                        return (
+                          <div key={key} className={styles.criterionItem}>
+                            <span className={styles.criterionLabel}>{labels[key] || key}</span>
+                            <div className={styles.criterionBarSmall}>
+                              <div 
+                                className={styles.criterionFillSmall} 
+                                style={{ width: `${(numScore / 5) * 100}%` }}
+                              />
+                            </div>
+                            <span className={styles.criterionScoreSmall}>{numScore}/5</span>
                           </div>
-                          <span className={styles.criterionScoreSmall}>{data.score}/4</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1177,7 +1084,7 @@ export default function BehavioralInterviewPanel({
 
         {/* Bottom Control Area */}
         <div className={styles.behavioralControls}>
-          {/* AI Speaking Status - tap to interrupt */}
+          {/* AI Speaking Status */}
           {isAISpeaking && (
             <div 
               className={`${styles.aiSpeakingBar} ${styles.speaking}`}
@@ -1200,10 +1107,9 @@ export default function BehavioralInterviewPanel({
             </div>
           )}
 
-          {/* Recording Controls - Show when in conversing state and not AI speaking */}
+          {/* Recording Controls */}
           {panelState === "conversing" && !isAISpeaking && (
             <div className={styles.recordingControls}>
-              {/* Recording State Indicator */}
               <div className={`${styles.conversationStatus} ${styles.statusMinimal}`}>
                 {recordingState === "recording" && (
                   <>
@@ -1234,59 +1140,41 @@ export default function BehavioralInterviewPanel({
                 )}
               </div>
 
-              {/* Pending Transcript Preview */}
-              {pendingTranscript && recordingState === "paused" && (
-                <div className={styles.pendingTranscript}>
-                  <p>"{pendingTranscript}"</p>
-                </div>
-              )}
-
               {/* Microphone Button */}
               <div className={styles.microphoneButtonContainer}>
-                {recordingState === "recording" ? (
-                  <button 
-                    className={`${styles.microphoneBtn} ${styles.recording}`}
-                    onClick={handleStopRecording}
-                    title="Stop recording"
-                  >
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <button
+                  className={`${styles.microphoneBtn} ${recordingState === "recording" ? styles.recording : ""}`}
+                  onClick={recordingState === "recording" ? handleStopRecording : handleStartRecording}
+                >
+                  {recordingState === "recording" ? (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
                       <rect x="6" y="6" width="12" height="12" rx="2" />
                     </svg>
-                  </button>
-                ) : (
-                  <button 
-                    className={styles.microphoneBtn}
-                    onClick={handleStartRecording}
-                    disabled={recordingState === "processing"}
-                    title="Start recording"
-                  >
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  ) : (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                       <line x1="12" y1="19" x2="12" y2="23" />
                       <line x1="8" y1="23" x2="16" y2="23" />
                     </svg>
-                  </button>
-                )}
-                <p className={styles.microphoneHint}>
-                  {recordingState === "recording" 
-                    ? "Tap to stop" 
-                    : "Tap to speak"}
-                </p>
+                  )}
+                </button>
+                <span className={styles.microphoneHint}>
+                  {recordingState === "recording" ? "Tap to stop" : "Tap to speak"}
+                </span>
               </div>
 
-              {/* Submit Response Button */}
-              {hasCandidateResponse && recordingState === "idle" && (
+              {/* Submit Button */}
+              {conversation.length > 1 && (
                 <button 
                   className={styles.submitResponseBtn} 
                   onClick={handleSubmitResponse}
                 >
-                  Submit Response
+                  Submit Design for Evaluation
                 </button>
               )}
             </div>
           )}
-
 
           {/* Error Display */}
           {error && (

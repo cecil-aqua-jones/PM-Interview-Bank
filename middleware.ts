@@ -76,8 +76,9 @@ export function middleware(request: NextRequest) {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "media-src 'self' blob:",
-      "connect-src 'self' https://api.openai.com https://*.supabase.co https://api.airtable.com https://cdn.brandfetch.io",
+      // Allow blob: and data: URLs for audio playback (TTS uses blob/data URLs)
+      "media-src 'self' blob: data:",
+      "connect-src 'self' https://api.openai.com https://*.supabase.co https://api.airtable.com https://cdn.brandfetch.io wss://*.supabase.co",
       "frame-ancestors 'none'",
     ].join("; ")
   );

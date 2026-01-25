@@ -126,22 +126,33 @@ const CODING_TAGS = [
 
 /**
  * Determines the question type based on tags and content
- * Priority: Coding (if strong indicators) > System Design > Behavioral > Default (coding)
+ * Priority: 
+ *   1. EXPLICIT "system design" tag (highest priority - human-curated signal)
+ *   2. Strong coding indicators (starterCode, examples, constraints, etc.)
+ *   3. System design indicators (content-based)
+ *   4. Behavioral indicators
+ *   5. Default to coding
  * 
- * NOTE: We check coding FIRST if there are strong coding indicators, because
- * questions like "Design a HashMap" or "Design a LRU Cache" are coding problems,
- * not system design interviews.
+ * NOTE: An explicit "system design" tag takes precedence over coding tags
+ * because questions can be tagged with both (e.g., "Notification System" has
+ * both "system design" and "coding" tags, but it's a system design interview).
  */
 export function getQuestionType(question: Question): QuestionType {
   const tagsLower = question.tags.map(t => t.toLowerCase());
   const promptLower = question.prompt.toLowerCase();
   const titleLower = question.title.toLowerCase();
   
-  // Check for CODING indicators
-  const hasCodingTag = tagsLower.some(tag => 
-    CODING_TAGS.some(codingTag => tag.includes(codingTag))
+  // 1. Check for EXPLICIT "system design" tag first (highest priority)
+  // This is a human-curated signal that should override inferred coding indicators
+  const hasExplicitSystemDesignTag = tagsLower.some(tag => 
+    tag === "system design" || tag === "system_design" || tag === "design system"
   );
   
+  if (hasExplicitSystemDesignTag) {
+    return "system_design";
+  }
+  
+  // 2. Check for STRONG coding indicators (structural elements that only coding problems have)
   const hasStrongCodeIndicators = 
     promptLower.includes("write a function") ||
     promptLower.includes("implement a function") ||
@@ -162,24 +173,26 @@ export function getQuestionType(question: Question): QuestionType {
     question.examples !== undefined ||
     question.constraints !== undefined;
   
-  // 1. If there are STRONG coding indicators, it's definitely coding
+  // Check for coding tags
+  const hasCodingTag = tagsLower.some(tag => 
+    CODING_TAGS.some(codingTag => tag.includes(codingTag))
+  );
+  
+  // If there are STRONG coding indicators, it's definitely coding
   // This prevents "Design a HashMap" from being classified as system design
-  if (hasCodingTag || hasStrongCodeIndicators) {
+  if (hasStrongCodeIndicators || hasCodingTag) {
     return "coding";
   }
   
-  // 2. Check for SYSTEM DESIGN
+  // 3. Check for SYSTEM DESIGN indicators (content-based)
   const hasSystemDesignTag = tagsLower.some(tag => 
     SYSTEM_DESIGN_TAGS.some(sdTag => tag.includes(sdTag))
   );
   
-  // System design indicators
-  // NOTE: We already filtered out coding problems above, so generic "Design a/an"
-  // patterns are now safe to include here. "Design a HashMap" already returned "coding"
-  // due to coding indicators, so "Design a Chat Application" will correctly be system design.
+  // System design content indicators
   const hasSystemDesignIndicators = 
     titleLower.includes("system design") ||
-    titleLower.includes("design a ") ||           // "Design a Chat Application" (space prevents "Design a")
+    titleLower.includes("design a ") ||           // "Design a Chat Application"
     titleLower.includes("design an ") ||          // "Design an Elevator System"
     titleLower.includes("how would you design") || // "How would you design a URL shortener?"
     promptLower.includes("design a system") ||

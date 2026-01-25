@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useAudioRecorder } from "@/lib/hooks/useAudioRecorder";
+import { useStreamingConversation } from "@/lib/hooks/useStreamingConversation";
+import { useStreamingSpeech } from "@/lib/hooks/useStreamingSpeech";
 import { saveInterview, getCodingInterview } from "@/lib/interviewStorage";
 import { CodingEvaluationResult } from "@/lib/codingRubric";
 import { Question, SupportedLanguage, SUPPORTED_LANGUAGES, DEFAULT_STARTER_CODE } from "@/lib/types";
@@ -59,6 +61,7 @@ type AudioQueueItem = {
   source: "url" | "base64" | "fetch";
   data: string;
   onComplete?: () => void;
+  mountId?: string; // Track which mount created this item (for React Strict Mode)
 };
 
 let activeSessionId: string | null = null;
@@ -104,6 +107,28 @@ export default function InterviewPanel({
   const [audioLevel, setAudioLevel] = useState(0);
   const conversationEndRef = useRef<HTMLDivElement>(null);
 
+  // Streaming conversation for low-latency responses
+  const [streamingText, setStreamingText] = useState<string>("");
+  const streamingConversation = useStreamingConversation();
+  
+  // Streaming speech for initial question (faster time-to-first-audio)
+  const streamingSpeechCallbacksRef = useRef<{
+    onComplete?: () => void;
+  }>({});
+  const streamingSpeechHook = useStreamingSpeech({
+    onComplete: () => {
+      streamingSpeechCallbacksRef.current.onComplete?.();
+    },
+    onError: (err) => {
+      console.error("[StreamingSpeech] Error:", err);
+      // On error, transition to coding anyway
+      streamingSpeechCallbacksRef.current.onComplete?.();
+    },
+  });
+  // Extract stable references to avoid effect re-runs when state changes
+  const streamingSpeechSpeak = streamingSpeechHook.speak;
+  const streamingSpeechStop = streamingSpeechHook.stop;
+
   // Natural conversation flow refs
   const continuationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -120,6 +145,13 @@ export default function InterviewPanel({
   const conversationRecordingStateRef = useRef(conversationRecordingState);
   const panelStateRef = useRef(panelState);
   const conversationRef = useRef(conversation);
+  
+  // Track active mount ID to prevent React Strict Mode double audio
+  const activeMountIdRef = useRef<string | null>(null);
+
+  // Refs for question data to avoid stale closures in audio callbacks
+  const questionTitleRef = useRef(question.title);
+  const questionPromptRef = useRef(question.prompt);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -134,11 +166,19 @@ export default function InterviewPanel({
     conversationRef.current = conversation;
   }, [conversation]);
 
+  useEffect(() => {
+    questionTitleRef.current = question.title;
+    questionPromptRef.current = question.prompt;
+  }, [question.title, question.prompt]);
+
   // Configuration for natural conversation flow
   // These settings prevent the AI from responding during natural pauses
-  const SILENCE_THRESHOLD = 0.04; // Audio level below this is considered silence
+  // Tuned for high sensitivity - works with quieter microphones
+  const SILENCE_THRESHOLD = 0.015; // Audio level below this is considered silence (very sensitive)
+  const SPEECH_THRESHOLD = 0.025; // Audio level above this is considered active speech (very sensitive)
   const SILENCE_DURATION = 1500; // ms of silence before auto-pausing (1.5s per design spec)
   const CONTINUATION_WINDOW = 3500; // ms to wait for continuation before sending (3.5s)
+  const MIN_RECORDING_DURATION = 500; // Minimum ms of recording before allowing transcription
 
   /**
    * Check if the transcribed text appears to be a complete thought
@@ -248,13 +288,210 @@ export default function InterviewPanel({
     isPlayingRef.current = true;
     setIsSpeaking(true);
     const item = audioQueueRef.current.shift()!;
+    
+    // Check if this item is from the current active mount (React Strict Mode fix)
+    if (item.mountId && item.mountId !== activeMountIdRef.current) {
+      console.log("[Audio] Skipping stale mount item:", item.mountId, "current:", activeMountIdRef.current);
+      isPlayingRef.current = false;
+      setIsSpeaking(false);
+      // Continue processing - there might be valid items from current mount
+      processNextInQueue();
+      return;
+    }
+    
+    console.log("[Audio] Processing:", item.source);
+
+    // Helper function to try playing audio with various fallbacks
+    const tryPlayAudio = async (url: string, shouldRevokeUrl: boolean = false): Promise<boolean> => {
+      // Check if this item's mount is still active (React Strict Mode fix)
+      if (item.mountId && item.mountId !== activeMountIdRef.current) {
+        console.log("[Audio] Aborting tryPlayAudio - mount is stale:", item.mountId, "current:", activeMountIdRef.current);
+        return false;
+      }
+      
+      return new Promise((resolve) => {
+        // Double-check mount is still active before creating audio element
+        if (item.mountId && item.mountId !== activeMountIdRef.current) {
+          console.log("[Audio] Aborting audio creation - mount is stale");
+          resolve(false);
+          return;
+        }
+        
+        const audio = new Audio();
+        audioRef.current = audio;
+        let resolved = false;
+
+        const cleanup = () => {
+          audio.removeEventListener("canplaythrough", onCanPlay);
+          audio.removeEventListener("error", onError);
+        };
+
+        const onCanPlay = async () => {
+          cleanup();
+          // Final mount check before actually playing
+          if (item.mountId && item.mountId !== activeMountIdRef.current) {
+            console.log("[Audio] Aborting play - mount became stale during load");
+            audio.src = "";
+            resolved = true;
+            resolve(false);
+            return;
+          }
+          try {
+            await audio.play();
+            console.log("[Audio] Playback started");
+            resolved = true;
+            resolve(true);
+          } catch (playErr) {
+            console.error("[Audio] Play failed after canplaythrough:", playErr);
+            resolved = true;
+            resolve(false);
+          }
+        };
+
+        const onError = () => {
+          cleanup();
+          console.error("[Audio] Load error:", audio.error?.code, audio.error?.message);
+          if (!resolved) {
+            resolved = true;
+            resolve(false);
+          }
+        };
+
+        audio.addEventListener("canplaythrough", onCanPlay, { once: true });
+        audio.addEventListener("error", onError, { once: true });
+
+        audio.addEventListener("timeupdate", () => {
+          if (audio.duration) {
+            setSpeakingProgress((audio.currentTime / audio.duration) * 100);
+          }
+        });
+
+        audio.addEventListener("ended", () => {
+          console.log("[Audio] Playback ended");
+          if (shouldRevokeUrl && url.startsWith("blob:")) {
+            URL.revokeObjectURL(url);
+          }
+          audioRef.current = null;
+          isPlayingRef.current = false;
+          setIsSpeaking(false);
+          setSpeakingProgress(0);
+          
+          if (isClosingRef.current) return;
+          
+          item.onComplete?.();
+
+          if (audioQueueRef.current.length > 0) {
+            processNextInQueue();
+          } else {
+            triggerAutoListen();
+          }
+        });
+
+        audio.addEventListener("pause", () => {
+          isPlayingRef.current = false;
+          setIsSpeaking(false);
+        });
+
+        // Set source and try to load
+        audio.src = url;
+        audio.load();
+
+        // Timeout for load attempt
+        setTimeout(() => {
+          if (!resolved) {
+            cleanup();
+            resolved = true;
+            resolve(false);
+          }
+        }, 5000);
+      });
+    };
+
+    // Helper to fetch fresh TTS and play via data URL
+    const fetchAndPlayFallback = async (): Promise<boolean> => {
+      // Check if mount is still active before fetching
+      if (item.mountId && item.mountId !== activeMountIdRef.current) {
+        console.log("[Audio Queue] Aborting fallback - mount is stale:", item.mountId);
+        return false;
+      }
+      
+      try {
+        audioAbortControllerRef.current = new AbortController();
+        
+        const response = await fetch("/api/interview/speak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            questionTitle: questionTitleRef.current, 
+            questionContent: questionPromptRef.current 
+          }),
+          signal: audioAbortControllerRef.current.signal,
+        });
+        
+        // Check again after fetch completes
+        if (item.mountId && item.mountId !== activeMountIdRef.current) {
+          console.log("[Audio Queue] Aborting after fetch - mount is stale");
+          return false;
+        }
+        
+        if (!response.ok) {
+          console.error("[Audio Queue] Fallback TTS fetch failed:", response.status);
+          return false;
+        }
+        
+        const blob = await response.blob();
+        // Use data URL instead of blob URL to avoid CSP issues
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        
+        console.log("[Audio Queue] Using data URL fallback");
+        return await tryPlayAudio(dataUrl, false);
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          console.log("[Audio Queue] Fallback fetch aborted");
+        } else {
+          console.error("[Audio Queue] Fallback error:", err);
+        }
+        return false;
+      }
+    };
 
     try {
       let audioUrl: string;
 
       if (item.source === "url") {
         audioUrl = item.data;
+        console.log("[Audio Queue] Using preloaded URL:", audioUrl ? audioUrl.slice(0, 50) + "..." : "EMPTY!");
+        
+        // Validate URL before trying to play
+        if (!audioUrl || audioUrl.length === 0) {
+          console.error("[Audio Queue] Preloaded URL is empty, falling back to fresh fetch");
+          // Skip to fallback
+          const fallbackSuccess = await fetchAndPlayFallback();
+          if (!fallbackSuccess && !isClosingRef.current) {
+            throw new Error("Audio playback failed");
+          }
+          return;
+        }
+
+        // Try the preloaded blob URL first (don't revoke it - the preloader manages it)
+        const success = await tryPlayAudio(audioUrl, false);
+        
+        if (!success && !isClosingRef.current) {
+          console.log("[Audio Queue] Preloaded URL failed, fetching fresh audio...");
+          const fallbackSuccess = await fetchAndPlayFallback();
+          
+          if (!fallbackSuccess && !isClosingRef.current) {
+            throw new Error("Audio playback failed with all methods");
+          }
+        }
+        return;
       } else if (item.source === "base64") {
+        console.log("[Audio Queue] Decoding base64 audio");
         const binaryString = atob(item.data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -274,17 +511,21 @@ export default function InterviewPanel({
               questionTitle: parsed.questionTitle || "",
               questionContent: parsed.questionContent || ""
             };
+            console.log("[Audio Queue] Fetching TTS for question:", parsed.questionTitle?.slice(0, 50));
           } else {
             requestBody = { question: item.data };
+            console.log("[Audio Queue] Fetching TTS for text:", item.data.slice(0, 50));
           }
         } catch {
           // Plain text - use as question
           requestBody = { question: item.data };
+          console.log("[Audio Queue] Fetching TTS for plain text:", item.data.slice(0, 50));
         }
 
         // Create abort controller for this fetch
         audioAbortControllerRef.current = new AbortController();
 
+        console.log("[Audio Queue] Calling /api/interview/speak...");
         const response = await fetch("/api/interview/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -294,28 +535,31 @@ export default function InterviewPanel({
         
         // Check if panel closed while fetching
         if (isClosingRef.current) {
+          console.log("[Audio Queue] Panel closed during fetch, aborting");
           isPlayingRef.current = false;
           setIsSpeaking(false);
           return;
         }
         
         if (!response.ok) {
+          console.error("[Audio Queue] TTS failed:", response.status, response.statusText);
           throw new Error("TTS failed");
         }
+        console.log("[Audio Queue] TTS response OK, creating blob URL");
         const blob = await response.blob();
         audioUrl = URL.createObjectURL(blob);
       }
 
       // Final check before playing - ensure panel is still open
       if (isClosingRef.current) {
+        console.log("[Audio Queue] Panel closed before play, aborting");
         isPlayingRef.current = false;
         setIsSpeaking(false);
-        if (item.source !== "url") {
-          URL.revokeObjectURL(audioUrl);
-        }
+        URL.revokeObjectURL(audioUrl);
         return;
       }
 
+      console.log("[Audio Queue] Creating Audio element for playback");
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
 
@@ -326,9 +570,9 @@ export default function InterviewPanel({
       });
 
       audio.addEventListener("ended", () => {
-        if (item.source !== "url") {
-          URL.revokeObjectURL(audioUrl);
-        }
+        console.log("[Audio] Playback ended");
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
         isPlayingRef.current = false;
         setIsSpeaking(false);
         setSpeakingProgress(0);
@@ -342,15 +586,14 @@ export default function InterviewPanel({
         if (audioQueueRef.current.length > 0) {
           processNextInQueue();
         } else {
-          // Queue is empty - trigger auto-listen for hands-free conversation
           triggerAutoListen();
         }
       });
 
       audio.addEventListener("error", () => {
-        if (item.source !== "url") {
-          URL.revokeObjectURL(audioUrl);
-        }
+        console.error("[Audio] Error:", audio.error?.code, audio.error?.message);
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
         isPlayingRef.current = false;
         setIsSpeaking(false);
         
@@ -372,10 +615,57 @@ export default function InterviewPanel({
         setIsSpeaking(false);
       });
 
-      await audio.play();
+      // Try to play - handle autoplay restrictions
+      console.log("[Audio Queue] Attempting to play audio...");
+      try {
+        await audio.play();
+        console.log("[Audio Queue] Audio playback started successfully");
+      } catch (playError) {
+        console.error("[Audio Queue] Initial play failed:", playError);
+        
+        // Try playing with a small delay (helps with some browsers)
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        try {
+          await audio.play();
+          console.log("[Audio Queue] Delayed play succeeded");
+        } catch (retryError) {
+          console.error("[Audio Queue] Retry also failed:", retryError);
+          
+          // Set up a click handler to resume playback on user interaction
+          const resumePlayback = async () => {
+            document.removeEventListener("click", resumePlayback);
+            try {
+              await audio.play();
+              console.log("[Audio Queue] Play succeeded after user interaction");
+            } catch (e) {
+              console.error("[Audio Queue] Play still failed after interaction:", e);
+              // Give up and proceed
+              URL.revokeObjectURL(audioUrl);
+              audioRef.current = null;
+              isPlayingRef.current = false;
+              setIsSpeaking(false);
+              if (!isClosingRef.current) {
+                item.onComplete?.();
+                if (audioQueueRef.current.length > 0) {
+                  processNextInQueue();
+                } else {
+                  triggerAutoListen();
+                }
+              }
+            }
+          };
+          
+          // Listen for next click to resume audio
+          document.addEventListener("click", resumePlayback, { once: true });
+          console.log("[Audio Queue] Waiting for user interaction to play audio...");
+          return; // Don't call onComplete yet - wait for user interaction
+        }
+      }
     } catch (err) {
       // Ignore abort errors - they're expected when closing
       if (err instanceof Error && err.name === "AbortError") {
+        console.log("[Audio Queue] Fetch aborted (expected during close)");
         isPlayingRef.current = false;
         setIsSpeaking(false);
         return;
@@ -396,25 +686,30 @@ export default function InterviewPanel({
     const queueItem: AudioQueueItem = {
       ...item,
       id: Date.now().toString(),
+      mountId: item.mountId || activeMountIdRef.current || undefined,
     };
     audioQueueRef.current.push(queueItem);
+    console.log("[Audio Queue] Queued item:", queueItem.id, "source:", item.source, "mountId:", queueItem.mountId?.slice(-8), "queue length:", audioQueueRef.current.length);
 
     // Start processing if not already playing
     if (!isPlayingRef.current) {
+      console.log("[Audio Queue] Starting queue processing");
       processNextInQueue();
+    } else {
+      console.log("[Audio Queue] Already playing, item will wait in queue");
     }
   }, [processNextInQueue]);
 
-  const speakText = useCallback((text: string, onComplete?: () => void) => {
-    queueAudio({ source: "fetch", data: text, onComplete });
+  const speakText = useCallback((text: string, onComplete?: () => void, mountId?: string) => {
+    queueAudio({ source: "fetch", data: text, onComplete, mountId });
   }, [queueAudio]);
 
-  const playAudioUrl = useCallback((url: string, onComplete?: () => void) => {
-    queueAudio({ source: "url", data: url, onComplete });
+  const playAudioUrl = useCallback((url: string, onComplete?: () => void, mountId?: string) => {
+    queueAudio({ source: "url", data: url, onComplete, mountId });
   }, [queueAudio]);
 
-  const playBase64Audio = useCallback((base64: string, onComplete?: () => void) => {
-    queueAudio({ source: "base64", data: base64, onComplete });
+  const playBase64Audio = useCallback((base64: string, onComplete?: () => void, mountId?: string) => {
+    queueAudio({ source: "base64", data: base64, onComplete, mountId });
   }, [queueAudio]);
 
   /**
@@ -566,44 +861,105 @@ export default function InterviewPanel({
     setIsVisible(true);
   }, [question.id]);
 
-  // Play initial question audio (only once)
+  // Store preloadedAudioUrl in a ref to avoid effect re-runs when prefetch completes
+  const preloadedAudioUrlRef = useRef(preloadedAudioUrl);
+  
   useEffect(() => {
-    if (initialQuestionPlayedRef.current) return;
-    if (activeSessionId && activeSessionId !== sessionIdRef.current) return;
+    preloadedAudioUrlRef.current = preloadedAudioUrl;
+  }, [preloadedAudioUrl]);
 
-    activeSessionId = sessionIdRef.current;
-    initialQuestionPlayedRef.current = true;
-
-    const onQuestionComplete = () => {
-      console.log("[Init] Question audio complete, transitioning to coding state");
-      // Update ref synchronously so triggerAutoListen sees the correct state immediately
-      // React's setState is async and the useEffect that syncs the ref may not run in time
-      panelStateRef.current = "coding";
-      setPanelState("coding");
-      // Trigger auto-listen after a short delay to ensure audio queue is cleared
-      setTimeout(() => {
-        console.log("[Init] Triggering auto-listen after question");
-        triggerAutoListen();
-      }, 100);
-    };
-
-    if (preloadedAudioUrl) {
-      playAudioUrl(preloadedAudioUrl, onQuestionComplete);
-    } else {
-      // Pass structured data so the AI knows title is the topic name, content is instructions
-      const structuredQuestion = JSON.stringify({
-        questionTitle: question.title,
-        questionContent: question.prompt
-      });
-      speakText(structuredQuestion, onQuestionComplete);
+  // Play initial question audio (only once per question)
+  useEffect(() => {
+    // Track if this effect instance was cleaned up (React Strict Mode runs effects twice)
+    let wasCleanedUp = false;
+    
+    // Generate unique mount ID for this effect instance
+    const mountId = `mount-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    activeMountIdRef.current = mountId;
+    console.log("[Init] New mount:", mountId);
+    
+    // Skip if already played for this question
+    if (initialQuestionPlayedRef.current) {
+      return;
     }
 
-    return () => {
-      if (activeSessionId === sessionIdRef.current) {
-        activeSessionId = null;
+    // Mark as played immediately to prevent duplicate runs
+    initialQuestionPlayedRef.current = true;
+    setIsSpeaking(true);
+    console.log("[Init] Playing question:", question.title);
+    
+    const onQuestionComplete = () => {
+      // Don't transition if this effect was cleaned up or mount is no longer active
+      if (wasCleanedUp || activeMountIdRef.current !== mountId) {
+        console.log("[Init] Audio complete but mount is stale, skipping transition");
+        return;
       }
+      
+      console.log("[Init] Audio complete, transitioning to coding");
+      setIsSpeaking(false);
+      panelStateRef.current = "coding";
+      setPanelState("coding");
+      setTimeout(() => triggerAutoListen(), 100);
     };
-  }, [question, preloadedAudioUrl, playAudioUrl, speakText, triggerAutoListen]);
+
+    // Set callback for streaming speech hook
+    streamingSpeechCallbacksRef.current.onComplete = onQuestionComplete;
+
+    // Use preloaded audio if available (use prop directly, not ref, for first render)
+    // The ref might not be synced yet on first render
+    const audioUrl = preloadedAudioUrl || preloadedAudioUrlRef.current;
+    
+    if (audioUrl) {
+      console.log("[Init] Using preloaded audio");
+      playAudioUrl(audioUrl, onQuestionComplete, mountId);
+    } else {
+      console.log("[Init] Using streaming speech");
+      streamingSpeechSpeak(question.title, question.prompt, question.tags?.[0]);
+    }
+    
+    // Fallback: If audio doesn't complete within 30 seconds, transition anyway
+    const fallbackTimer = setTimeout(() => {
+      if (panelStateRef.current === "speaking" && !wasCleanedUp) {
+        console.log("[Init] Fallback timeout - transitioning to coding");
+        streamingSpeechStop();
+        setIsSpeaking(false);
+        panelStateRef.current = "coding";
+        setPanelState("coding");
+        triggerAutoListen();
+      }
+    }, 30000);
+    
+    return () => {
+      console.log("[Init] Cleanup for mount:", mountId);
+      wasCleanedUp = true;
+      clearTimeout(fallbackTimer);
+      // Invalidate this mount so any pending audio from it won't play
+      // The next mount will set a new activeMountIdRef.current
+      if (activeMountIdRef.current === mountId) {
+        activeMountIdRef.current = null;
+      }
+      // Stop streaming speech if it was started (prevents background audio on unmount)
+      streamingSpeechStop();
+      // Stop any in-progress audio playback and fetches (React Strict Mode fix)
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current = null;
+      }
+      if (audioAbortControllerRef.current) {
+        audioAbortControllerRef.current.abort();
+        audioAbortControllerRef.current = null;
+      }
+      // Reset playing state so second mount can start fresh
+      isPlayingRef.current = false;
+      // Clear audio queue to remove items with stale onComplete closures
+      audioQueueRef.current = [];
+      // Reset so the next mount can queue fresh audio
+      initialQuestionPlayedRef.current = false;
+    };
+  // Note: preloadedAudioUrl is intentionally NOT in deps - we use preloadedAudioUrlRef 
+  // to avoid re-triggering when prefetch completes after streaming has started
+  }, [question.id, playAudioUrl, streamingSpeechSpeak, streamingSpeechStop, triggerAutoListen]);
 
   // Load previous interview
   useEffect(() => {
@@ -660,6 +1016,11 @@ export default function InterviewPanel({
     
     // Stop all audio immediately - this aborts any in-flight TTS fetches
     clearAudioQueue();
+    
+    // Stop streaming speech (initial question) and conversation
+    streamingSpeechStop();
+    streamingConversation.abort();
+    setStreamingText("");
 
     // Clear any pending auto-listen timeout
     if (autoListenDelayRef.current) {
@@ -701,7 +1062,7 @@ export default function InterviewPanel({
     setTimeout(() => {
       onClose();
     }, 300);
-  }, [onClose, clearAudioQueue, clearContinuationTimeout, cleanupAudioAnalysis, evaluation, conversation, question.id, code, language]);
+  }, [onClose, clearAudioQueue, streamingSpeechStop, streamingConversation, clearContinuationTimeout, cleanupAudioAnalysis, evaluation, conversation, question.id, code, language]);
 
   const handleTryAgain = useCallback(() => {
     clearAudioQueue();
@@ -746,6 +1107,11 @@ export default function InterviewPanel({
     clearAudioQueue();
     initialQuestionPlayedRef.current = false;
 
+    // Stop streaming speech and conversation
+    streamingSpeechStop();
+    streamingConversation.abort();
+    setStreamingText("");
+
     // Clear any pending auto-listen timeout (same as handleClose)
     if (autoListenDelayRef.current) {
       clearTimeout(autoListenDelayRef.current);
@@ -784,7 +1150,7 @@ export default function InterviewPanel({
     } else if (direction === "prev" && onPrev) {
       onPrev();
     }
-  }, [onNext, onPrev, clearAudioQueue, clearContinuationTimeout, cleanupAudioAnalysis]);
+  }, [onNext, onPrev, clearAudioQueue, streamingSpeechStop, streamingConversation, clearContinuationTimeout, cleanupAudioAnalysis]);
 
   const skipToCode = useCallback(() => {
     clearAudioQueue();
@@ -951,16 +1317,30 @@ export default function InterviewPanel({
     }
   }, [conversation]);
 
+  // Sync streaming text from the hook for real-time display
+  useEffect(() => {
+    if (streamingConversation.currentText) {
+      setStreamingText(streamingConversation.currentText);
+    }
+  }, [streamingConversation.currentText]);
+
   /**
-   * Send a message to the conversational AI and get a response
-   * Memoized to prevent stale closures in setTimeout callbacks
+   * Send a message to the conversational AI with streaming response
+   * Uses sentence-based TTS for ~50-70% lower perceived latency
+   * 
+   * Flow:
+   * 1. Text streams in real-time as LLM generates
+   * 2. First sentence audio plays while LLM still generating
+   * 3. Subsequent sentences queued and played in order
    */
   const sendConversationMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim() || isConversing) return;
 
     // Stop any playing audio before processing
     clearAudioQueue();
+    streamingConversation.stopAudio();
     setIsConversing(true);
+    setStreamingText("");
 
     // Add user message to conversation immediately for UI display
     const userTurn: ConversationTurn = {
@@ -973,40 +1353,30 @@ export default function InterviewPanel({
     setConversation(prev => [...prev, userTurn]);
 
     try {
-      const response = await fetch("/api/interview/converse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionTitle: question.title,
-          questionContent: question.prompt,
-          userMessage: userMessage.trim(),
-          // Only send previous turns - current message is in userMessage field
-          conversationHistory: previousConversation,
-          code,
-          language,
-          evaluation,
-          interviewState: panelState
-        }),
+      // Use streaming API for low-latency response
+      const result = await streamingConversation.sendMessage({
+        questionTitle: question.title,
+        questionContent: question.prompt,
+        userMessage: userMessage.trim(),
+        conversationHistory: previousConversation,
+        code,
+        language,
+        evaluation: evaluation || undefined,
+        interviewState: panelState
       });
 
-      if (!response.ok) {
+      if (!result) {
         throw new Error("Failed to get response");
       }
 
-      const data = await response.json();
-
-      // Add AI response to conversation
+      // Add AI response to conversation (full text after streaming completes)
       const aiTurn: ConversationTurn = {
         role: "interviewer",
-        content: data.response,
+        content: result.fullText,
         timestamp: Date.now()
       };
       setConversation(prev => [...prev, aiTurn]);
-
-      // Play audio response if available
-      if (data.audio) {
-        playBase64Audio(data.audio);
-      }
+      setStreamingText(""); // Clear streaming text now that it's in conversation
 
       // If in followup state, continue the follow-up flow after response
       if (panelState === "followup") {
@@ -1017,7 +1387,6 @@ export default function InterviewPanel({
         // Note: followUpCount is incremented inside generateFollowUp
         if (followUpCount < MAX_FOLLOWUPS) {
           // Wait for audio to finish, then generate next follow-up
-          // The generateFollowUp function will handle incrementing count and calling the API
           setTimeout(() => {
             generateFollowUp(userMessage, fullConversation);
           }, 1500); // Small delay to let the conversational response play
@@ -1042,10 +1411,12 @@ export default function InterviewPanel({
       setConversation(prev => prev.slice(0, -1));
     } finally {
       setIsConversing(false);
+      setStreamingText("");
     }
   }, [
     isConversing,
     clearAudioQueue,
+    streamingConversation,
     conversation,
     question.id,
     question.title,
@@ -1055,8 +1426,7 @@ export default function InterviewPanel({
     evaluation,
     panelState,
     followUpCount,
-    generateFollowUp,
-    playBase64Audio
+    generateFollowUp
   ]);
 
   /**
@@ -1087,9 +1457,11 @@ export default function InterviewPanel({
       const analyser = audioContext.createAnalyser();
       const source = audioContext.createMediaStreamSource(stream);
 
+      // Configure analyser for balanced sensitivity
+      // -80dB captures quieter speech, more sensitive for various microphones
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.5; // More responsive
-      analyser.minDecibels = -90;
+      analyser.smoothingTimeConstant = 0.5; // Less smoothing = more responsive to speech
+      analyser.minDecibels = -80; // More sensitive - captures quieter voices
       analyser.maxDecibels = -10;
       source.connect(analyser);
 
@@ -1116,8 +1488,14 @@ export default function InterviewPanel({
           console.log("[Audio] Level:", normalizedLevel.toFixed(3), "Avg raw:", average.toFixed(1));
         }
 
-        // Silence detection
-        if (normalizedLevel < SILENCE_THRESHOLD) {
+        // Silence/speech detection with noise gate
+        // Audio must exceed SPEECH_THRESHOLD to be considered active speech
+        // Audio below SILENCE_THRESHOLD triggers silence detection
+        // This creates a "noise gate" effect that ignores background noise
+        const isActiveSpeech = normalizedLevel >= SPEECH_THRESHOLD;
+        const isSilent = normalizedLevel < SILENCE_THRESHOLD;
+        
+        if (isSilent) {
           if (!silenceStartRef.current) {
             silenceStartRef.current = Date.now();
           } else if (Date.now() - silenceStartRef.current > SILENCE_DURATION) {
@@ -1133,9 +1511,14 @@ export default function InterviewPanel({
             }
             return; // Stop monitoring loop - pauseRecording handles state transition
           }
-        } else {
+        } else if (isActiveSpeech) {
+          // Clear silence timer when active speech is detected
           silenceStartRef.current = null;
+          // Mark that we detected actual speech (not just background noise)
+          speechDetectedRef.current = true;
         }
+        // Audio between SILENCE_THRESHOLD and SPEECH_THRESHOLD is ambiguous
+        // We keep the silence timer running but don't reset it (noise gate behavior)
 
         requestAnimationFrame(checkAudioLevel);
       };
@@ -1148,15 +1531,123 @@ export default function InterviewPanel({
   }, []);
 
   /**
+   * Check if transcript is likely a Whisper hallucination
+   * Whisper often generates these phrases when given silence or background noise
+   */
+  const isLikelyHallucination = (text: string): boolean => {
+    if (!text) return true;
+    
+    const normalized = text.toLowerCase().trim();
+    
+    // Very short responses (under 4 chars) are almost always hallucinations
+    if (normalized.length < 4) {
+      console.log("[Transcribe] Filtered - too short:", text);
+      return true;
+    }
+    
+    // Single word responses are usually hallucinations unless they're meaningful
+    const words = normalized.split(/\s+/);
+    if (words.length === 1) {
+      const allowedSingleWords = ["yes", "no", "sure", "correct", "right", "wrong", "done", "finished", "ready", "help"];
+      if (!allowedSingleWords.includes(normalized.replace(/[.!?]$/, ""))) {
+        console.log("[Transcribe] Filtered - single word:", text);
+        return true;
+      }
+    }
+    
+    // Common Whisper hallucination patterns (partial matching)
+    const hallucinationPatterns = [
+      /^thanks?\s*(for\s*)?(watching|listening|viewing)/i,
+      /subscribe/i,
+      /like\s*(and|&)\s*subscribe/i,
+      /see\s*you\s*(next|later|soon)/i,
+      /\botter\.ai\b/i,
+      /transcribed\s*by/i,
+      /^beep\.?$/i,
+      /^\[.*\]$/,  // [music], [applause], etc.
+      /^\(.*\)$/,  // (music), (silence), etc.
+      /^\.{2,}$/,  // "...", "...."
+      /^music\.?$/i,
+      /^the\s*end\.?$/i,
+      /^bye\.?$/i,
+      /^goodbye\.?$/i,
+      /^hello\.?$/i,
+      /^hey\.?$/i,
+      /^you\.?$/i,
+      /^i\.?$/i,
+      /^okay\.?$/i,
+      /^ok\.?$/i,
+      /^um+\.?$/i,
+      /^uh+\.?$/i,
+      /^hmm+\.?$/i,
+      /^mm+\.?$/i,
+      /^ah+\.?$/i,
+      /^oh+\.?$/i,
+      /^huh\.?$/i,
+      /^mhm+\.?$/i,
+      /^yeah\.?$/i,
+      /^yep\.?$/i,
+      /^nope\.?$/i,
+      /^nah\.?$/i,
+      /^wow\.?$/i,
+      /^whoa\.?$/i,
+      /please\s*subscribe/i,
+      /don'?t\s*forget\s*to/i,
+      /hit\s*the\s*(like|bell)/i,
+      /comment\s*(below|down)/i,
+      /^\s*$/,  // Empty or whitespace only
+    ];
+    
+    for (const pattern of hallucinationPatterns) {
+      if (pattern.test(normalized)) {
+        console.log("[Transcribe] Filtered hallucination:", text, "matched:", pattern);
+        return true;
+      }
+    }
+    
+    // Repeated characters/words are often hallucinations
+    if (/^(.)\1{3,}$/.test(normalized)) {
+      console.log("[Transcribe] Filtered - repeated chars:", text);
+      return true;
+    }
+    if (/^(\w+\s*)\1{2,}$/.test(normalized)) {
+      console.log("[Transcribe] Filtered - repeated words:", text);
+      return true;
+    }
+    
+    return false;
+  };
+
+  /**
    * Transcribe the current recording chunk
    */
   const transcribeCurrentChunk = async (): Promise<string | null> => {
     if (conversationChunksRef.current.length === 0) {
+      console.log("[Transcribe] No audio chunks to transcribe");
+      return null;
+    }
+
+    // Only transcribe if actual speech was detected (not just background noise)
+    if (!speechDetectedRef.current) {
+      console.log("[Transcribe] No speech detected during recording, skipping transcription");
+      return null;
+    }
+
+    // Check minimum recording duration to avoid transcribing noise/clicks
+    const recordingDuration = Date.now() - recordingStartTimeRef.current;
+    if (recordingDuration < MIN_RECORDING_DURATION) {
+      console.log("[Transcribe] Recording too short:", recordingDuration, "ms, skipping");
       return null;
     }
 
     const mimeType = conversationMediaRecorderRef.current?.mimeType || "audio/webm";
     const recordedBlob = new Blob(conversationChunksRef.current, { type: mimeType });
+    
+    // Check blob size - very small blobs are unlikely to contain real speech
+    if (recordedBlob.size < 1000) {
+      console.log("[Transcribe] Audio blob too small:", recordedBlob.size, "bytes, skipping");
+      return null;
+    }
 
     try {
       const formData = new FormData();
@@ -1172,7 +1663,15 @@ export default function InterviewPanel({
       }
 
       const { transcript } = await transcribeResponse.json();
-      return transcript?.trim() || null;
+      const trimmed = transcript?.trim() || null;
+      
+      // Filter out likely hallucinations
+      if (trimmed && isLikelyHallucination(trimmed)) {
+        return null;
+      }
+      
+      console.log("[Transcribe] Got transcript:", trimmed);
+      return trimmed;
     } catch (err) {
       console.error("Transcription error:", err);
       return null;
@@ -1182,6 +1681,8 @@ export default function InterviewPanel({
   // Use a ref to track if we should auto-send when continuation timer expires
   const shouldAutoSendRef = useRef(false);
   const pendingTranscriptRef = useRef<string>("");
+  const recordingStartTimeRef = useRef<number>(0); // Track when recording started
+  const speechDetectedRef = useRef(false); // Track if actual speech was detected
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -1365,6 +1866,8 @@ export default function InterviewPanel({
       console.log("[Recording] MediaRecorder started, state:", mediaRecorder.state);
       setConversationRecordingState("recording");
       silenceStartRef.current = null;
+      recordingStartTimeRef.current = Date.now(); // Track when recording started
+      speechDetectedRef.current = false; // Reset speech detection for this recording session
 
       // Start audio level monitoring
       await startAudioLevelMonitoring(stream);
@@ -1618,9 +2121,16 @@ export default function InterviewPanel({
                     {isConversing && (
                       <div className={`${styles.conversationMessage} ${styles.messageInterviewer}`}>
                         <span className={styles.messageRole}>Interviewer</span>
-                        <div className={styles.typingIndicator}>
-                          <span></span><span></span><span></span>
-                        </div>
+                        {streamingText ? (
+                          <p className={styles.messageContent}>
+                            {streamingText}
+                            <span className={styles.streamingCursor}>▌</span>
+                          </p>
+                        ) : (
+                          <div className={styles.typingIndicator}>
+                            <span></span><span></span><span></span>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div ref={conversationEndRef} />
@@ -1628,73 +2138,30 @@ export default function InterviewPanel({
                 </div>
               )}
 
-              {/* Hands-free Conversation Interface */}
-              <div className={styles.conversationInput}>
-                  {conversationRecordingState === "processing" ? (
-                    <div className={styles.conversationProcessing}>
-                      <span className={styles.spinnerSmall} />
-                      <span>Processing...</span>
+              {/* Minimalist Conversation Status */}
+              <div className={styles.conversationStatus}>
+                  {conversationRecordingState === "processing" || isConversing ? (
+                    <div className={styles.statusMinimal}>
+                      <span className={styles.statusDot} data-state="processing" />
                     </div>
                   ) : conversationRecordingState === "recording" ? (
-                    <div className={styles.recordingActive}>
-                      {/* Audio waveform visualizer - shows audio is being captured */}
-                      <div className={styles.audioVisualizerDark}>
-                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(15, 15 + audioLevel * 500)}%` }} />
-                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(25, 25 + audioLevel * 450)}%` }} />
-                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(35, 35 + audioLevel * 400)}%` }} />
-                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(25, 25 + audioLevel * 450)}%` }} />
-                        <div className={styles.visualizerBarDark} style={{ height: `${Math.max(15, 15 + audioLevel * 500)}%` }} />
-                      </div>
-                      <div className={styles.listeningStatusDark}>
-                        <span>Listening...</span>
-                      </div>
+                    <div className={styles.statusMinimal}>
+                      <span className={styles.statusDot} data-state="recording" style={{ transform: `scale(${1 + audioLevel * 2})` }} />
                     </div>
                   ) : conversationRecordingState === "paused" ? (
-                    <div className={styles.userThinkingState}>
-                      {/* Show pending transcript with thinking animation */}
+                    <div className={styles.statusMinimal}>
                       {pendingTranscript && (
-                        <div className={styles.userTranscript}>
-                          <p className={styles.userTranscriptText}>{pendingTranscript}</p>
-                        </div>
+                        <span className={styles.pendingText}>{pendingTranscript}</span>
                       )}
-                      <div className={styles.userThinkingIndicator}>
-                        <span></span><span></span><span></span>
-                      </div>
-                    </div>
-                  ) : conversationRecordingState === "listening" ? (
-                    <div className={styles.listeningStarting}>
-                      <div className={styles.listeningPulse}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        </svg>
-                      </div>
-                      <span>Starting microphone...</span>
+                      <span className={styles.statusDot} data-state="paused" />
                     </div>
                   ) : isSpeaking ? (
-                    // AI is speaking - show visual indicator, allow interrupt by speaking
-                    <div
-                      className={styles.aiSpeakingIndicator}
-                      onClick={startConversationRecording}
-                    >
-                      <div className={styles.speakingWave}>
-                        <span></span><span></span><span></span><span></span><span></span>
-                      </div>
-                      <span>Interviewer is speaking... </span>
+                    <div className={styles.statusMinimal} onClick={startConversationRecording}>
+                      <span className={styles.statusDot} data-state="speaking" />
                     </div>
                   ) : (
-                    // Idle state - auto-listening should start, show passive indicator
-                    <div
-                      className={styles.autoListenIndicator}
-                      onClick={startConversationRecording}
-                    >
-                      <div className={styles.autoListenPulse}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        </svg>
-                      </div>
-                      <span>{isConversing ? "Processing..." : "Ready to listen..."}</span>
+                    <div className={styles.statusMinimal} onClick={startConversationRecording}>
+                      <span className={styles.statusDot} data-state="ready" />
                     </div>
                   )}
 

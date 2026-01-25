@@ -137,7 +137,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Support both new format (title + content) and old format (combined question)
-    if (!questionTitle && !question) {
+    // New format: questionTitle + questionContent
+    // Old format: question (combined)
+    if (!questionTitle && !questionContent && !question) {
       return NextResponse.json(
         { error: "Question is required" },
         { status: 400 }
@@ -145,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
     
     // If using old format, use it directly (questionTitle stays undefined)
-    if (!questionTitle && question) {
+    if (!questionTitle && !questionContent && question) {
       questionContent = question;
     }
 
@@ -156,10 +158,17 @@ export async function POST(request: NextRequest) {
     questionContent = questionContent ? sanitizeForLLM(questionContent) : "";
     category = typeof category === "string" ? sanitizeForLLM(category) : undefined;
 
-    // Validate length (allow longer questions, we'll summarize them)
-    const contentValidation = validateLength(questionContent, 10, 5000);
+    // Validate length - allow shorter content if we have a title (title alone can be spoken)
+    // For content-only, require minimum 10 chars
+    const minLength = questionTitle ? 0 : 10;
+    const contentValidation = validateLength(questionContent, minLength, 5000);
     if (!contentValidation.valid) {
       return NextResponse.json({ error: contentValidation.error }, { status: 400 });
+    }
+    
+    // If we have neither title nor sufficient content, return error
+    if (!questionTitle && questionContent.length < 10) {
+      return NextResponse.json({ error: "Question content is too short" }, { status: 400 });
     }
 
     // Determine if this is a long question that needs summarization
@@ -173,9 +182,12 @@ export async function POST(request: NextRequest) {
         ? `Topic: "${questionTitle}"\n\nInstructions: ${questionContent}`
         : questionContent;
       spokenQuestion = await summarizeQuestion(fullContext, category);
-    } else if (questionTitle) {
+    } else if (questionTitle && questionContent.length > 0) {
       // For short questions with a title, introduce the topic
       spokenQuestion = `This problem is called "${questionTitle}". ${questionContent}`;
+    } else if (questionTitle) {
+      // Title only - just speak the title
+      spokenQuestion = `This problem is called "${questionTitle}". Take a look at the details on your screen.`;
     }
 
     // Build the natural interview prompt

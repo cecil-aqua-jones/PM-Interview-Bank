@@ -12,6 +12,7 @@ import { useTTSPreloader } from "@/lib/hooks/useTTSPreloader";
 import { useQuestionEnhancer } from "@/lib/hooks/useQuestionEnhancer";
 import InterviewPanel from "./InterviewPanel";
 import BehavioralInterviewPanel from "./BehavioralInterviewPanel";
+import SystemDesignInterviewPanel from "./SystemDesignInterviewPanel";
 import FormattedContent from "./FormattedContent";
 
 /**
@@ -667,47 +668,34 @@ export default function CompanyQuestionsClient({
             totalQuestions={filteredQuestions.length}
           />
         ) : getQuestionType(interviewQuestion) === "system_design" ? (
-          /* System Design Interview - Coming Soon placeholder */
-          <div className={`${styles.interviewPanel} ${styles.interviewPanelVisible}`}>
-            <div className={styles.interviewPanelHeader}>
-              <button
-                className={styles.closeInterviewBtn}
-                onClick={() => {
-                  setIsInterviewClosing(true);
-                  setInterviewQuestion(null);
-                  setTimeout(() => setIsInterviewClosing(false), 200);
-                }}
-                aria-label="Close interview"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-              <div className={styles.questionCounter}>
-                System Design
-              </div>
-            </div>
-            <div className={styles.interviewPanelContent} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '48px 24px' }}>
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--graphite)" strokeWidth="1.5" style={{ marginBottom: '24px', opacity: 0.6 }}>
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-              </svg>
-              <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--charcoal)', marginBottom: '12px' }}>
-                System Design Interview
-              </h3>
-              <p style={{ fontSize: '15px', color: 'var(--graphite)', lineHeight: 1.6, maxWidth: '400px', marginBottom: '8px' }}>
-                <strong>{enhancedInterviewQuestion.title}</strong>
-              </p>
-              <p style={{ fontSize: '14px', color: 'var(--graphite)', lineHeight: 1.6, maxWidth: '400px', marginBottom: '24px' }}>
-                System design interviews with AI-powered whiteboarding and architecture feedback are coming soon.
-              </p>
-              <div style={{ padding: '16px 24px', background: 'var(--ivory)', borderRadius: '8px', fontSize: '13px', color: 'var(--graphite)' }}>
-                For now, review the question and practice your approach mentally or on paper.
-              </div>
-            </div>
-          </div>
+          <SystemDesignInterviewPanel
+            question={enhancedInterviewQuestion}
+            preloadedAudioUrl={getPreloadedAudio(interviewQuestion.id)?.audioUrl}
+            onClose={() => {
+              setIsInterviewClosing(true);
+              setInterviewQuestion(null);
+              setTimeout(() => setIsInterviewClosing(false), 200);
+            }}
+            onNext={() => {
+              const currentIdx = filteredQuestions.findIndex(q => q.id === interviewQuestion.id);
+              if (currentIdx < filteredQuestions.length - 1) {
+                const nextQ = filteredQuestions[currentIdx + 1];
+                setInterviewQuestion(nextQ);
+              }
+            }}
+            onPrev={() => {
+              const currentIdx = filteredQuestions.findIndex(q => q.id === interviewQuestion.id);
+              if (currentIdx > 0) {
+                const prevQ = filteredQuestions[currentIdx - 1];
+                setInterviewQuestion(prevQ);
+              }
+            }}
+            hasNext={filteredQuestions.findIndex(q => q.id === interviewQuestion.id) < filteredQuestions.length - 1}
+            hasPrev={filteredQuestions.findIndex(q => q.id === interviewQuestion.id) > 0}
+            onScoreUpdate={handleScoreUpdate}
+            questionIndex={filteredQuestions.findIndex(q => q.id === interviewQuestion.id)}
+            totalQuestions={filteredQuestions.length}
+          />
         ) : (
           <BehavioralInterviewPanel
             question={enhancedInterviewQuestion}
