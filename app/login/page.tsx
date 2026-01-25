@@ -4,9 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-// Match the AuthGuard setting (MUST be false in production)
-const BYPASS_AUTH = false;
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -15,13 +12,8 @@ export default function LoginPage() {
   );
   const [message, setMessage] = useState("");
 
-  // Redirect if already authenticated or auth is bypassed
+  // Redirect if already authenticated
   useEffect(() => {
-    if (BYPASS_AUTH) {
-      router.push("/dashboard");
-      return;
-    }
-
     const checkAuth = async () => {
       if (!supabase) return;
       const { data: { session } } = await supabase.auth.getSession();

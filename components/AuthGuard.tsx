@@ -4,19 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-// Set to true to bypass auth during development (MUST be false in production)
-const BYPASS_AUTH = false;
-
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [status, setStatus] = useState<"loading" | "authenticated" | "unauthenticated">(
-    BYPASS_AUTH ? "authenticated" : "loading"
-  );
+  const [status, setStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
 
   useEffect(() => {
-    if (BYPASS_AUTH || !supabase) {
-      // Bypass auth or no supabase config - allow access
-      setStatus("authenticated");
+    if (!supabase) {
+      console.error("[AuthGuard] Supabase client not configured");
+      setStatus("unauthenticated");
+      router.push("/login");
       return;
     }
 

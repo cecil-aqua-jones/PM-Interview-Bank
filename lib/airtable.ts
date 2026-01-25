@@ -1,15 +1,19 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { mockCompanies, mockQuestions } from "./mockData";
 import { Company, Question, CodeExample } from "./types";
 import { quickSanitize, isIncomplete, hasUnformattedCode, formatForDisplay } from "./questionSanitizer";
 
+// Production-only: These environment variables MUST be set
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
-const AIRTABLE_QUESTIONS_TABLE =
-  process.env.AIRTABLE_QUESTIONS_TABLE || "Questions";
+const AIRTABLE_QUESTIONS_TABLE = process.env.AIRTABLE_QUESTIONS_TABLE || "Questions";
 
-const hasAirtableConfig = Boolean(AIRTABLE_API_KEY && AIRTABLE_BASE_ID);
+// Log configuration status on module load (helps debug deployment issues)
+console.log("[Airtable] Config check:", {
+  hasApiKey: !!AIRTABLE_API_KEY,
+  hasBaseId: !!AIRTABLE_BASE_ID,
+  tableName: AIRTABLE_QUESTIONS_TABLE,
+});
 
 const airtableFetch = async (path: string) => {
   console.log("[Airtable] Fetching:", path);
@@ -184,43 +188,49 @@ const toQuestion = (record: any): Question => {
 
 // Core fetch function (not cached - wrapped by caching layers)
 const fetchAllQuestionsCore = async (): Promise<Question[]> => {
-  if (!hasAirtableConfig) {
-    console.log("[Airtable] No config, using mock data");
-    return mockQuestions;
+  // Production: Require Airtable configuration - no fallbacks
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    const errorMsg = `[Airtable] FATAL: Missing required environment variables. API_KEY: ${!!AIRTABLE_API_KEY}, BASE_ID: ${!!AIRTABLE_BASE_ID}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
-  try {
-    const allQuestions: Question[] = [];
-    let offset: string | undefined;
+  console.log("[Airtable] Fetching all questions from Airtable...");
+  
+  const allQuestions: Question[] = [];
+  let offset: string | undefined;
+  let pageCount = 0;
 
-    // Paginate through all records
-    do {
-      const url = new URL(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_QUESTIONS_TABLE}`
-      );
-      if (offset) {
-        url.searchParams.set("offset", offset);
-      }
-
-      const data = await airtableFetch(url.toString());
-      allQuestions.push(...data.records.map(toQuestion));
-      offset = data.offset;
-    } while (offset);
-
-    // Filter out questions that don't have both a title and content
-    const validQuestions = allQuestions.filter(q => 
-      q.title && 
-      q.title !== "Untitled" && 
-      q.prompt && 
-      q.prompt.trim().length > 0
+  // Paginate through all records
+  do {
+    const url = new URL(
+      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_QUESTIONS_TABLE)}`
     );
+    if (offset) {
+      url.searchParams.set("offset", offset);
+    }
 
-    console.log(`[Airtable] Loaded ${validQuestions.length} valid questions (filtered from ${allQuestions.length})`);
-    return validQuestions;
-  } catch (error) {
-    console.error("[Airtable] Failed to fetch, falling back to mock data:", error);
-    return mockQuestions;
-  }
+    pageCount++;
+    console.log(`[Airtable] Fetching page ${pageCount}...`);
+    
+    const data = await airtableFetch(url.toString());
+    const pageQuestions = data.records.map(toQuestion);
+    allQuestions.push(...pageQuestions);
+    console.log(`[Airtable] Page ${pageCount}: Got ${pageQuestions.length} records (total: ${allQuestions.length})`);
+    
+    offset = data.offset;
+  } while (offset);
+
+  // Filter out questions that don't have both a title and content
+  const validQuestions = allQuestions.filter(q => 
+    q.title && 
+    q.title !== "Untitled" && 
+    q.prompt && 
+    q.prompt.trim().length > 0
+  );
+
+  console.log(`[Airtable] COMPLETE: Loaded ${validQuestions.length} valid questions (filtered from ${allQuestions.length} total)`);
+  return validQuestions;
 };
 
 // Cross-request cache using Next.js unstable_cache
@@ -245,11 +255,6 @@ const fetchAllQuestions = cache(async (): Promise<Question[]> => {
 // Derive companies from questions (no separate Companies table needed)
 export const getCompanies = cache(async (): Promise<Company[]> => {
   const questions = await fetchAllQuestions();
-
-  // If we got mock questions, return mock companies
-  if (questions === mockQuestions) {
-    return mockCompanies;
-  }
   const companyMap = new Map<string, { name: string; count: number }>();
 
   for (const q of questions) {
@@ -263,7 +268,7 @@ export const getCompanies = cache(async (): Promise<Company[]> => {
     }
   }
 
-  return Array.from(companyMap.entries())
+  const companies = Array.from(companyMap.entries())
     .map(([slug, { name, count }]) => ({
       id: slug,
       name,
@@ -271,6 +276,9 @@ export const getCompanies = cache(async (): Promise<Company[]> => {
       questionCount: count
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  console.log(`[Airtable] Derived ${companies.length} companies from questions`);
+  return companies;
 });
 
 export const getCompanyBySlug = cache(
