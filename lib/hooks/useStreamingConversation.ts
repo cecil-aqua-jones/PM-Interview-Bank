@@ -111,7 +111,7 @@ export function useStreamingConversation() {
     nextExpectedIndexRef.current++;
 
     console.log(`[StreamConvo] Playing audio ${nextItem.index}: "${nextItem.sentence.slice(0, 30)}..."`);
-    const audioUrl = `data:audio/mp3;base64,${nextItem.audioBase64}`;
+    const audioUrl = `data:audio/wav;base64,${nextItem.audioBase64}`;
     const audio = new Audio(audioUrl);
     currentAudioRef.current = audio;
 

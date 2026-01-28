@@ -14,6 +14,7 @@ import InterviewPanel from "./InterviewPanel";
 import BehavioralInterviewPanel from "./BehavioralInterviewPanel";
 import SystemDesignInterviewPanel from "./SystemDesignInterviewPanel";
 import FormattedContent from "./FormattedContent";
+import DetailedFeedbackCards from "./DetailedFeedbackCards";
 
 /**
  * Format a date string to "Mon D, YYYY" format (e.g., "Feb 6, 2025")
@@ -215,13 +216,35 @@ export default function CompanyQuestionsClient({
     setActiveTypeFilter("all");
   };
   
-  // Question type filter options
-  const typeFilters: { id: QuestionType | "all"; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "behavioral", label: "Behavioral" },
-    { id: "coding", label: "Coding" },
-    { id: "system_design", label: "System Design" },
-  ];
+  // Calculate which question types exist in this company's questions
+  const availableTypes = useMemo(() => {
+    const types = new Set<QuestionType>();
+    questions.forEach((q) => {
+      types.add(getQuestionType(q));
+    });
+    return types;
+  }, [questions]);
+  
+  // Question type filter options - only show types that have questions
+  const typeFilters = useMemo(() => {
+    const typeOptions: { id: QuestionType; label: string }[] = [
+      { id: "behavioral", label: "Behavioral" },
+      { id: "coding", label: "Coding" },
+      { id: "system_design", label: "System Design" },
+    ];
+    
+    // Filter to only include types that have questions
+    const availableFilters = typeOptions.filter((filter) => 
+      availableTypes.has(filter.id)
+    );
+    
+    // Only show "All" if there are multiple question types
+    if (availableFilters.length > 1) {
+      return [{ id: "all" as const, label: "All" }, ...availableFilters];
+    }
+    
+    return availableFilters;
+  }, [availableTypes]);
 
   return (
     <>
@@ -274,6 +297,24 @@ export default function CompanyQuestionsClient({
 
       {/* Filter Bar */}
       <div className={styles.filterBar}>
+        {/* Only show type filters if there are multiple question types */}
+        {typeFilters.length > 1 && (
+          <div className={styles.filterTypeGroup}>
+            {typeFilters.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={() => setActiveTypeFilter(filter.id)}
+                className={`${styles.filterTypeChip} ${
+                  activeTypeFilter === filter.id ? styles.filterTypeChipActive : ""
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className={styles.filterSearch}>
           <input
             type="text"
@@ -282,21 +323,6 @@ export default function CompanyQuestionsClient({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-        </div>
-
-        <div className={styles.filterTypeGroup}>
-          {typeFilters.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={() => setActiveTypeFilter(filter.id)}
-              className={`${styles.filterTypeChip} ${
-                activeTypeFilter === filter.id ? styles.filterTypeChipActive : ""
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
         </div>
 
         {(query || activeTypeFilter !== "all") && (
@@ -487,18 +513,8 @@ export default function CompanyQuestionsClient({
                         {selectedRecord.evaluation.overallFeedback}
                       </p>
 
-                      {selectedRecord.evaluation.improvements.length > 0 && (
-                        <div className={styles.previousFeedbackSection}>
-                          <span className={styles.previousFeedbackSectionTitle}>
-                            Areas to Focus On
-                          </span>
-                          <ul className={styles.previousFeedbackList}>
-                            {selectedRecord.evaluation.improvements.slice(0, 3).map((item, i) => (
-                              <li key={i}>{item}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      {/* Detailed Feedback Carousel */}
+                      <DetailedFeedbackCards record={selectedRecord} />
                     </div>
 
                     <div className={styles.previousFeedbackActions}>

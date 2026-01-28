@@ -11,7 +11,8 @@ type PreloadedAudio = {
 };
 
 // Maximum concurrent preloads to avoid overwhelming the API
-const MAX_CONCURRENT_PRELOADS = 3;
+// NOTE: Cartesia has a concurrency limit of 2 - keep this at 1 to leave room for active TTS
+const MAX_CONCURRENT_PRELOADS = 1;
 // Maximum cache size (will evict oldest entries)
 const MAX_CACHE_SIZE = 20;
 // Cache expiry time (30 minutes)

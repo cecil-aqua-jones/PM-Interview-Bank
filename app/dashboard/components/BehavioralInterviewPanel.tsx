@@ -3,9 +3,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useStreamingConversation } from "@/lib/hooks/useStreamingConversation";
 import { useStreamingSpeech } from "@/lib/hooks/useStreamingSpeech";
+import { useProgressiveTranscription } from "@/lib/hooks/useProgressiveTranscription";
 import { saveBehavioralInterview, getBehavioralInterview } from "@/lib/interviewStorage";
 import { BehavioralEvaluationResult } from "@/lib/behavioralRubric";
 import { Question } from "@/lib/types";
+import { isGreeting } from "@/lib/greetingDetection";
 import FormattedContent from "./FormattedContent";
 import styles from "../app.module.css";
 
@@ -23,6 +25,7 @@ type BehavioralInterviewPanelProps = {
 };
 
 type PanelState =
+  | "awaiting_greeting"  // Waiting for user to say hello
   | "speaking"      // AI reads the question (only once)
   | "conversing"    // Free-form conversation (clarifying questions, answers)
   | "processing"    // Transcribing or AI responding
@@ -52,7 +55,7 @@ export default function BehavioralInterviewPanel({
   totalQuestions = 1,
 }: BehavioralInterviewPanelProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [panelState, setPanelState] = useState<PanelState>("speaking");
+  const [panelState, setPanelState] = useState<PanelState>("awaiting_greeting");
   const [evaluation, setEvaluation] = useState<BehavioralEvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingStep, setProcessingStep] = useState("");
@@ -71,6 +74,7 @@ export default function BehavioralInterviewPanel({
   const [pendingTranscript, setPendingTranscript] = useState<string>("");
   const [audioLevel, setAudioLevel] = useState(0);
   const [streamingText, setStreamingText] = useState<string>("");
+  const [isProcessingGreeting, setIsProcessingGreeting] = useState(false);
 
   // Refs
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -98,6 +102,7 @@ export default function BehavioralInterviewPanel({
   const autoListenEnabledRef = useRef(true);
   const shouldAutoSendRef = useRef(false);
   const pendingTranscriptRef = useRef<string>("");
+  const streamingFallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // State refs for async callbacks
   const recordingStateRef = useRef(recordingState);
@@ -116,6 +121,9 @@ export default function BehavioralInterviewPanel({
 
   // Streaming hooks
   const streamingConversation = useStreamingConversation();
+  
+  // Progressive transcription for reduced latency
+  const progressiveTranscription = useProgressiveTranscription();
   
   // Streaming speech with callbacks
   const streamingSpeechCallbacksRef = useRef<{ onComplete?: () => void }>({});
@@ -136,9 +144,12 @@ export default function BehavioralInterviewPanel({
   const streamingSpeechIsPlaying = streamingSpeech.isPlaying;
 
   // Configuration for natural conversation flow
-  const SILENCE_THRESHOLD = 0.015;
-  const SPEECH_THRESHOLD = 0.025;
+  // NOTE: Thresholds lowered significantly to accommodate quieter microphones
+  // User testing showed levels of 0.004-0.007 during speech
+  const SILENCE_THRESHOLD = 0.003;  // Was 0.015 - lowered for quiet mics
+  const SPEECH_THRESHOLD = 0.005;   // Was 0.025 - lowered for quiet mics
   const SILENCE_DURATION = 1500;
+  const GREETING_SILENCE_DURATION = 1200; // Silence detection for greetings (1.2s) - gives streaming time to connect
   const CONTINUATION_WINDOW = 3500;
   const MIN_RECORDING_DURATION = 500;
 
@@ -189,10 +200,11 @@ export default function BehavioralInterviewPanel({
   }, [streamingSpeechStop]);
 
   const cleanupAudioAnalysis = useCallback(() => {
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
+    // Check state before closing to avoid errors on already-closed context
+    if (audioContextRef.current?.state !== "closed") {
+      audioContextRef.current?.close().catch(() => {});
     }
+    audioContextRef.current = null;
     analyserRef.current = null;
     silenceStartRef.current = null;
     setAudioLevel(0);
@@ -386,6 +398,7 @@ export default function BehavioralInterviewPanel({
       onScoreUpdate?.(question.id, data.evaluation.overallScore);
 
       // Save to progress tracking (async, don't block)
+      console.log("[Behavioral] Saving progress to database...");
       fetch("/api/progress/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -393,31 +406,72 @@ export default function BehavioralInterviewPanel({
           type: "behavioral",
           evaluation: data.evaluation,
         }),
-      }).catch(err => console.warn("[Progress] Failed to save progress:", err));
+      })
+        .then(res => {
+          console.log("[Behavioral] Progress save response:", res.status);
+          return res.json();
+        })
+        .then(result => console.log("[Behavioral] Progress save result:", result))
+        .catch(err => console.error("[Behavioral] Failed to save progress:", err));
 
-      setPanelState("feedback");
+      // Close panel and navigate back to questions page
+      // Score will be visible on the questions list
+      isClosingRef.current = true;
+      setIsClosing(true);
+      setIsVisible(false);
+      stopCurrentAudio();
+      streamingConversation.abort();
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      setTimeout(onClose, 300);
     } catch (err) {
       console.error("[Behavioral] Evaluation error:", err);
       setError("Failed to evaluate response. Please try again.");
       setPanelState("conversing");
     }
-  }, [question, onScoreUpdate, cleanupAudioAnalysis, clearContinuationTimeout]);
+  }, [question, onScoreUpdate, cleanupAudioAnalysis, clearContinuationTimeout, stopCurrentAudio, streamingConversation, onClose]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // RECORDING & TRANSCRIPTION
   // ═══════════════════════════════════════════════════════════════════════════
 
   const pauseRecordingRef = useRef<() => Promise<void>>();
+  const handleGreetingDetectedRef = useRef<(text: string) => Promise<void>>();
 
   const isLikelyHallucination = (text: string): boolean => {
     if (!text) return true;
     const normalized = text.toLowerCase().trim();
-    if (normalized.length < 4) return true;
+    const cleanedWord = normalized.replace(/[.!?,]$/, "");
+    
+    // Check allowed single words FIRST (before length check)
+    // This ensures short greeting words like "hi", "hey", "ok", "sup" are not filtered
+    const allowedSingleWords = [
+      "yes", "no", "sure", "correct", "right", "wrong", "done", "finished", "ready", "help",
+      // Greeting words - important for "Say Hello to Start" flow (must match greetingDetection.ts)
+      "hello", "hi", "hey", "howdy", "greetings", "start", "begin", "okay", "ok", "yeah", "yep", "sup"
+    ];
+    
+    if (allowedSingleWords.includes(cleanedWord)) {
+      console.log("[Transcribe] Allowed word:", text);
+      return false;
+    }
+    
+    // Very short responses (under 4 chars) are almost always hallucinations
+    // This check runs AFTER allowed words check
+    if (normalized.length < 4) {
+      console.log("[Transcribe] Filtered - too short:", text);
+      return true;
+    }
 
     const words = normalized.split(/\s+/);
     if (words.length === 1) {
-      const allowedSingleWords = ["yes", "no", "sure", "correct", "right", "wrong", "done", "finished", "ready", "help"];
-      if (!allowedSingleWords.includes(normalized.replace(/[.!?]$/, ""))) return true;
+      // Single word not in allowed list - filter it
+      console.log("[Transcribe] Filtered - single word:", text);
+      return true;
     }
 
     const hallucinationPatterns = [
@@ -486,6 +540,102 @@ export default function BehavioralInterviewPanel({
 
     const messageToSend = pendingTranscriptRef.current.trim();
 
+    // If in awaiting_greeting state, check for greeting
+    if (panelStateRef.current === "awaiting_greeting") {
+      pendingTranscriptRef.current = "";
+      setPendingTranscript("");
+      
+      // CRITICAL: Check if streaming already handled the greeting
+      if (streamingGreetingTriggeredRef.current) {
+        console.log("[Finalize] Streaming already handled greeting, skipping");
+        return;
+      }
+      
+      // Clean up stream before greeting processing to prevent resource leaks
+      // (greeting flow will request a new stream when auto-listen triggers)
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      if (messageToSend) {
+        // Inline greeting detection to avoid circular dependency
+        if (isGreeting(messageToSend)) {
+          // Stop recording and process greeting
+          if (mediaRecorderRef.current?.state === "recording") {
+            mediaRecorderRef.current.stop();
+          }
+          cleanupAudioAnalysis();
+          setRecordingState("processing");
+          
+          // Show visual feedback that greeting was detected
+          setIsProcessingGreeting(true);
+          
+          // Request AI greeting + question (unified response)
+          try {
+            const response = await streamingConversation.sendMessage({
+              questionTitle: questionTitleRef.current,
+              questionContent: questionPromptRef.current,
+              userMessage: messageToSend,
+              conversationHistory: [],
+              interviewState: "greeting",
+            });
+            
+            if (response?.fullText) {
+              // Replace conversation entirely - AI's unified response includes the question
+              // so we don't need the initial question turn anymore
+              setConversation([
+                { role: "candidate", content: messageToSend, timestamp: Date.now() },
+                { role: "interviewer", content: response.fullText, timestamp: Date.now() },
+              ]);
+            }
+            
+            // Transition to speaking state once AI starts responding
+            panelStateRef.current = "speaking";
+            setPanelState("speaking");
+            setIsProcessingGreeting(false);
+            
+            // Wait for unified greeting+question audio to finish playing
+            const waitForGreetingAudio = (): Promise<void> => {
+              return new Promise((resolve) => {
+                const checkAudio = () => {
+                  if (!streamingConversation.isStreaming && !streamingConversation.isPlaying) {
+                    console.log("[Greeting] Unified greeting+question audio finished");
+                    resolve();
+                  } else {
+                    setTimeout(checkAudio, 100);
+                  }
+                };
+                setTimeout(checkAudio, 300);
+              });
+            };
+            
+            await waitForGreetingAudio();
+            
+            // Transition directly to conversing (question was included in greeting)
+            console.log("[Greeting] Complete, transitioning to conversing");
+            panelStateRef.current = "conversing";
+            setPanelState("conversing");
+            recordingStateRef.current = "listening";
+            setRecordingState("listening");
+          } catch (err) {
+            console.error("[Greeting] Failed to get AI greeting+question:", err);
+            setIsProcessingGreeting(false);
+            // On error, return to awaiting_greeting state so user can try again
+            setRecordingState("listening");
+            return;
+          }
+        } else {
+          console.log("[Greeting] Not recognized as greeting:", messageToSend);
+          setRecordingState("listening");
+        }
+      } else {
+        // No transcript, keep listening
+        setRecordingState("listening");
+      }
+      return;
+    }
+
     if (messageToSend && !isCompleteSentence(messageToSend)) {
       const extendedWait = 2000;
       console.log("[Conversation] Message seems incomplete, extending wait");
@@ -514,7 +664,7 @@ export default function BehavioralInterviewPanel({
     } else {
       setRecordingState("idle");
     }
-  }, [clearContinuationTimeout, sendConversationMessage]);
+  }, [clearContinuationTimeout, sendConversationMessage, cleanupAudioAnalysis, streamingConversation, preloadedAudioUrl, question.tags, streamingSpeechSpeak]);
 
   const pauseRecording = useCallback(async () => {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -522,6 +672,35 @@ export default function BehavioralInterviewPanel({
     }
 
     cleanupAudioAnalysis();
+    
+    // CRITICAL: Check if streaming already handled the greeting
+    // This prevents duplicate audio playback when both paths trigger
+    if (streamingGreetingTriggeredRef.current) {
+      console.log("[Pause] Streaming already handled greeting, skipping batch path");
+      audioChunksRef.current = [];
+      return;
+    }
+    
+    // FAST GREETING DETECTION: Skip transcription if audio looks like a greeting
+    // Greetings are short (200-1500ms) with detected speech
+    const recordingDuration = Date.now() - recordingStartTimeRef.current;
+    const isGreetingCandidate = 
+      panelStateRef.current === "awaiting_greeting" &&
+      speechDetectedRef.current &&
+      recordingDuration >= 200 &&
+      recordingDuration <= 1500;
+    
+    if (isGreetingCandidate && handleGreetingDetectedRef.current) {
+      console.log(`[Greeting] Fast path - skipping transcription (duration: ${recordingDuration}ms)`);
+      audioChunksRef.current = [];
+      setRecordingState("processing");
+      
+      // Directly trigger greeting flow with synthetic "Hello"
+      // This saves 500-1500ms of Whisper API latency
+      await handleGreetingDetectedRef.current("Hello");
+      return;
+    }
+    
     setRecordingState("paused");
 
     const transcript = await transcribeCurrentChunk();
@@ -592,12 +771,20 @@ export default function BehavioralInterviewPanel({
         if (isSilent) {
           if (!silenceStartRef.current) {
             silenceStartRef.current = Date.now();
-          } else if (Date.now() - silenceStartRef.current > SILENCE_DURATION) {
-            console.log("[Audio] Silence detected, auto-pausing");
-            if (pauseRecordingRef.current) {
-              void pauseRecordingRef.current().catch(console.error);
+          } else {
+            // Use shorter silence duration during greeting for faster response
+            // Greetings are typically 1-2 words, so we can detect end of speech sooner
+            const effectiveSilenceDuration = panelStateRef.current === "awaiting_greeting" 
+              ? GREETING_SILENCE_DURATION // 1.2s - allows streaming transcription to connect
+              : SILENCE_DURATION;
+            
+            if (Date.now() - silenceStartRef.current > effectiveSilenceDuration) {
+              console.log("[Audio] Silence detected, auto-pausing");
+              if (pauseRecordingRef.current) {
+                void pauseRecordingRef.current().catch(console.error);
+              }
+              return;
             }
-            return;
           }
         } else if (isActiveSpeech) {
           silenceStartRef.current = null;
@@ -647,6 +834,8 @@ export default function BehavioralInterviewPanel({
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
+          // Progressive transcription disabled - causing rate limiting issues
+          // progressiveTranscription.updateChunks(audioChunksRef.current);
         }
       };
 
@@ -656,6 +845,29 @@ export default function BehavioralInterviewPanel({
       };
 
       mediaRecorder.start(100);
+      
+      // Start streaming transcription for fast greeting detection
+      // Only in awaiting_greeting state for fastest response
+      if (panelStateRef.current === "awaiting_greeting") {
+        console.log("[Recording] Starting streaming transcription for greeting detection...");
+        
+        // Clear any existing fallback timeout
+        if (streamingFallbackTimeoutRef.current) {
+          clearTimeout(streamingFallbackTimeoutRef.current);
+        }
+        
+        progressiveTranscription.start(stream).catch(err => {
+          console.warn("[Recording] Streaming transcription failed to start:", err);
+          // Continue with batch transcription as fallback
+        });
+        
+        // Set fallback timeout - if streaming doesn't detect greeting in 2.5s, allow batch fallback
+        streamingFallbackTimeoutRef.current = setTimeout(() => {
+          if (!streamingGreetingTriggeredRef.current && panelStateRef.current === "awaiting_greeting") {
+            console.log("[Recording] Streaming detection timeout (2.5s), batch fallback will handle");
+          }
+        }, 2500);
+      }
       
       // CRITICAL: Update ref BEFORE starting audio monitoring
       // (setRecordingState is async, but audio monitoring may read the ref immediately)
@@ -674,12 +886,174 @@ export default function BehavioralInterviewPanel({
   }, [stopCurrentAudio, streamingConversation, clearContinuationTimeout, startAudioLevelMonitoring]);
 
   // Auto-start recording when state becomes "listening"
+  // Use a ref to prevent rapid restarts (debounce)
+  const lastRecordingStartRef = useRef<number>(0);
+  
   useEffect(() => {
     if (recordingState === "listening") {
+      const now = Date.now();
+      const timeSinceLastStart = now - lastRecordingStartRef.current;
+      
+      // Debounce: require at least 500ms between recording starts
+      if (timeSinceLastStart < 500) {
+        console.log("[Recording] Debounce - waiting before restart...");
+        const delay = 500 - timeSinceLastStart;
+        const timeout = setTimeout(() => {
+          if (recordingStateRef.current === "listening") {
+            console.log("[Recording] State is 'listening', starting after debounce...");
+            lastRecordingStartRef.current = Date.now();
+            startRecording();
+          }
+        }, delay);
+        return () => clearTimeout(timeout);
+      }
+      
       console.log("[Recording] State is 'listening', starting...");
+      lastRecordingStartRef.current = now;
       startRecording();
     }
-  }, [recordingState, startRecording]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingState]); // Intentionally exclude startRecording to prevent infinite loop
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STREAMING GREETING DETECTION (Fast path - ~300ms latency)
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  const streamingGreetingTriggeredRef = useRef(false);
+  const preloadedAudioRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Helper to play prefetched audio
+  const playPrefetchedAudio = useCallback(async (): Promise<void> => {
+    if (!preloadedAudioUrl) return;
+    
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(preloadedAudioUrl);
+      preloadedAudioRef.current = audio;
+      setIsPlayingPreloadedAudio(true);
+      
+      audio.onended = () => {
+        setIsPlayingPreloadedAudio(false);
+        preloadedAudioRef.current = null;
+        resolve();
+      };
+      
+      audio.onerror = (e) => {
+        setIsPlayingPreloadedAudio(false);
+        preloadedAudioRef.current = null;
+        reject(e);
+      };
+      
+      audio.play().catch(reject);
+    });
+  }, [preloadedAudioUrl]);
+  
+  useEffect(() => {
+    // Only check for greeting during awaiting_greeting state
+    if (panelStateRef.current !== "awaiting_greeting") {
+      streamingGreetingTriggeredRef.current = false;
+      return;
+    }
+    
+    // Prevent duplicate triggers
+    if (streamingGreetingTriggeredRef.current || isProcessingGreeting) {
+      return;
+    }
+    
+    // Check both partial and interim transcripts for greeting patterns
+    const transcriptToCheck = progressiveTranscription.displayTranscript || 
+                              progressiveTranscription.interimTranscript || 
+                              progressiveTranscription.partialTranscript;
+    
+    if (transcriptToCheck && isGreeting(transcriptToCheck)) {
+      console.log(`[Greeting] Fast detection via streaming: "${transcriptToCheck}"`);
+      streamingGreetingTriggeredRef.current = true;
+      
+      // Clear the fallback timeout since streaming succeeded
+      if (streamingFallbackTimeoutRef.current) {
+        clearTimeout(streamingFallbackTimeoutRef.current);
+        streamingFallbackTimeoutRef.current = null;
+      }
+      
+      // Stop recording and transcription
+      progressiveTranscription.reset();
+      cleanupAudioAnalysis();
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+      
+      // Trigger greeting flow
+      setRecordingState("processing");
+      setIsProcessingGreeting(true);
+      
+      // Clean up stream before greeting processing
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      
+      // Handle greeting asynchronously - ALWAYS use streaming conversation
+      // This ensures greeting + question are generated together as a single audio stream
+      (async () => {
+        try {
+          console.log("[Greeting] Using unified streaming conversation for greeting + question");
+          
+          const response = await streamingConversation.sendMessage({
+            questionTitle: questionTitleRef.current,
+            questionContent: questionPromptRef.current,
+            userMessage: transcriptToCheck,
+            conversationHistory: [],
+            interviewState: "greeting",
+          });
+          
+          if (response?.fullText) {
+            setConversation([
+              { role: "candidate", content: transcriptToCheck, timestamp: Date.now() },
+              { role: "interviewer", content: response.fullText, timestamp: Date.now() },
+            ]);
+          }
+          
+          panelStateRef.current = "speaking";
+          setPanelState("speaking");
+          setIsProcessingGreeting(false);
+          
+          // Wait for unified greeting+question audio to finish
+          const waitForAudio = (): Promise<void> => {
+            return new Promise((resolve) => {
+              const check = () => {
+                if (!streamingConversation.isStreaming && !streamingConversation.isPlaying) {
+                  resolve();
+                } else {
+                  setTimeout(check, 100);
+                }
+              };
+              setTimeout(check, 300);
+            });
+          };
+          
+          await waitForAudio();
+          
+          // Transition to conversing
+          console.log("[Greeting] Complete, transitioning to conversing");
+          panelStateRef.current = "conversing";
+          setPanelState("conversing");
+          recordingStateRef.current = "listening";
+          setRecordingState("listening");
+        } catch (err) {
+          console.error("[Greeting] Streaming greeting flow failed:", err);
+          setIsProcessingGreeting(false);
+          streamingGreetingTriggeredRef.current = false;
+          setRecordingState("listening");
+        }
+      })();
+    }
+  }, [
+    progressiveTranscription.displayTranscript,
+    progressiveTranscription.interimTranscript,
+    progressiveTranscription.partialTranscript,
+    isProcessingGreeting,
+    cleanupAudioAnalysis,
+    streamingConversation,
+  ]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // INITIALIZATION & LIFECYCLE
@@ -740,7 +1114,7 @@ export default function BehavioralInterviewPanel({
     setPanelState("speaking");
   }, [question.id, question.title, question.prompt]);
 
-  // Play initial question (ONLY ONCE per question)
+  // Initialize greeting flow - start listening for "hello"
   useEffect(() => {
     let wasCleanedUp = false;
     const mountId = `mount-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -748,101 +1122,23 @@ export default function BehavioralInterviewPanel({
 
     // Skip if already played (prevents double-play in strict mode second mount)
     if (initialQuestionPlayedRef.current) {
-      console.log("[Init] Question already played, skipping");
+      console.log("[Init] Question already initialized, skipping");
       return;
     }
     initialQuestionPlayedRef.current = true;
 
     activeSessionId = sessionIdRef.current;
-    console.log("[Init] Playing question:", question.title);
-    console.log("[Init] Preloaded audio URL:", preloadedAudioUrl ? "available" : "not available");
+    console.log("[Init] Awaiting greeting for question:", question.title);
 
-    const onComplete = () => {
-      if (wasCleanedUp || activeMountIdRef.current !== mountId) {
-        console.log("[Init] onComplete called but mount is stale, ignoring");
-        return;
-      }
-      
-      console.log("[Init] Audio complete, transitioning to conversing and auto-starting recording");
-
-      panelStateRef.current = "conversing";
-      setPanelState("conversing");
-      
-      // Auto-start recording IMMEDIATELY - set both ref and state
-      recordingStateRef.current = "listening";
-      setRecordingState("listening");
-    };
-
-    streamingSpeechCallbacksRef.current.onComplete = onComplete;
-
-    // Use preloaded audio if available, otherwise stream
-    if (preloadedAudioUrl && preloadedAudioUrl.length > 0) {
-      console.log("[Init] Using preloaded audio URL");
-      const audio = new Audio(preloadedAudioUrl);
-      audioRef.current = audio;
-      
-      // Track if audio actually started playing and if fallback was triggered
-      let audioStarted = false;
-      let fallbackTriggered = false;
-      
-      const triggerFallback = () => {
-        if (fallbackTriggered || audioStarted) return;
-        fallbackTriggered = true;
-        console.log("[Init] Falling back to streaming speech");
-        streamingSpeechSpeak(question.title, question.prompt, question.tags?.[0]);
-      };
-      
-      audio.addEventListener("ended", () => {
-        console.log("[Init] Preloaded audio ended");
-        setIsPlayingPreloadedAudio(false);
-        onComplete();
-      });
-      
-      audio.addEventListener("error", (e) => {
-        console.error("[Init] Preloaded audio error:", e);
-        setIsPlayingPreloadedAudio(false);
-        triggerFallback();
-      });
-      
-      audio.addEventListener("playing", () => {
-        console.log("[Init] Preloaded audio started playing");
-        audioStarted = true;
-        setIsPlayingPreloadedAudio(true);
-      });
-      
-      // Start playing immediately - set state optimistically
-      setIsPlayingPreloadedAudio(true);
-      
-      audio.play()
-        .then(() => {
-          console.log("[Init] Preloaded audio play() promise resolved");
-        })
-        .catch((err) => {
-          console.error("[Init] Preloaded audio play failed:", err);
-          setIsPlayingPreloadedAudio(false);
-          triggerFallback();
-        });
-    } else {
-      console.log("[Init] No preloaded audio, using streaming speech");
-      streamingSpeechSpeak(question.title, question.prompt, question.tags?.[0]);
-    }
-
-    // Fallback: If audio doesn't complete within 30 seconds, transition anyway
-    const fallbackTimer = setTimeout(() => {
-      if (panelStateRef.current === "speaking" && !wasCleanedUp) {
-        console.log("[Init] Fallback timeout - transitioning to conversing");
-        streamingSpeechStop();
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        onComplete();
-      }
-    }, 30000);
+    // Start listening for greeting
+    panelStateRef.current = "awaiting_greeting";
+    setPanelState("awaiting_greeting");
+    recordingStateRef.current = "listening";
+    setRecordingState("listening");
 
     return () => {
       console.log("[Init] Cleanup running for mount:", mountId);
       wasCleanedUp = true;
-      clearTimeout(fallbackTimer);
       streamingSpeechStop();
       setIsPlayingPreloadedAudio(false);
       if (activeMountIdRef.current === mountId) {
@@ -856,7 +1152,115 @@ export default function BehavioralInterviewPanel({
       // Reset for React Strict Mode - allows audio to play on remount
       initialQuestionPlayedRef.current = false;
     };
-  }, [question.id, preloadedAudioUrl, streamingSpeechSpeak, streamingSpeechStop]);
+  }, [question.id, streamingSpeechStop]);
+
+  /**
+   * Handle greeting detection and transition to speaking state
+   * The AI now greets AND presents the question in a single unified response
+   */
+  const handleGreetingDetected = useCallback(async (greetingText: string) => {
+    console.log("[Greeting] Detected greeting:", greetingText);
+    
+    // CRITICAL: Check if streaming already handled the greeting
+    // This prevents duplicate audio playback
+    if (streamingGreetingTriggeredRef.current) {
+      console.log("[Greeting] Streaming already handled, skipping handleGreetingDetected");
+      return;
+    }
+    
+    // Stop recording
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    cleanupAudioAnalysis();
+    
+    // Clean up stream to prevent resource leaks
+    // (greeting flow will request a new stream when auto-listen triggers)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    setRecordingState("processing");
+    
+    // Show visual feedback that greeting was detected
+    setIsProcessingGreeting(true);
+    
+    // Request AI greeting + question via conversation API (unified response)
+    try {
+      const response = await streamingConversation.sendMessage({
+        questionTitle: questionTitleRef.current,
+        questionContent: questionPromptRef.current,
+        userMessage: greetingText,
+        conversationHistory: [],
+        interviewState: "greeting",
+      });
+      
+      if (response?.fullText) {
+        // Replace conversation entirely - AI's unified response includes the question
+        // so we don't need the initial question turn anymore
+        setConversation([
+          { role: "candidate", content: greetingText, timestamp: Date.now() },
+          { role: "interviewer", content: response.fullText, timestamp: Date.now() },
+        ]);
+      }
+      
+      // Transition to speaking state once AI starts responding
+      panelStateRef.current = "speaking";
+      setPanelState("speaking");
+      setIsProcessingGreeting(false);
+      
+      // Wait for unified greeting+question audio to finish playing
+      const waitForGreetingAudio = (): Promise<void> => {
+        return new Promise((resolve) => {
+          const checkAudio = () => {
+            if (!streamingConversation.isStreaming && !streamingConversation.isPlaying) {
+              console.log("[Greeting] Unified greeting+question audio finished");
+              resolve();
+            } else {
+              setTimeout(checkAudio, 100);
+            }
+          };
+          setTimeout(checkAudio, 300);
+        });
+      };
+      
+      await waitForGreetingAudio();
+      
+      // Transition directly to conversing state (question was included in greeting)
+      console.log("[Greeting] Complete, transitioning to conversing");
+      panelStateRef.current = "conversing";
+      setPanelState("conversing");
+      recordingStateRef.current = "listening";
+      setRecordingState("listening");
+    } catch (err) {
+      console.error("[Greeting] Failed to get AI greeting+question:", err);
+      setIsProcessingGreeting(false);
+      // On error, return to awaiting_greeting state so user can try again
+      setRecordingState("listening");
+    }
+  }, [streamingConversation, cleanupAudioAnalysis]);
+
+  // Keep ref in sync for use in pauseRecording
+  useEffect(() => {
+    handleGreetingDetectedRef.current = handleGreetingDetected;
+  }, [handleGreetingDetected]);
+
+  /**
+   * Process greeting transcription result
+   */
+  const processGreetingTranscript = useCallback(async (transcript: string) => {
+    if (!transcript || panelStateRef.current !== "awaiting_greeting") {
+      return;
+    }
+    
+    if (isGreeting(transcript)) {
+      await handleGreetingDetected(transcript);
+    } else {
+      console.log("[Greeting] Not recognized as greeting:", transcript);
+      setRecordingState("listening");
+    }
+  }, [handleGreetingDetected]);
 
   // Load previous interview
   useEffect(() => {
@@ -1038,6 +1442,19 @@ export default function BehavioralInterviewPanel({
         </div>
 
         <div className={styles.panelHeaderRight}>
+          {/* Finish Interview Button - show when conversing (with responses) or evaluating */}
+          {(panelState === "conversing" || panelState === "evaluating") && conversation.filter(t => t.role === "candidate").length > 0 && (
+            <button 
+              className={styles.finishInterviewBtn} 
+              onClick={handleSubmitResponse}
+              disabled={panelState === "evaluating"}
+            >
+              {panelState === "evaluating" ? "Evaluating..." : "Finish Interview"}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          )}
           {hasPrev && (
             <button className={styles.panelNavBtn} onClick={() => handleNavigation("prev")}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1061,6 +1478,48 @@ export default function BehavioralInterviewPanel({
       <div className={styles.behavioralPanelContent}>
         {/* Conversation Area */}
         <div className={styles.conversationArea}>
+          {/* Greeting Prompt - Say Hello to Start */}
+          {panelState === "awaiting_greeting" && !isProcessingGreeting && (
+            <div className={`${styles.greetingPrompt} ${recordingState === "recording" ? styles.recording : ""}`}>
+              <div className={styles.greetingMicIcon}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              </div>
+              <h3>Say &quot;Hello&quot; to start your interview</h3>
+              <p>Your AI interviewer will greet you and begin the behavioral interview</p>
+              {recordingState === "recording" && (
+                <>
+                  <div className={styles.greetingAudioLevel}>
+                    <div 
+                      className={styles.greetingAudioLevelFill} 
+                      style={{ width: `${Math.min(audioLevel * 300, 100)}%` }} 
+                    />
+                  </div>
+                  <div className={styles.greetingStatus}>
+                    <span className={styles.greetingStatusDot} />
+                    <span>Listening...</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Greeting Detected - Minimalist Processing */}
+          {isProcessingGreeting && (
+            <div className={styles.greetingDetected}>
+              <div className={styles.typingAnimation}>
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <p className={styles.greetingDetectedText}>Starting interview...</p>
+            </div>
+          )}
+
           {/* Speaking state hint - shown above conversation when AI is speaking */}
           {panelState === "speaking" && (
             <div className={styles.speakingHint}>
@@ -1244,10 +1703,18 @@ export default function BehavioralInterviewPanel({
                 )}
               </div>
 
+              {/* Live Transcript Preview (Progressive Transcription) */}
+              {recordingState === "recording" && progressiveTranscription.partialTranscript && (
+                <div className={styles.partialTranscriptPreview}>
+                  <span className={styles.liveIndicator}>LIVE</span>
+                  <p>{progressiveTranscription.partialTranscript}</p>
+                </div>
+              )}
+
               {/* Pending Transcript Preview */}
               {pendingTranscript && recordingState === "paused" && (
                 <div className={styles.pendingTranscript}>
-                  <p>"{pendingTranscript}"</p>
+                  <p>&quot;{pendingTranscript}&quot;</p>
                 </div>
               )}
 

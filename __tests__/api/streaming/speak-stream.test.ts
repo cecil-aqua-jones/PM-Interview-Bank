@@ -88,6 +88,7 @@ describe("speak-stream API", () => {
     });
 
     process.env.OPENAI_API_KEY = "test-key";
+    process.env.CARTESIA_API_KEY = "test-cartesia-key";
   });
 
   afterEach(() => {
@@ -425,8 +426,8 @@ describe("speak-stream API", () => {
   });
 
   describe("Error Handling", () => {
-    it("should return 503 when API key is missing", async () => {
-      delete process.env.OPENAI_API_KEY;
+    it("should return 503 when Cartesia API key is missing", async () => {
+      delete process.env.CARTESIA_API_KEY;
       
       jest.resetModules();
       const { POST } = await import("@/app/api/interview/speak-stream/route");
@@ -442,7 +443,7 @@ describe("speak-stream API", () => {
       
       expect(response.status).toBe(503);
       
-      process.env.OPENAI_API_KEY = "test-key";
+      process.env.CARTESIA_API_KEY = "test-cartesia-key";
     });
 
     it("should handle invalid JSON body", async () => {
@@ -487,6 +488,7 @@ describe("speak-stream API", () => {
 describe("TTS Retry Logic", () => {
   beforeEach(() => {
     process.env.OPENAI_API_KEY = "test-key";
+    process.env.CARTESIA_API_KEY = "test-cartesia-key";
   });
 
   it("should retry on 429 rate limit errors", async () => {

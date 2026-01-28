@@ -105,8 +105,9 @@ describe("converse-stream API", () => {
       return originalFetch(url, options);
     });
 
-    // Mock environment variable
+    // Mock environment variables
     process.env.OPENAI_API_KEY = "test-key";
+    process.env.CARTESIA_API_KEY = "test-cartesia-key";
   });
 
   afterEach(() => {

@@ -41,19 +41,21 @@ export default function ProgressPage() {
         justifyContent: "center",
         minHeight: "70vh",
         color: "#6b7280",
+        backgroundColor: "#faf9f7",
       }}>
         <div style={{
-          width: "32px",
-          height: "32px",
+          width: "40px",
+          height: "40px",
           border: "2px solid #f3f4f6",
-          borderTopColor: "#9ca3af",
+          borderTopColor: "#1a1a1a",
           borderRadius: "50%",
-          animation: "spin 1s linear infinite",
+          animation: "spin 0.8s linear infinite",
         }} />
         <p style={{ 
-          marginTop: "24px", 
-          fontSize: "13px",
-          letterSpacing: "0.02em",
+          marginTop: "32px", 
+          fontSize: "11px",
+          fontWeight: 500,
+          letterSpacing: "0.12em",
           textTransform: "uppercase",
         }}>
           Loading your progress
@@ -78,28 +80,48 @@ export default function ProgressPage() {
         color: "#6b7280",
         textAlign: "center",
         padding: "48px",
+        backgroundColor: "#faf9f7",
       }}>
+        {/* Error Icon */}
+        <div style={{
+          width: "64px",
+          height: "64px",
+          borderRadius: "50%",
+          backgroundColor: "#ffffff",
+          border: "1px solid rgba(185, 28, 28, 0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: "28px",
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+        </div>
         <p style={{ 
           fontSize: "15px", 
-          marginBottom: "24px",
+          marginBottom: "28px",
           lineHeight: 1.7,
+          maxWidth: "320px",
         }}>
           {error}
         </p>
         <button
           onClick={() => window.location.reload()}
           style={{
-            padding: "12px 32px",
-            fontSize: "13px",
+            padding: "14px 36px",
+            fontSize: "12px",
             fontWeight: 500,
-            letterSpacing: "0.03em",
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
             color: "#1a1a1a",
             backgroundColor: "transparent",
             border: "1px solid #1a1a1a",
             borderRadius: "2px",
             cursor: "pointer",
-            transition: "all 0.3s ease",
+            transition: "all 0.4s ease",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = "#1a1a1a";
@@ -120,6 +142,111 @@ export default function ProgressPage() {
     return null;
   }
 
+  // Empty state - no interviews completed yet
+  if (stats.totalInterviews === 0) {
+    return (
+      <div style={{
+        padding: "64px 48px 96px",
+        maxWidth: "720px",
+        margin: "0 auto",
+        backgroundColor: "#faf9f7",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+      }}>
+        {/* Decorative Icon */}
+        <div style={{
+          width: "80px",
+          height: "80px",
+          borderRadius: "50%",
+          backgroundColor: "#ffffff",
+          border: "1px solid rgba(0,0,0,0.06)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: "40px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+            <path d="M12 20V10" />
+            <path d="M18 20V4" />
+            <path d="M6 20v-4" />
+          </svg>
+        </div>
+
+        {/* Header */}
+        <p style={{
+          fontSize: "11px",
+          letterSpacing: "0.2em",
+          textTransform: "uppercase",
+          color: "#9ca3af",
+          marginBottom: "16px",
+        }}>
+          Performance Analytics
+        </p>
+        <h1 style={{
+          fontSize: "36px",
+          fontWeight: 400,
+          color: "#1a1a1a",
+          fontFamily: "Playfair Display, Georgia, serif",
+          letterSpacing: "-0.01em",
+          marginBottom: "24px",
+          textAlign: "center",
+        }}>
+          Your Journey Begins Here
+        </h1>
+        <p style={{
+          fontSize: "16px",
+          color: "#6b7280",
+          lineHeight: 1.8,
+          textAlign: "center",
+          maxWidth: "480px",
+          marginBottom: "48px",
+        }}>
+          Complete your first practice session to start tracking. 
+          Your performance insights, trends, and personalized recommendations will appear here.
+        </p>
+
+        {/* CTA Button */}
+        <a
+          href="/dashboard"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "16px 40px",
+            fontSize: "13px",
+            fontWeight: 500,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "#ffffff",
+            backgroundColor: "#1a1a1a",
+            border: "none",
+            borderRadius: "2px",
+            textDecoration: "none",
+            cursor: "pointer",
+            transition: "all 0.3s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "#333333";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "#1a1a1a";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        >
+          <span>Start Practicing</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       padding: "64px 48px 96px",
@@ -128,8 +255,41 @@ export default function ProgressPage() {
       backgroundColor: "#faf9f7",
       minHeight: "100vh",
     }}>
-      {/* Header */}
+      {/* Greeting Header */}
       <header style={{ 
+        marginBottom: "56px",
+      }}>
+        <p style={{
+          fontSize: "11px",
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          color: "#9ca3af",
+          marginBottom: "12px",
+        }}>
+          Performance Analytics
+        </p>
+        <h1 style={{
+          fontSize: "36px",
+          fontWeight: 400,
+          color: "#1a1a1a",
+          fontFamily: "Playfair Display, Georgia, serif",
+          letterSpacing: "-0.01em",
+          marginBottom: "12px",
+        }}>
+          Hi there
+        </h1>
+        <p style={{
+          fontSize: "15px",
+          color: "#6b7280",
+          lineHeight: 1.7,
+        }}>
+          Complete at least five interviews across different types to unlock 
+          comprehensive trend analysis and personalized recommendations.
+        </p>
+      </header>
+
+      {/* Legacy Header (commented out) */}
+      {/* <header style={{ 
         marginBottom: "72px",
         textAlign: "center",
       }}>
@@ -162,12 +322,39 @@ export default function ProgressPage() {
           A comprehensive view of your interview performance across coding, 
           behavioral, and system design disciplines.
         </p>
-      </header>
-
-      {/* Stats Cards */}
-      <section style={{ marginBottom: "80px" }}>
-        <ProgressStatsCards stats={stats} />
-      </section>
+      </header> */}
+      {/* Getting Started Tip
+      {stats.totalInterviews > 0 && stats.totalInterviews < 5 && (
+        <aside style={{
+          marginTop: "24px",
+          padding: "22px 30px",
+          backgroundColor: "#ffffff",
+          borderRadius: "4px",
+          border: "1px solid rgba(0,0,0,0.06)",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "20px",
+        }}>
+          <div>
+            <p style={{ 
+              fontSize: "14px", 
+              fontWeight: 500, 
+              color: "#1a1a1a",
+              marginBottom: "6px",
+            }}>
+              Building Your Profile
+            </p>
+            <p style={{ 
+              fontSize: "14px", 
+              color: "#6b7280",
+              lineHeight: 1.7,
+            }}>
+              Complete at least five interviews across different types to unlock 
+              comprehensive trend analysis and personalized recommendations.
+            </p>
+          </div>
+        </aside>
+      )} */}
 
       {/* Charts Grid */}
       <div style={{
@@ -237,6 +424,11 @@ export default function ProgressPage() {
         </article>
       </div>
 
+        {/* Stats Cards */}
+        <section style={{ marginBottom: "80px" }}>
+        <ProgressStatsCards stats={stats} />
+      </section>
+
       {/* Strengths & Weaknesses */}
       <section style={{
         backgroundColor: "#ffffff",
@@ -267,52 +459,7 @@ export default function ProgressPage() {
         <StrengthsWeaknesses stats={stats} />
       </section>
 
-      {/* Getting Started Tip */}
-      {stats.totalInterviews > 0 && stats.totalInterviews < 5 && (
-        <aside style={{
-          marginTop: "64px",
-          padding: "32px 40px",
-          backgroundColor: "#ffffff",
-          borderRadius: "4px",
-          border: "1px solid rgba(0,0,0,0.06)",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "20px",
-        }}>
-          <div style={{
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            backgroundColor: "#f3f4f6",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.5">
-              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-          </div>
-          <div>
-            <p style={{ 
-              fontSize: "14px", 
-              fontWeight: 500, 
-              color: "#1a1a1a",
-              marginBottom: "6px",
-            }}>
-              Building Your Profile
-            </p>
-            <p style={{ 
-              fontSize: "14px", 
-              color: "#6b7280",
-              lineHeight: 1.7,
-            }}>
-              Complete at least five interviews across different types to unlock 
-              comprehensive trend analysis and personalized recommendations.
-            </p>
-          </div>
-        </aside>
-      )}
+      
     </div>
   );
 }

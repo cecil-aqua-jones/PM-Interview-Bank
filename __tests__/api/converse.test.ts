@@ -27,9 +27,9 @@ describe("Converse API Logic", () => {
         errors.push("language must be a string");
       }
 
-      const validStates = ["coding", "review", "followup", "feedback"];
+      const validStates = ["coding", "review", "followup", "feedback", "greeting"];
       if (body.interviewState !== undefined && !validStates.includes(body.interviewState as string)) {
-        errors.push("interviewState must be one of: coding, review, followup, feedback");
+        errors.push("interviewState must be one of: coding, review, followup, feedback, greeting");
       }
 
       return { valid: errors.length === 0, errors };
@@ -80,7 +80,16 @@ describe("Converse API Logic", () => {
         interviewState: "invalid_state",
       });
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain("interviewState must be one of: coding, review, followup, feedback");
+      expect(result.errors).toContain("interviewState must be one of: coding, review, followup, feedback, greeting");
+    });
+
+    it("should accept greeting as valid interviewState", () => {
+      const result = validateRequest({
+        question: "Two Sum Problem",
+        userMessage: "Hello!",
+        interviewState: "greeting",
+      });
+      expect(result.valid).toBe(true);
     });
 
     it("should reject non-array conversationHistory", () => {
@@ -216,6 +225,7 @@ describe("Converse API Logic", () => {
         review: "Discuss code review",
         followup: "Follow-up discussion",
         feedback: "Wrap up interview",
+        greeting: "Greet the candidate warmly",
       };
       return guidance[state] || guidance.coding;
     };
@@ -227,8 +237,61 @@ describe("Converse API Logic", () => {
       expect(getStateGuidance("feedback")).toContain("Wrap up");
     });
 
+    it("should return greeting guidance for greeting state", () => {
+      expect(getStateGuidance("greeting")).toContain("Greet");
+    });
+
     it("should default to coding state guidance for unknown states", () => {
       expect(getStateGuidance("unknown")).toContain("coding");
+    });
+  });
+
+  describe("Greeting Flow", () => {
+    const isGreeting = (state: string) => state === "greeting";
+
+    // Updated: Greeting context now includes the full question for unified response
+    const buildGreetingContext = (userGreeting: string, questionTitle: string, questionContent: string) => {
+      return `The candidate has just greeted you to start the interview. They said: "${userGreeting}"
+
+INTERVIEW QUESTION TO PRESENT:
+Title: "${questionTitle}"
+Full Question: ${questionContent}
+
+Greet them warmly, then naturally present this question in full. Make it conversational but ensure you read the ENTIRE question clearly.`;
+    };
+
+    it("should identify greeting state correctly", () => {
+      expect(isGreeting("greeting")).toBe(true);
+      expect(isGreeting("coding")).toBe(false);
+      expect(isGreeting("review")).toBe(false);
+    });
+
+    it("should build greeting context with user message and question", () => {
+      const context = buildGreetingContext("Hello!", "Two Sum", "Given an array of integers...");
+      expect(context).toContain("Hello!");
+      expect(context).toContain("Two Sum");
+      expect(context).toContain("Given an array of integers");
+      expect(context).toContain("Greet them warmly");
+    });
+
+    it("should include question in greeting context for unified response", () => {
+      const buildContext = (state: string, questionTitle: string, questionContent: string, userMessage: string) => {
+        if (state === "greeting") {
+          return buildGreetingContext(userMessage, questionTitle, questionContent);
+        }
+        return `INTERVIEW PROBLEM: ${questionTitle}\n${questionContent}\nUser said: ${userMessage}`;
+      };
+
+      // Greeting context now INCLUDES the question for unified greeting+question response
+      const greetingContext = buildContext("greeting", "Two Sum", "Find two numbers that add up to target", "Hi there!");
+      expect(greetingContext).toContain("Two Sum");
+      expect(greetingContext).toContain("Find two numbers that add up to target");
+      expect(greetingContext).toContain("Hi there!");
+      expect(greetingContext).toContain("INTERVIEW QUESTION TO PRESENT");
+
+      const codingContext = buildContext("coding", "Two Sum", "Find two numbers", "What approach?");
+      expect(codingContext).toContain("Two Sum");
+      expect(codingContext).toContain("INTERVIEW PROBLEM");
     });
   });
 

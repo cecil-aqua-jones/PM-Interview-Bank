@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
+import { generateTTS, isCartesiaConfigured, CARTESIA_VOICES } from "@/lib/cartesia";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 /**
  * API endpoint for handling clarifying questions from candidates
  * Returns both text and optional audio response
+ * 
+ * Uses:
+ * - OpenAI GPT for conversation generation
+ * - Cartesia Sonic-3 for TTS (faster, lower latency)
  */
 export async function POST(request: NextRequest) {
   if (!OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: "Service temporarily unavailable" },
+      { error: "LLM service temporarily unavailable" },
       { status: 503 }
     );
   }
@@ -49,7 +54,7 @@ export async function POST(request: NextRequest) {
       )
       .join("\n\n");
 
-    // Generate clarification response using GPT
+    // Generate clarification response using GPT (kept for LLM reasoning)
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -103,31 +108,21 @@ ${previousContext ? `Previous Q&A:\n${previousContext}\n\n` : ""}They asked: "${
     const data = await response.json();
     const answerText = data.choices[0]?.message?.content || "I'm sorry, could you rephrase that question?";
 
-    // Generate TTS for the response with natural, human-like voice
-    const ttsResponse = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "tts-1-hd", // HD for more natural voice
-        input: answerText,
-        voice: "alloy", // Warm, conversational voice
-        response_format: "mp3",
-        speed: 1.0, // Natural pace
-      }),
-    });
-
+    // Generate TTS using Cartesia Sonic-3 (faster than OpenAI TTS)
     let audioBase64: string | null = null;
-    if (ttsResponse.ok) {
-      const audioBuffer = await ttsResponse.arrayBuffer();
-      audioBase64 = Buffer.from(audioBuffer).toString("base64");
+    if (isCartesiaConfigured()) {
+      try {
+        const audioBuffer = await generateTTS(answerText, CARTESIA_VOICES.KATIE);
+        audioBase64 = Buffer.from(audioBuffer).toString("base64");
+      } catch (ttsErr) {
+        console.error("[Clarify] Cartesia TTS Error:", ttsErr);
+        // Continue without audio - text response still works
+      }
     }
 
     return NextResponse.json({
       answer: answerText,
-      audio: audioBase64, // Base64 encoded MP3, or null if TTS failed
+      audio: audioBase64, // Base64 encoded WAV, or null if TTS failed
     });
   } catch (error) {
     console.error("[Clarify] Error:", error);

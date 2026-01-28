@@ -1,5 +1,11 @@
 import { NextRequest } from "next/server";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
+import { 
+  generateTTS, 
+  isCartesiaConfigured, 
+  CARTESIA_VOICES 
+} from "@/lib/cartesia";
+import { sanitizeForTTS } from "@/lib/questionSanitizer";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -46,10 +52,11 @@ const CLOSINGS_LONG = [
 
 /**
  * Generate TTS for a single sentence with retry logic and timeout
+ * Uses Cartesia Sonic-3 for fast, high-quality TTS
  */
 async function generateTTSForSentence(sentence: string, index: number, retryCount = 0): Promise<string | null> {
   const MAX_RETRIES = 2;
-  const TTS_TIMEOUT = 8000; // 8 second timeout per request
+  const TTS_TIMEOUT = 10000; // 10 second timeout per request
   
   // Create abort controller for timeout
   const abortController = new AbortController();
@@ -59,44 +66,18 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
   }, TTS_TIMEOUT);
   
   try {
-    console.log(`[TTS] Starting request for sentence ${index}: "${sentence.slice(0, 30)}..."`);
+    console.log(`[TTS] Starting Cartesia request for sentence ${index}: "${sentence.slice(0, 30)}..."`);
     
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "tts-1", // Use faster model for streaming
-        input: sentence,
-        voice: "alloy",
-        response_format: "mp3",
-        speed: 1.0,
-      }),
+    // Generate TTS using Cartesia Sonic-3 with abort signal and timeout
+    const audioBuffer = await generateTTS(sentence, CARTESIA_VOICES.KATIE, {
       signal: abortController.signal,
+      timeoutMs: TTS_TIMEOUT,
     });
     
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const status = response.status;
-      console.error(`[TTS] Failed for sentence ${index}: HTTP ${status}`);
-      
-      // Retry on rate limit (429) or server errors (5xx)
-      if ((status === 429 || status >= 500) && retryCount < MAX_RETRIES) {
-        const delay = 500 * Math.pow(2, retryCount);
-        console.log(`[TTS] Retrying sentence ${index} in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return generateTTSForSentence(sentence, index, retryCount + 1);
-      }
-      
-      console.log(`[TTS] Giving up on sentence ${index} after HTTP ${status}`);
-      return null;
-    }
-
-    const audioBuffer = await response.arrayBuffer();
     console.log(`[TTS] Success for sentence ${index}, got ${audioBuffer.byteLength} bytes`);
+    
+    // Convert to base64 for streaming
     return Buffer.from(audioBuffer).toString("base64");
   } catch (error) {
     clearTimeout(timeoutId);
@@ -108,18 +89,10 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
       console.error(`[TTS] Error for sentence ${index}:`, error);
     }
     
-    // Retry on network errors (but not on intentional abort due to timeout)
-    if (!isAborted && retryCount < MAX_RETRIES) {
+    // Retry on errors
+    if (retryCount < MAX_RETRIES) {
       const delay = 500 * Math.pow(2, retryCount);
-      console.log(`[TTS] Retrying sentence ${index} after error in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return generateTTSForSentence(sentence, index, retryCount + 1);
-    }
-    
-    // For timeouts, try one more time with fresh request
-    if (isAborted && retryCount < MAX_RETRIES) {
-      const delay = 200;
-      console.log(`[TTS] Retrying sentence ${index} after timeout (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      console.log(`[TTS] Retrying sentence ${index} in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return generateTTSForSentence(sentence, index, retryCount + 1);
     }
@@ -133,6 +106,10 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
  * Uses GPT to create a natural, human summary of a long question
  */
 async function summarizeQuestion(question: string, category?: string): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    return question.slice(0, 300) + (question.length > 300 ? "..." : "");
+  }
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -202,7 +179,6 @@ function buildInterviewPrompt(question: string, isLong: boolean, category?: stri
  * Split text into sentences for streaming
  */
 function splitIntoSentences(text: string): string[] {
-  // Split on sentence-ending punctuation followed by space or end
   const sentences: string[] = [];
   const regex = /[^.!?]*[.!?]+(?:\s|$)/g;
   let match;
@@ -228,6 +204,7 @@ function splitIntoSentences(text: string): string[] {
 
 /**
  * Streaming speak endpoint - splits question into sentences and streams TTS
+ * Uses Cartesia Sonic-3 for fast, low-latency TTS
  * 
  * This dramatically reduces time-to-first-audio by:
  * 1. Starting TTS for the first sentence immediately
@@ -235,7 +212,7 @@ function splitIntoSentences(text: string): string[] {
  * 3. Streaming audio to the client as each sentence is ready
  */
 export async function POST(request: NextRequest) {
-  if (!OPENAI_API_KEY) {
+  if (!isCartesiaConfigured()) {
     return new Response(
       JSON.stringify({ error: "Service temporarily unavailable" }),
       { status: 503, headers: { "Content-Type": "application/json" } }
@@ -264,12 +241,20 @@ export async function POST(request: NextRequest) {
       questionContent = question;
     }
 
-    // Sanitize inputs
+    // Sanitize inputs for security
     if (questionTitle) {
       questionTitle = sanitizeForLLM(questionTitle);
     }
     questionContent = questionContent ? sanitizeForLLM(questionContent) : "";
     category = typeof category === "string" ? sanitizeForLLM(category) : undefined;
+
+    // Sanitize for TTS - remove markdown, code blocks, and formatting artifacts
+    if (questionTitle) {
+      questionTitle = sanitizeForTTS(questionTitle);
+    }
+    if (questionContent) {
+      questionContent = sanitizeForTTS(questionContent);
+    }
 
     // Validate length
     const contentValidation = validateLength(questionContent, 10, 5000);
@@ -300,7 +285,7 @@ export async function POST(request: NextRequest) {
     // Split into sentences for streaming
     const sentences = splitIntoSentences(speechText);
     
-    console.log(`[Speak-Stream] Processing ${sentences.length} sentences`);
+    console.log(`[Speak-Stream] Processing ${sentences.length} sentences with Cartesia Sonic-3`);
 
     // Create streaming response
     const encoder = new TextEncoder();
@@ -370,12 +355,12 @@ export async function POST(request: NextRequest) {
             }
           };
 
-          // Generate TTS for all sentences in parallel
+          // Generate TTS for all sentences in parallel using Cartesia
           const ttsPromises = sentences.map(async (sentence, index) => {
             const audio = await generateTTSForSentence(sentence, index);
             if (!isClosed) {
               console.log(`[Speak-Stream] TTS ${index} resolved: ${audio ? 'success' : 'null'}`);
-              ttsResults.set(index, audio); // Store null for failed TTS
+              ttsResults.set(index, audio);
               trySendOrderedAudio();
             }
           });

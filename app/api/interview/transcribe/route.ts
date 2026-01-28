@@ -1,20 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isValidAudioFile } from "@/lib/security";
+import { 
+  isCartesiaConfigured, 
+  transcribeAudio, 
+  isSupportedAudioFormat 
+} from "@/lib/cartesia";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
-// Allowed audio MIME types
+// Allowed audio MIME types (Cartesia supports many formats)
 const ALLOWED_AUDIO_TYPES = [
   "audio/webm",
   "audio/mp4",
   "audio/mpeg",
   "audio/wav",
   "audio/ogg",
+  "audio/flac",
   "audio/webm;codecs=opus",
+  "audio/x-m4a",
 ];
 
 export async function POST(request: NextRequest) {
-  if (!OPENAI_API_KEY) {
+  console.log("[Transcribe] === New request ===");
+  
+  if (!isCartesiaConfigured()) {
+    console.log("[Transcribe] Cartesia not configured");
     return NextResponse.json(
       { error: "Service temporarily unavailable" },
       { status: 503 }
@@ -26,17 +33,25 @@ export async function POST(request: NextRequest) {
     const audioFile = formData.get("audio") as File;
 
     if (!audioFile) {
+      console.log("[Transcribe] No audio file in request");
       return NextResponse.json(
         { error: "No audio file provided" },
         { status: 400 }
       );
     }
 
-    // Validate file type
-    const mimeType = audioFile.type.split(";")[0];
-    if (!ALLOWED_AUDIO_TYPES.some(t => t.startsWith(mimeType))) {
+    console.log(`[Transcribe] Received file: name=${audioFile.name}, type=${audioFile.type}, size=${audioFile.size}`);
+
+    // Validate file type - be more permissive
+    const baseMimeType = audioFile.type.split(";")[0].toLowerCase();
+    const isValidType = ALLOWED_AUDIO_TYPES.some(t => 
+      t === baseMimeType || t.startsWith(baseMimeType) || baseMimeType.startsWith(t.split(";")[0])
+    );
+    
+    if (!isValidType && audioFile.type) {
+      console.log(`[Transcribe] Invalid type: ${audioFile.type}`);
       return NextResponse.json(
-        { error: "Invalid audio format. Supported: webm, mp4, mp3, wav, ogg" },
+        { error: `Invalid audio format: ${audioFile.type}. Supported: webm, mp4, mp3, wav, ogg, flac` },
         { status: 400 }
       );
     }
@@ -49,50 +64,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for minimum file size (likely empty or corrupted)
-    if (audioFile.size < 1000) {
+    // Check for minimum file size
+    if (audioFile.size < 500) {
+      console.log(`[Transcribe] File too small: ${audioFile.size} bytes`);
       return NextResponse.json(
         { error: "Audio file too small. Please record a longer response." },
         { status: 400 }
       );
     }
 
-    // Prepare form data for Whisper API
-    const whisperFormData = new FormData();
-    whisperFormData.append("file", audioFile, "audio.webm");
-    whisperFormData.append("model", "whisper-1");
-    whisperFormData.append("language", "en");
-
-    // Call OpenAI Whisper API
-    const response = await fetch(
-      "https://api.openai.com/v1/audio/transcriptions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: whisperFormData,
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[Whisper] Error:", response.status, errorText);
+    // Convert File to ArrayBuffer for Cartesia
+    const audioBuffer = await audioFile.arrayBuffer();
+    
+    // Verify buffer is valid
+    if (!audioBuffer || audioBuffer.byteLength === 0) {
+      console.log(`[Transcribe] Empty buffer`);
       return NextResponse.json(
-        { error: "Transcription failed" },
-        { status: 500 }
+        { error: "Audio buffer is empty" },
+        { status: 400 }
       );
     }
 
-    const data = await response.json();
+    console.log(`[Transcribe] Buffer ready: ${audioBuffer.byteLength} bytes`);
+    
+    const transcript = await transcribeAudio(audioBuffer, audioFile.type || "audio/webm");
+    console.log(`[Transcribe] Success: "${transcript.slice(0, 80)}${transcript.length > 80 ? '...' : ''}"`);
 
     return NextResponse.json({
-      transcript: data.text,
+      transcript,
     });
   } catch (error) {
-    console.error("[Transcribe] Error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("[Transcribe] Error:", errorMessage);
     return NextResponse.json(
-      { error: "Failed to process audio" },
+      { error: `Failed to process audio: ${errorMessage}` },
       { status: 500 }
     );
   }

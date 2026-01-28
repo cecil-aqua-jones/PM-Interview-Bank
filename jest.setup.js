@@ -1,5 +1,33 @@
 import "@testing-library/jest-dom";
 
+// Polyfill Web APIs for Node.js test environment
+// These must be added before undici or any Web API dependent modules are imported
+// Order matters: TextEncoder/TextDecoder and streams must be polyfilled first
+
+// TextEncoder/TextDecoder
+if (typeof TextEncoder === "undefined") {
+  const { TextEncoder, TextDecoder } = require("util");
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
+// Streams
+if (typeof ReadableStream === "undefined") {
+  const { ReadableStream, WritableStream, TransformStream } = require("stream/web");
+  global.ReadableStream = ReadableStream;
+  global.WritableStream = WritableStream;
+  global.TransformStream = TransformStream;
+}
+
+// Fetch APIs (Request, Response, Headers, FormData)
+if (typeof Request === "undefined") {
+  const { Request, Response, Headers, FormData } = require("undici");
+  global.Request = Request;
+  global.Response = Response;
+  global.Headers = Headers;
+  global.FormData = FormData;
+}
+
 // Mock next/navigation
 jest.mock("next/navigation", () => ({
   useRouter: () => ({

@@ -281,8 +281,45 @@ function createEmptyStats(): ProgressStats {
 // MAIN FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClient = any;
+
 /**
- * Get current user's progress stats
+ * Get progress stats for a specific user (server-side version)
+ * Used by API routes with a server-side Supabase client
+ */
+export async function getUserProgressStatsForUser(
+  client: SupabaseClient,
+  userId: string
+): Promise<ProgressStats | null> {
+  try {
+    const { data, error } = await client
+      .from("user_interview_stats")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        // No row found - return empty stats
+        console.log("[ProgressStorage] No stats found for user, returning empty");
+        return createEmptyStats();
+      }
+      console.error("[ProgressStorage] Error fetching stats:", error);
+      return null;
+    }
+
+    console.log("[ProgressStorage] Found stats for user:", userId);
+    return transformToProgressStats(data as UserInterviewStats);
+  } catch (err) {
+    console.error("[ProgressStorage] Unexpected error:", err);
+    return null;
+  }
+}
+
+/**
+ * Get current user's progress stats (client-side version)
+ * @deprecated Use getUserProgressStatsForUser with server-side client in API routes
  */
 export async function getUserProgressStats(): Promise<ProgressStats | null> {
   if (!supabase) {
@@ -636,6 +673,318 @@ export async function saveSystemDesignProgress(
         weekly_snapshots: updatedSnapshots,
       })
       .eq("user_id", user.id);
+
+    if (error) {
+      console.error("[ProgressStorage] Error updating stats:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[ProgressStorage] Unexpected error:", err);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SERVER-SIDE SAVE FUNCTIONS (for API routes)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Save coding progress for a specific user (server-side version)
+ */
+export async function saveCodingProgressForUser(
+  client: SupabaseClient,
+  userId: string,
+  evaluation: CodingEvaluationResult
+): Promise<boolean> {
+  try {
+    // Get existing stats
+    const { data: existing } = await client
+      .from("user_interview_stats")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    const currentWeek = getCurrentWeek();
+    const breakdown = evaluation.breakdown;
+
+    if (!existing) {
+      // Create new stats record
+      console.log("[ProgressStorage] Creating new stats for user:", userId);
+      const newStats = {
+        user_id: userId,
+        total_interviews: 1,
+        coding_count: 1,
+        behavioral_count: 0,
+        system_design_count: 0,
+        coding_avg_score: evaluation.overallScore,
+        coding_correctness_avg: breakdown.correctness,
+        coding_time_complexity_avg: breakdown.timeComplexity,
+        coding_space_complexity_avg: breakdown.spaceComplexity,
+        coding_code_quality_avg: breakdown.codeQuality,
+        coding_problem_solving_avg: breakdown.problemSolving,
+        weekly_snapshots: [{
+          week: currentWeek,
+          coding: evaluation.overallScore,
+          behavioral: null,
+          system_design: null,
+        }],
+      };
+
+      const { error } = await client
+        .from("user_interview_stats")
+        .insert(newStats);
+
+      if (error) {
+        console.error("[ProgressStorage] Error creating stats:", error);
+        return false;
+      }
+      return true;
+    }
+
+    // Update existing stats
+    console.log("[ProgressStorage] Updating existing stats for user:", userId);
+    const oldCount = existing.coding_count || 0;
+    const updatedSnapshots = updateWeeklySnapshot(
+      existing.weekly_snapshots || [],
+      currentWeek,
+      "coding",
+      evaluation.overallScore,
+      oldCount
+    );
+
+    const { error } = await client
+      .from("user_interview_stats")
+      .update({
+        total_interviews: (existing.total_interviews || 0) + 1,
+        coding_count: oldCount + 1,
+        coding_avg_score: calculateRollingAverage(existing.coding_avg_score, oldCount, evaluation.overallScore),
+        coding_correctness_avg: calculateRollingAverage(existing.coding_correctness_avg, oldCount, breakdown.correctness),
+        coding_time_complexity_avg: calculateRollingAverage(existing.coding_time_complexity_avg, oldCount, breakdown.timeComplexity),
+        coding_space_complexity_avg: calculateRollingAverage(existing.coding_space_complexity_avg, oldCount, breakdown.spaceComplexity),
+        coding_code_quality_avg: calculateRollingAverage(existing.coding_code_quality_avg, oldCount, breakdown.codeQuality),
+        coding_problem_solving_avg: calculateRollingAverage(existing.coding_problem_solving_avg, oldCount, breakdown.problemSolving),
+        weekly_snapshots: updatedSnapshots,
+      })
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("[ProgressStorage] Error updating stats:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[ProgressStorage] Unexpected error:", err);
+    return false;
+  }
+}
+
+/**
+ * Save behavioral progress for a specific user (server-side version)
+ */
+export async function saveBehavioralProgressForUser(
+  client: SupabaseClient,
+  userId: string,
+  evaluation: BehavioralEvaluationResult
+): Promise<boolean> {
+  try {
+    // Extract dimension scores from breakdown
+    const breakdown = evaluation.breakdown;
+    const dimensionScores = {
+      starStructure: breakdown["STAR Structure & Story Clarity"]?.score ?? null,
+      ownership: breakdown["Ownership & Personal Agency"]?.score ?? null,
+      impact: breakdown["Impact & Quantified Results"]?.score ?? null,
+      leadership: breakdown["Leadership & Influence"]?.score ?? null,
+      decisionMaking: breakdown["Problem-Solving & Decision-Making"]?.score ?? null,
+      growthMindset: breakdown["Growth Mindset & Self-Awareness"]?.score ?? null,
+      communication: breakdown["Communication Clarity & Conciseness"]?.score ?? null,
+    };
+
+    // Get existing stats
+    const { data: existing } = await client
+      .from("user_interview_stats")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    const currentWeek = getCurrentWeek();
+
+    if (!existing) {
+      // Create new stats record
+      console.log("[ProgressStorage] Creating new behavioral stats for user:", userId);
+      const newStats = {
+        user_id: userId,
+        total_interviews: 1,
+        coding_count: 0,
+        behavioral_count: 1,
+        system_design_count: 0,
+        behavioral_avg_score: evaluation.overallScore,
+        behavioral_star_structure_avg: dimensionScores.starStructure,
+        behavioral_ownership_avg: dimensionScores.ownership,
+        behavioral_impact_avg: dimensionScores.impact,
+        behavioral_leadership_avg: dimensionScores.leadership,
+        behavioral_decision_making_avg: dimensionScores.decisionMaking,
+        behavioral_growth_mindset_avg: dimensionScores.growthMindset,
+        behavioral_communication_avg: dimensionScores.communication,
+        weekly_snapshots: [{
+          week: currentWeek,
+          coding: null,
+          behavioral: evaluation.overallScore,
+          system_design: null,
+        }],
+      };
+
+      const { error } = await client
+        .from("user_interview_stats")
+        .insert(newStats);
+
+      if (error) {
+        console.error("[ProgressStorage] Error creating stats:", error);
+        return false;
+      }
+      return true;
+    }
+
+    // Update existing stats
+    console.log("[ProgressStorage] Updating existing behavioral stats for user:", userId);
+    const oldCount = existing.behavioral_count || 0;
+    const updatedSnapshots = updateWeeklySnapshot(
+      existing.weekly_snapshots || [],
+      currentWeek,
+      "behavioral",
+      evaluation.overallScore,
+      oldCount
+    );
+
+    const updateData: Record<string, unknown> = {
+      total_interviews: (existing.total_interviews || 0) + 1,
+      behavioral_count: oldCount + 1,
+      behavioral_avg_score: calculateRollingAverage(existing.behavioral_avg_score, oldCount, evaluation.overallScore),
+      weekly_snapshots: updatedSnapshots,
+    };
+
+    // Only update dimension averages if we have scores
+    if (dimensionScores.starStructure !== null) {
+      updateData.behavioral_star_structure_avg = calculateRollingAverage(existing.behavioral_star_structure_avg, oldCount, dimensionScores.starStructure);
+    }
+    if (dimensionScores.ownership !== null) {
+      updateData.behavioral_ownership_avg = calculateRollingAverage(existing.behavioral_ownership_avg, oldCount, dimensionScores.ownership);
+    }
+    if (dimensionScores.impact !== null) {
+      updateData.behavioral_impact_avg = calculateRollingAverage(existing.behavioral_impact_avg, oldCount, dimensionScores.impact);
+    }
+    if (dimensionScores.leadership !== null) {
+      updateData.behavioral_leadership_avg = calculateRollingAverage(existing.behavioral_leadership_avg, oldCount, dimensionScores.leadership);
+    }
+    if (dimensionScores.decisionMaking !== null) {
+      updateData.behavioral_decision_making_avg = calculateRollingAverage(existing.behavioral_decision_making_avg, oldCount, dimensionScores.decisionMaking);
+    }
+    if (dimensionScores.growthMindset !== null) {
+      updateData.behavioral_growth_mindset_avg = calculateRollingAverage(existing.behavioral_growth_mindset_avg, oldCount, dimensionScores.growthMindset);
+    }
+    if (dimensionScores.communication !== null) {
+      updateData.behavioral_communication_avg = calculateRollingAverage(existing.behavioral_communication_avg, oldCount, dimensionScores.communication);
+    }
+
+    const { error } = await client
+      .from("user_interview_stats")
+      .update(updateData)
+      .eq("user_id", userId);
+
+    if (error) {
+      console.error("[ProgressStorage] Error updating stats:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[ProgressStorage] Unexpected error:", err);
+    return false;
+  }
+}
+
+/**
+ * Save system design progress for a specific user (server-side version)
+ */
+export async function saveSystemDesignProgressForUser(
+  client: SupabaseClient,
+  userId: string,
+  evaluation: SystemDesignEvaluationResult
+): Promise<boolean> {
+  try {
+    const breakdown = evaluation.breakdown;
+
+    // Get existing stats
+    const { data: existing } = await client
+      .from("user_interview_stats")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    const currentWeek = getCurrentWeek();
+
+    if (!existing) {
+      // Create new stats record
+      console.log("[ProgressStorage] Creating new system design stats for user:", userId);
+      const newStats = {
+        user_id: userId,
+        total_interviews: 1,
+        coding_count: 0,
+        behavioral_count: 0,
+        system_design_count: 1,
+        system_design_avg_score: evaluation.overallScore,
+        sd_requirements_avg: breakdown.requirements,
+        sd_architecture_avg: breakdown.architecture,
+        sd_scalability_avg: breakdown.scalability,
+        sd_data_model_avg: breakdown.dataModel,
+        sd_tradeoffs_avg: breakdown.tradeoffs,
+        sd_reliability_avg: breakdown.reliability,
+        sd_communication_avg: breakdown.communication,
+        weekly_snapshots: [{
+          week: currentWeek,
+          coding: null,
+          behavioral: null,
+          system_design: evaluation.overallScore,
+        }],
+      };
+
+      const { error } = await client
+        .from("user_interview_stats")
+        .insert(newStats);
+
+      if (error) {
+        console.error("[ProgressStorage] Error creating stats:", error);
+        return false;
+      }
+      return true;
+    }
+
+    // Update existing stats
+    console.log("[ProgressStorage] Updating existing system design stats for user:", userId);
+    const oldCount = existing.system_design_count || 0;
+    const updatedSnapshots = updateWeeklySnapshot(
+      existing.weekly_snapshots || [],
+      currentWeek,
+      "system_design",
+      evaluation.overallScore,
+      oldCount
+    );
+
+    const { error } = await client
+      .from("user_interview_stats")
+      .update({
+        total_interviews: (existing.total_interviews || 0) + 1,
+        system_design_count: oldCount + 1,
+        system_design_avg_score: calculateRollingAverage(existing.system_design_avg_score, oldCount, evaluation.overallScore),
+        sd_requirements_avg: calculateRollingAverage(existing.sd_requirements_avg, oldCount, breakdown.requirements),
+        sd_architecture_avg: calculateRollingAverage(existing.sd_architecture_avg, oldCount, breakdown.architecture),
+        sd_scalability_avg: calculateRollingAverage(existing.sd_scalability_avg, oldCount, breakdown.scalability),
+        sd_data_model_avg: calculateRollingAverage(existing.sd_data_model_avg, oldCount, breakdown.dataModel),
+        sd_tradeoffs_avg: calculateRollingAverage(existing.sd_tradeoffs_avg, oldCount, breakdown.tradeoffs),
+        sd_reliability_avg: calculateRollingAverage(existing.sd_reliability_avg, oldCount, breakdown.reliability),
+        sd_communication_avg: calculateRollingAverage(existing.sd_communication_avg, oldCount, breakdown.communication),
+        weekly_snapshots: updatedSnapshots,
+      })
+      .eq("user_id", userId);
 
     if (error) {
       console.error("[ProgressStorage] Error updating stats:", error);

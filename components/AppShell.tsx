@@ -1,16 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import styles from "../app/dashboard/app.module.css";
 import AnimatedMascot from "./AnimatedMascot";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isActive = (path: string) => pathname === path;
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    if (!supabase || isLoggingOut) return;
+    
+    setIsLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      setIsLoggingOut(false);
+    }
+  };
 
   return (
     <div className={styles.shell}>
@@ -40,6 +69,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Progress
             </Link>
+            <div className={styles.userMenu} ref={dropdownRef}>
+              <button
+                className={styles.userMenuTrigger}
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                aria-expanded={dropdownOpen}
+                aria-label="User menu"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </button>
+              {dropdownOpen && (
+                <div className={styles.userMenuDropdown}>
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      handleLogout();
+                    }}
+                    disabled={isLoggingOut}
+                  >
+                    {isLoggingOut ? "Signing out..." : "Sign Out"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <button
@@ -90,6 +145,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Progress
             </Link>
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              disabled={isLoggingOut}
+              className={styles.mobileNavLink}
+              style={{ background: "none", border: "none", cursor: "pointer", width: "100%", textAlign: "left" }}
+            >
+              {isLoggingOut ? "Signing out..." : "Sign Out"}
+            </button>
           </div>
         </div>
       )}

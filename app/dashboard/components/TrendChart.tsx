@@ -140,18 +140,18 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
           <Line
             type="monotone"
             dataKey="behavioral"
-            stroke="#6b7280"
+            stroke="#b87333"
             strokeWidth={1.5}
-            dot={{ fill: "#6b7280", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "#b87333", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
           <Line
             type="monotone"
             dataKey="systemDesign"
-            stroke="#d1d5db"
+            stroke="#4a7c6f"
             strokeWidth={1.5}
-            dot={{ fill: "#d1d5db", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "#4a7c6f", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
@@ -171,23 +171,23 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
             height: "2px",
             backgroundColor: "#1a1a1a",
           }} />
-          <span style={{ fontSize: "11px", color: "#6b7280", letterSpacing: "0.05em" }}>Coding</span>
+          <span style={{ fontSize: "11px", color: "#1a1a1a", letterSpacing: "0.05em" }}>Coding</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "#6b7280",
+            backgroundColor: "#b87333",
           }} />
-          <span style={{ fontSize: "11px", color: "#6b7280", letterSpacing: "0.05em" }}>Behavioral</span>
+          <span style={{ fontSize: "11px", color: "#b87333", letterSpacing: "0.05em" }}>Behavioral</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "#d1d5db",
+            backgroundColor: "#4a7c6f",
           }} />
-          <span style={{ fontSize: "11px", color: "#6b7280", letterSpacing: "0.05em" }}>System Design</span>
+          <span style={{ fontSize: "11px", color: "#4a7c6f", letterSpacing: "0.05em" }}>System Design</span>
         </div>
       </div>
     </div>

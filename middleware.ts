@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 // Simple in-memory rate limiter (for Vercel, use Upstash Redis in production)
 const rateLimitMap = new Map<string, { count: number; timestamp: number }>();
@@ -49,25 +50,21 @@ setInterval(() => {
   }
 }, RATE_LIMIT_WINDOW);
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Create response that we can modify
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
   // Security headers for all responses
-  const response = NextResponse.next();
-
-  // Prevent clickjacking
   response.headers.set("X-Frame-Options", "DENY");
-
-  // Prevent MIME type sniffing
   response.headers.set("X-Content-Type-Options", "nosniff");
-
-  // XSS Protection
   response.headers.set("X-XSS-Protection", "1; mode=block");
-
-  // Referrer policy
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-
-  // Content Security Policy
   response.headers.set(
     "Content-Security-Policy",
     [
@@ -76,14 +73,11 @@ export function middleware(request: NextRequest) {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      // Allow blob: and data: URLs for audio playback (TTS uses blob/data URLs)
       "media-src 'self' blob: data:",
-      "connect-src 'self' https://api.openai.com https://*.supabase.co https://api.airtable.com https://cdn.brandfetch.io wss://*.supabase.co",
+      "connect-src 'self' https://api.openai.com https://api.cartesia.ai wss://api.cartesia.ai https://*.supabase.co https://api.airtable.com https://cdn.brandfetch.io wss://*.supabase.co",
       "frame-ancestors 'none'",
     ].join("; ")
   );
-
-  // Permissions Policy - disable sensitive features
   response.headers.set(
     "Permissions-Policy",
     "camera=(), geolocation=(), microphone=(self)"
@@ -133,14 +127,29 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Protected routes - redirect to login if not on allowed paths
-  const publicPaths = ["/", "/login", "/api/"];
-  const isPublicPath = publicPaths.some(
-    (path) => pathname === path || pathname.startsWith(path)
-  );
+  // Refresh Supabase auth session for all requests
+  // This keeps the session alive and refreshes expired tokens
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Note: Full auth check would require checking Supabase session
-  // This is a basic path protection layer
+  if (supabaseUrl && supabaseAnonKey) {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          // Update cookies on the response
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    });
+
+    // This refreshes the session if needed and updates the cookies
+    await supabase.auth.getUser();
+  }
 
   return response;
 }

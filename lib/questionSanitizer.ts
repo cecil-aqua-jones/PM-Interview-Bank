@@ -316,6 +316,97 @@ export async function batchSanitize(
 }
 
 /**
+ * Sanitize content specifically for Text-to-Speech (TTS) output.
+ * Removes markdown formatting, code blocks, and artifacts that would
+ * sound unnatural when read aloud by Cartesia or other TTS engines.
+ */
+export function sanitizeForTTS(content: string): string {
+  if (!content) return content;
+  
+  let sanitized = content;
+  
+  // Remove code blocks entirely - they don't speak well
+  // Replace with a natural reference
+  sanitized = sanitized.replace(/```[\s\S]*?```/g, (match) => {
+    // Check if it's a small inline example vs a large code block
+    const lines = match.split('\n').filter(l => l.trim() && !l.trim().startsWith('```'));
+    if (lines.length <= 2) {
+      return " as shown in the example ";
+    }
+    return " as shown in the code example on your screen ";
+  });
+  
+  // Remove inline code backticks but keep the text
+  sanitized = sanitized.replace(/`([^`]+)`/g, '$1');
+  
+  // Remove markdown headers (# ## ###) but keep the text
+  sanitized = sanitized.replace(/^#{1,6}\s+/gm, '');
+  
+  // Convert markdown bold/italic to plain text
+  sanitized = sanitized.replace(/\*\*([^*]+)\*\*/g, '$1');
+  sanitized = sanitized.replace(/\*([^*]+)\*/g, '$1');
+  sanitized = sanitized.replace(/__([^_]+)__/g, '$1');
+  sanitized = sanitized.replace(/_([^_]+)_/g, '$1');
+  
+  // Convert bullet points and dashes to natural speech
+  sanitized = sanitized.replace(/^\s*[-*•]\s+/gm, '');
+  sanitized = sanitized.replace(/^\s*\d+\.\s+/gm, ''); // numbered lists
+  
+  // Remove horizontal rules
+  sanitized = sanitized.replace(/^[-*_]{3,}\s*$/gm, '');
+  
+  // Clean up markdown links - keep the text, remove URL
+  sanitized = sanitized.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  
+  // Remove HTML tags if any
+  sanitized = sanitized.replace(/<[^>]+>/g, '');
+  
+  // Convert common programming notation to speakable form
+  sanitized = sanitized.replace(/O\((\d+)\)/g, 'O of $1');
+  sanitized = sanitized.replace(/O\(n\)/gi, 'O of n');
+  sanitized = sanitized.replace(/O\(n\^2\)/gi, 'O of n squared');
+  sanitized = sanitized.replace(/O\(n log n\)/gi, 'O of n log n');
+  sanitized = sanitized.replace(/O\(log n\)/gi, 'O of log n');
+  sanitized = sanitized.replace(/O\(1\)/g, 'constant time');
+  
+  // Replace common symbols with words
+  sanitized = sanitized.replace(/&amp;/g, ' and ');
+  sanitized = sanitized.replace(/&/g, ' and ');
+  sanitized = sanitized.replace(/->/g, ' to ');
+  sanitized = sanitized.replace(/=>/g, ' returns ');
+  sanitized = sanitized.replace(/!=/g, ' is not equal to ');
+  sanitized = sanitized.replace(/==/g, ' equals ');
+  sanitized = sanitized.replace(/</g, ' less than ');
+  sanitized = sanitized.replace(/>/g, ' greater than ');
+  sanitized = sanitized.replace(/\|\|/g, ' or ');
+  sanitized = sanitized.replace(/&&/g, ' and ');
+  
+  // Fix common typos and artifacts
+  sanitized = sanitized.replace(/\bfunciton\b/gi, 'function');
+  sanitized = sanitized.replace(/\bretrun\b/gi, 'return');
+  sanitized = sanitized.replace(/\bteh\b/gi, 'the');
+  sanitized = sanitized.replace(/\breciever\b/gi, 'receiver');
+  sanitized = sanitized.replace(/\boccured\b/gi, 'occurred');
+  sanitized = sanitized.replace(/\bseperator\b/gi, 'separator');
+  
+  // Clean up excessive whitespace and normalize
+  sanitized = sanitized.replace(/\r\n/g, '\n');
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+  sanitized = sanitized.replace(/[ \t]{2,}/g, ' ');
+  
+  // Remove trailing/leading whitespace from lines
+  sanitized = sanitized.split('\n').map(line => line.trim()).join(' ');
+  
+  // Clean up multiple spaces
+  sanitized = sanitized.replace(/\s{2,}/g, ' ');
+  
+  // Ensure sentences end properly for natural TTS pauses
+  sanitized = sanitized.replace(/([a-z])(\s+)([A-Z])/g, '$1.$2$3');
+  
+  return sanitized.trim();
+}
+
+/**
  * Format content for display with proper code highlighting
  * This is a client-safe version that doesn't use AI
  */

@@ -1,52 +1,123 @@
 "use client";
 
 import { CodingEvaluationResult } from "@/lib/codingRubric";
+import { BehavioralEvaluationResult } from "@/lib/behavioralRubric";
+import { SystemDesignEvaluationResult } from "@/lib/systemDesignRubric";
 import styles from "../app.module.css";
+import ResultsSummaryCard from "./ResultsSummaryCard";
+import RedFlagsSection from "./RedFlagsSection";
+import PriorityImprovements from "./PriorityImprovements";
+import FollowUpQuestion from "./FollowUpQuestion";
+import DesignSummaryCard from "./DesignSummaryCard";
 
 type ConversationTurn = {
   role: "interviewer" | "candidate";
   content: string;
-  timestamp: number;
+  timestamp?: number;
 };
 
+// Union type for all evaluation results
+type EvaluationResult = CodingEvaluationResult | BehavioralEvaluationResult | SystemDesignEvaluationResult;
+
 type FeedbackCardsProps = {
-  evaluation: CodingEvaluationResult;
+  evaluation: EvaluationResult;
   conversation?: ConversationTurn[];
   onTryAgain: () => void;
   onClose: () => void;
+  interviewType?: "coding" | "behavioral" | "system_design";
 };
 
-function CheckIcon() {
-  return (
-    <svg
-      className={styles.feedbackListIcon}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="20,6 9,17 4,12" />
-    </svg>
-  );
+/**
+ * Type guard for Coding evaluation
+ */
+function isCodingEvaluation(result: EvaluationResult): result is CodingEvaluationResult {
+  return "complexityAnalysis" in result && "breakdown" in result && "correctness" in (result as CodingEvaluationResult).breakdown;
 }
 
-function ArrowIcon() {
-  return (
-    <svg
-      className={styles.feedbackListIcon}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12,5 19,12 12,19" />
-    </svg>
-  );
+/**
+ * Type guard for Behavioral evaluation
+ */
+function isBehavioralEvaluation(result: EvaluationResult): result is BehavioralEvaluationResult {
+  return "leadershipPrinciplesShown" in result || ("breakdown" in result && !("correctness" in (result.breakdown as Record<string, unknown>)));
+}
+
+/**
+ * Type guard for System Design evaluation
+ */
+function isSystemDesignEvaluation(result: EvaluationResult): result is SystemDesignEvaluationResult {
+  return "designHighlights" in result && "missedConsiderations" in result;
+}
+
+/**
+ * Detect interview type from evaluation structure
+ */
+function detectInterviewType(evaluation: EvaluationResult): "coding" | "behavioral" | "system_design" {
+  if (isSystemDesignEvaluation(evaluation)) return "system_design";
+  if (isCodingEvaluation(evaluation)) return "coding";
+  if (isBehavioralEvaluation(evaluation)) return "behavioral";
+  return "coding"; // fallback
+}
+
+/**
+ * Build dimension scores from evaluation
+ */
+function buildDimensionScores(
+  evaluation: EvaluationResult,
+  type: "coding" | "behavioral" | "system_design"
+): { name: string; score: number; weight: number }[] {
+  if (type === "coding" && isCodingEvaluation(evaluation)) {
+    const { breakdown } = evaluation;
+    return [
+      { name: "Correctness", score: breakdown.correctness, weight: 0.30 },
+      { name: "Time Complexity", score: breakdown.timeComplexity, weight: 0.20 },
+      { name: "Space Complexity", score: breakdown.spaceComplexity, weight: 0.15 },
+      { name: "Code Quality", score: breakdown.codeQuality, weight: 0.20 },
+      { name: "Problem-Solving", score: breakdown.problemSolving, weight: 0.15 },
+    ];
+  }
+
+  if (type === "behavioral" && isBehavioralEvaluation(evaluation)) {
+    const { breakdown } = evaluation;
+    return Object.entries(breakdown).map(([name, data]) => ({
+      name,
+      score: data.score,
+      weight: data.weight,
+    }));
+  }
+
+  if (type === "system_design" && isSystemDesignEvaluation(evaluation)) {
+    const { breakdown } = evaluation;
+    return [
+      { name: "Requirements", score: breakdown.requirements, weight: 0.15 },
+      { name: "Architecture", score: breakdown.architecture, weight: 0.20 },
+      { name: "Scalability", score: breakdown.scalability, weight: 0.20 },
+      { name: "Data Model", score: breakdown.dataModel, weight: 0.15 },
+      { name: "Trade-offs", score: breakdown.tradeoffs, weight: 0.15 },
+      { name: "Reliability", score: breakdown.reliability, weight: 0.10 },
+      { name: "Communication", score: breakdown.communication, weight: 0.05 },
+    ];
+  }
+
+  return [];
+}
+
+/**
+ * Get the follow-up question from evaluation
+ */
+function getFollowUpQuestion(
+  evaluation: EvaluationResult,
+  type: "coding" | "behavioral" | "system_design"
+): string {
+  if (type === "coding" && isCodingEvaluation(evaluation)) {
+    return evaluation.nextFollowUp || "";
+  }
+  if (type === "behavioral" && isBehavioralEvaluation(evaluation)) {
+    return evaluation.suggestedFollowUp || "";
+  }
+  if (type === "system_design" && isSystemDesignEvaluation(evaluation)) {
+    return evaluation.suggestedDeepDive || "";
+  }
+  return "";
 }
 
 function ClockIcon() {
@@ -88,213 +159,136 @@ function MemoryIcon() {
 }
 
 /**
- * Score descriptions for 1-5 FAANG scale
- * Based on: Strong Pass (4.5+), Pass (3.5+), Borderline (2.5+), Fail (1.5+), Strong Fail (<1.5)
+ * FeedbackCards - Comprehensive evaluation feedback display
+ * 
+ * Supports all interview types: Coding, Behavioral, System Design
+ * Follows Hermes design principles: generous whitespace, refined typography
  */
-function getScoreDescription(score: number): string {
-  if (score >= 4.5) return "Strong Pass - Exceptional";
-  if (score >= 4.0) return "Strong Pass - FAANG ready";
-  if (score >= 3.5) return "Pass - Solid solution";
-  if (score >= 3.0) return "Pass - Meets bar";
-  if (score >= 2.5) return "Borderline - Needs work";
-  if (score >= 2.0) return "Fail - Significant issues";
-  if (score >= 1.5) return "Fail - Major gaps";
-  return "Strong Fail - Fundamental issues";
-}
-
-function getScoreColor(score: number): string {
-  if (score >= 3.5) return "#16a34a"; // Green for Pass
-  if (score >= 2.5) return "#d97706"; // Orange for Borderline
-  return "#dc2626"; // Red for Fail
-}
-
-function getVerdictStyle(verdict: string): { color: string; bg: string } {
-  switch (verdict) {
-    case "Strong Pass":
-      return { color: "#16a34a", bg: "#dcfce7" };
-    case "Pass":
-      return { color: "#15803d", bg: "#f0fdf4" };
-    case "Borderline":
-      return { color: "#d97706", bg: "#fef3c7" };
-    case "Fail":
-      return { color: "#dc2626", bg: "#fee2e2" };
-    case "Strong Fail":
-      return { color: "#991b1b", bg: "#fecaca" };
-    default:
-      return { color: "#6b7280", bg: "#f3f4f6" };
-  }
-}
-
 export default function FeedbackCards({
   evaluation,
   conversation = [],
   onTryAgain,
   onClose,
+  interviewType,
 }: FeedbackCardsProps) {
+  // Detect interview type if not provided
+  const type = interviewType || detectInterviewType(evaluation);
+  
   const {
     overallScore,
     verdict,
-    breakdown,
-    complexityAnalysis,
     strengths,
     improvements,
-    suggestedOptimization,
-    overallFeedback
+    redFlagsIdentified,
+    overallFeedback,
   } = evaluation;
 
-  const breakdownItems = [
-    { label: "Correctness", score: breakdown.correctness, weight: "30%" },
-    { label: "Time Complexity", score: breakdown.timeComplexity, weight: "20%" },
-    { label: "Space Complexity", score: breakdown.spaceComplexity, weight: "15%" },
-    { label: "Code Quality", score: breakdown.codeQuality, weight: "20%" },
-    { label: "Problem-Solving", score: breakdown.problemSolving, weight: "15%" },
-  ];
+  // Build dimension scores for the summary card
+  const dimensions = buildDimensionScores(evaluation, type);
+  
+  // Get follow-up question
+  const followUpQuestion = getFollowUpQuestion(evaluation, type);
 
-  const verdictStyle = verdict ? getVerdictStyle(verdict) : null;
+  // Coding-specific data
+  const codingEval = isCodingEvaluation(evaluation) ? evaluation : null;
+  
+  // System design-specific data
+  const systemDesignEval = isSystemDesignEvaluation(evaluation) ? evaluation : null;
 
   return (
     <div className={styles.feedbackContainer}>
-      {/* Score Card */}
-      <div className={styles.feedbackScoreCard}>
-        <div className={styles.feedbackScoreLabel}>Your Score</div>
-        <div
-          className={styles.feedbackScoreValue}
-          style={{ color: getScoreColor(overallScore) }}
-        >
-          {overallScore.toFixed(1)}
-        </div>
-        <div className={styles.feedbackScoreMax}>out of 5</div>
-        {verdict && verdictStyle && (
-          <div
-            className={styles.feedbackVerdict}
-            style={{
-              color: verdictStyle.color,
-              backgroundColor: verdictStyle.bg
-            }}
-          >
-            {verdict}
-          </div>
-        )}
-        <div className={styles.feedbackScoreDesc}>
-          {getScoreDescription(overallScore)}
-        </div>
-      </div>
+      {/* Results Summary Card - At-a-glance score with dimensions */}
+      <ResultsSummaryCard
+        overallScore={overallScore}
+        verdict={verdict}
+        dimensions={dimensions}
+        interviewType={type}
+      />
 
-      {/* Complexity Analysis Card */}
-      <div className={styles.feedbackComplexity}>
-        <div className={styles.feedbackCardTitle}>Complexity Analysis</div>
-        <div className={styles.complexityGrid}>
-          <div className={styles.complexityItem}>
-            <ClockIcon />
-            <div className={styles.complexityLabel}>Time</div>
-            <div className={styles.complexityValue}>{complexityAnalysis.time}</div>
-          </div>
-          <div className={styles.complexityItem}>
-            <MemoryIcon />
-            <div className={styles.complexityLabel}>Space</div>
-            <div className={styles.complexityValue}>{complexityAnalysis.space}</div>
-          </div>
-        </div>
-        {complexityAnalysis.explanation && (
-          <p className={styles.complexityExplanation}>{complexityAnalysis.explanation}</p>
-        )}
-      </div>
+      {/* Red Flags Section - Critical issues (if any) */}
+      <RedFlagsSection flags={redFlagsIdentified || []} />
 
-      {/* Breakdown Card */}
-      <div className={styles.feedbackBreakdown}>
-        <div className={styles.feedbackCardTitle}>Score Breakdown</div>
-        <div className={styles.breakdownList}>
-          {breakdownItems.map((item) => (
-            <div key={item.label} className={styles.breakdownItem}>
-              <span className={styles.breakdownLabel}>
-                {item.label}
-                <span className={styles.breakdownWeight}>{item.weight}</span>
-              </span>
-              <div className={styles.breakdownBar}>
-                <div
-                  className={styles.breakdownBarFill}
-                  style={{
-                    width: `${item.score * 20}%`, // 1-5 scale: score * 20 = percentage
-                    backgroundColor: getScoreColor(item.score)
-                  }}
-                />
-              </div>
-              <span
-                className={styles.breakdownScore}
-                style={{ color: getScoreColor(item.score) }}
-              >
-                {item.score.toFixed(1)}
-              </span>
+      {/* Complexity Analysis - Coding interviews only */}
+      {codingEval && (
+        <div className={styles.feedbackComplexity}>
+          <div className={styles.feedbackCardTitle}>Complexity Analysis</div>
+          <div className={styles.complexityGrid}>
+            <div className={styles.complexityItem}>
+              <ClockIcon />
+              <div className={styles.complexityLabel}>Time</div>
+              <div className={styles.complexityValue}>{codingEval.complexityAnalysis.time}</div>
             </div>
-          ))}
+            <div className={styles.complexityItem}>
+              <MemoryIcon />
+              <div className={styles.complexityLabel}>Space</div>
+              <div className={styles.complexityValue}>{codingEval.complexityAnalysis.space}</div>
+            </div>
+          </div>
+          {codingEval.complexityAnalysis.explanation && (
+            <p className={styles.complexityExplanation}>{codingEval.complexityAnalysis.explanation}</p>
+          )}
+          {!codingEval.complexityAnalysis.isOptimal && codingEval.suggestedOptimization && (
+            <div className={styles.optimizationHint}>
+              <span className={styles.optimizationLabel}>Optimization Tip</span>
+              <p className={styles.optimizationText}>{codingEval.suggestedOptimization}</p>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
-      {/* Strengths Card */}
+      {/* Design Summary Card - System Design interviews only */}
+      {systemDesignEval && (
+        <DesignSummaryCard
+          designHighlights={systemDesignEval.designHighlights}
+          missedConsiderations={systemDesignEval.missedConsiderations || []}
+        />
+      )}
+
+      {/* Priority Improvements - Top 3 areas to focus on */}
+      <PriorityImprovements
+        improvements={improvements}
+        conversation={conversation}
+        maxItems={3}
+      />
+
+      {/* Strengths Section */}
       {strengths.length > 0 && (
-        <div className={styles.feedbackStrengths}>
-          <div className={styles.feedbackCardTitle}>What You Did Well</div>
-          <div className={styles.feedbackList}>
+        <div className={styles.feedbackStrengthsSection}>
+          <div className={styles.feedbackSectionHeader}>
+            <svg
+              className={styles.feedbackSectionIcon}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span className={styles.feedbackSectionLabel}>What You Did Well</span>
+          </div>
+          <ul className={styles.feedbackStrengthsList}>
             {strengths.map((strength, index) => (
-              <div key={index} className={styles.feedbackListItem}>
-                <CheckIcon />
-                <span>{strength}</span>
-              </div>
+              <li key={index} className={styles.feedbackStrengthItem}>
+                {strength}
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
-      {/* Improvements Card */}
-      {improvements.length > 0 && (
-        <div className={styles.feedbackImprovements}>
-          <div className={styles.feedbackCardTitle}>Areas to Improve</div>
-          <div className={styles.feedbackList}>
-            {improvements.map((improvement, index) => (
-              <div key={index} className={styles.feedbackListItem}>
-                <ArrowIcon />
-                <span>{improvement}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Follow-Up Question */}
+      <FollowUpQuestion
+        question={followUpQuestion}
+        interviewType={type}
+      />
 
-      {/* Optimization Suggestion */}
-      {suggestedOptimization && (
-        <div className={styles.feedbackOptimization}>
-          <div className={styles.feedbackCardTitle}>💡 Optimization Tip</div>
-          <p className={styles.feedbackOptimizationText}>{suggestedOptimization}</p>
+      {/* Overall Summary */}
+      <div className={styles.feedbackOverallSummary}>
+        <div className={styles.feedbackSectionHeader}>
+          <span className={styles.feedbackSectionLabel}>Summary</span>
         </div>
-      )}
-
-      {/* Conversation History */}
-      {conversation.length > 0 && (
-        <div className={styles.feedbackConversation}>
-          <div className={styles.feedbackCardTitle}>Follow-up Discussion</div>
-          <div className={styles.conversationList}>
-            {conversation.map((turn, index) => (
-              <div
-                key={index}
-                className={`${styles.conversationTurn} ${turn.role === "interviewer"
-                    ? styles.conversationInterviewer
-                    : styles.conversationCandidate
-                  }`}
-              >
-                <div className={styles.conversationRole}>
-                  {turn.role === "interviewer" ? "🎤 Interviewer" : "👤 You"}
-                </div>
-                <p className={styles.conversationContent}>{turn.content}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Overall Feedback Card */}
-      <div className={styles.feedbackOverall}>
-        <div className={styles.feedbackCardTitle}>Summary</div>
-        <p className={styles.feedbackOverallText}>"{overallFeedback}"</p>
+        <p className={styles.feedbackOverallText}>{overallFeedback}</p>
       </div>
 
       {/* Actions */}

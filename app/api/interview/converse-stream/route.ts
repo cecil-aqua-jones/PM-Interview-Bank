@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
+import { generateTTS, isCartesiaConfigured, CARTESIA_VOICES } from "@/lib/cartesia";
+import { sanitizeForTTS } from "@/lib/questionSanitizer";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -12,10 +14,14 @@ type ConversationMessage = {
 /**
  * Streaming conversational API endpoint with sentence-based TTS
  * 
+ * Uses:
+ * - OpenAI GPT for conversation generation
+ * - Cartesia Sonic-3 for TTS (faster, lower latency)
+ * 
  * Flow:
  * 1. Stream LLM response tokens
  * 2. Detect sentence boundaries
- * 3. Send each sentence to TTS immediately
+ * 3. Send each sentence to Cartesia TTS immediately
  * 4. Client receives sentence + audio pairs as they're ready
  * 
  * This reduces perceived latency by ~50-70% since the first sentence
@@ -24,7 +30,14 @@ type ConversationMessage = {
 export async function POST(request: NextRequest) {
   if (!OPENAI_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "Service temporarily unavailable" }),
+      JSON.stringify({ error: "LLM service temporarily unavailable" }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (!isCartesiaConfigured()) {
+    return new Response(
+      JSON.stringify({ error: "TTS service temporarily unavailable" }),
       { status: 503, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -122,7 +135,16 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(interviewState, !!evaluation);
 
-    const fullContext = `INTERVIEW PROBLEM:
+    // For greeting state, include the full question so AI can greet AND present the question in one response
+    const fullContext = interviewState === "greeting" 
+      ? `The candidate has just greeted you to start the interview. They said: "${userMessage}"
+
+INTERVIEW QUESTION TO PRESENT:
+Title: "${questionTitle}"
+Full Question: ${questionContent}
+
+Greet them warmly, then naturally present this question in full. Make it conversational but ensure you read the ENTIRE question clearly.`
+      : `INTERVIEW PROBLEM:
 Title/Topic: "${questionTitle}"
 Problem Instructions: ${questionContent}
 ${codeContext}
@@ -164,7 +186,7 @@ Respond naturally as the interviewer.`;
         };
         
         try {
-          // Start streaming LLM response
+          // Start streaming LLM response (still using OpenAI GPT)
           const llmResponse = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -270,7 +292,7 @@ Respond naturally as the interviewer.`;
                       // Queue TTS for this sentence (don't await - parallel processing)
                       const currentIndex = sentenceIndex++;
                       totalSentences++;
-                      console.log(`[Stream] Queueing TTS for sentence ${currentIndex}: "${completeSentence.slice(0, 30)}..."`);
+                      console.log(`[Stream] Queueing Cartesia TTS for sentence ${currentIndex}: "${completeSentence.slice(0, 30)}..."`);
                       
                       const ttsTask = generateTTSForSentence(completeSentence, currentIndex)
                         .then(audioBase64 => {
@@ -352,7 +374,7 @@ Respond naturally as the interviewer.`;
             ttsTasks.push(ttsTask);
           }
 
-          console.log(`[Stream] Waiting for ${ttsTasks.length} TTS tasks to complete...`);
+          console.log(`[Stream] Waiting for ${ttsTasks.length} Cartesia TTS tasks to complete...`);
           
           // Wait for all TTS to complete
           await Promise.all(ttsTasks);
@@ -402,12 +424,21 @@ Respond naturally as the interviewer.`;
 }
 
 /**
- * Generate TTS audio for a sentence with retry logic and timeout
+ * Generate TTS audio for a sentence using Cartesia Sonic-3
  * Returns base64 encoded audio or null on failure
  */
 async function generateTTSForSentence(sentence: string, index: number, retryCount = 0): Promise<string | null> {
   const MAX_RETRIES = 2;
-  const TTS_TIMEOUT = 8000; // 8 second timeout per request
+  const TTS_TIMEOUT = 10000; // 10 second timeout per request
+  
+  // Sanitize sentence for TTS - remove markdown, code blocks, and formatting artifacts
+  const sanitizedSentence = sanitizeForTTS(sentence);
+  
+  // Skip if sentence becomes empty after sanitization
+  if (!sanitizedSentence || sanitizedSentence.trim().length < 3) {
+    console.log(`[TTS] Skipping sentence ${index} - too short after sanitization`);
+    return null;
+  }
   
   // Create abort controller for timeout
   const abortController = new AbortController();
@@ -417,45 +448,17 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
   }, TTS_TIMEOUT);
   
   try {
-    console.log(`[TTS] Starting request for sentence ${index}: "${sentence.slice(0, 30)}..."`);
+    console.log(`[TTS] Starting Cartesia request for sentence ${index}: "${sanitizedSentence.slice(0, 30)}..."`);
     
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "tts-1", // Use standard model for lower latency (tts-1-hd is slower)
-        input: sentence,
-        voice: "alloy",
-        response_format: "mp3",
-        speed: 1.0,
-      }),
+    // Generate TTS using Cartesia Sonic-3 with abort signal and timeout
+    const audioBuffer = await generateTTS(sanitizedSentence, CARTESIA_VOICES.KATIE, {
       signal: abortController.signal,
+      timeoutMs: TTS_TIMEOUT,
     });
     
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const status = response.status;
-      console.error(`[TTS] Failed for sentence ${index}: HTTP ${status}`);
-      
-      // Retry on rate limit (429) or server errors (5xx)
-      if ((status === 429 || status >= 500) && retryCount < MAX_RETRIES) {
-        // Exponential backoff: 500ms, 1000ms
-        const delay = 500 * Math.pow(2, retryCount);
-        console.log(`[TTS] Retrying sentence ${index} in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return generateTTSForSentence(sentence, index, retryCount + 1);
-      }
-      
-      console.log(`[TTS] Giving up on sentence ${index} after HTTP ${status}`);
-      return null;
-    }
-
-    const audioBuffer = await response.arrayBuffer();
     console.log(`[TTS] Success for sentence ${index}, got ${audioBuffer.byteLength} bytes`);
+    
     return Buffer.from(audioBuffer).toString("base64");
   } catch (error) {
     clearTimeout(timeoutId);
@@ -467,18 +470,10 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
       console.error(`[TTS] Error for sentence ${index}:`, error);
     }
     
-    // Retry on network errors (but not on intentional abort due to timeout)
-    if (!isAborted && retryCount < MAX_RETRIES) {
+    // Retry on errors
+    if (retryCount < MAX_RETRIES) {
       const delay = 500 * Math.pow(2, retryCount);
-      console.log(`[TTS] Retrying sentence ${index} after error in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return generateTTSForSentence(sentence, index, retryCount + 1);
-    }
-    
-    // For timeouts, try one more time with fresh request
-    if (isAborted && retryCount < MAX_RETRIES) {
-      const delay = 200; // Short delay for timeout retry
-      console.log(`[TTS] Retrying sentence ${index} after timeout (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+      console.log(`[TTS] Retrying sentence ${index} in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return generateTTSForSentence(sentence, index, retryCount + 1);
     }
@@ -492,6 +487,36 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
  * Build the system prompt based on interview state
  */
 function buildSystemPrompt(state: string, hasEvaluation: boolean): string {
+  // Special handling for greeting state - unified greeting + question presentation
+  if (state === "greeting") {
+    return `You are a warm and professional AI interviewer starting an interview session.
+
+YOUR TASK:
+1. Start with a friendly, brief greeting (1 sentence)
+2. Naturally transition to presenting the interview question
+3. Read the question clearly and completely
+4. End with an encouraging prompt
+
+RESPONSE STRUCTURE:
+"[Brief greeting] [Smooth transition] [Read the full question] [Encouraging closing]"
+
+EXAMPLE FLOW:
+"Hey, great to meet you! So let's get started with today's problem. [Read the full question here]. Take your time to think through this, and feel free to ask any clarifying questions."
+
+CRITICAL RULES:
+- Read the ENTIRE question - do not skip or summarize any part
+- Keep the greeting brief (1 sentence max)
+- Make the transition feel natural and conversational
+- Be warm but professional
+- End with something encouraging like "Take your time" or "Let me know your thoughts"
+
+DO NOT:
+- Give hints about the solution
+- Add extra commentary beyond the question
+- Ask questions back to the candidate
+- Be overly formal or robotic`;
+  }
+
   const basePersonality = `You are a senior software engineer conducting a coding interview. Be conversational, warm, and concise.
 
 CRITICAL RULES:

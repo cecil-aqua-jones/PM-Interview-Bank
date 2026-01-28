@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
+import { generateTTS, isCartesiaConfigured, CARTESIA_VOICES } from "@/lib/cartesia";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -13,6 +14,10 @@ type ConversationMessage = {
  * Unified conversational API endpoint for the interview agent.
  * Handles all conversational interactions with full context awareness.
  * 
+ * Uses:
+ * - OpenAI GPT for conversation generation (kept for reasoning)
+ * - Cartesia Sonic-3 for TTS (faster, lower latency)
+ * 
  * Context includes:
  * - The original coding question/problem
  * - Current code (if any)
@@ -22,7 +27,7 @@ type ConversationMessage = {
 export async function POST(request: NextRequest) {
   if (!OPENAI_API_KEY) {
     return NextResponse.json(
-      { error: "Service temporarily unavailable" },
+      { error: "LLM service temporarily unavailable" },
       { status: 503 }
     );
   }
@@ -124,7 +129,6 @@ export async function POST(request: NextRequest) {
     const systemPrompt = buildSystemPrompt(interviewState, !!evaluation);
 
     // Build the user prompt with full context
-    // Structure clearly distinguishes title (topic) from content (instructions)
     const fullContext = `INTERVIEW PROBLEM:
 Title/Topic: "${questionTitle}"
 Problem Instructions: ${questionContent}
@@ -136,7 +140,7 @@ The candidate just said: "${userMessage}"
 
 Respond naturally as the interviewer. Remember: the "Title" is just the topic name (like "Answer Caching Strategy"), and the "Problem Instructions" contain the actual requirements they need to implement.`;
 
-    // Call GPT for conversational response
+    // Call GPT for conversational response (kept for reasoning)
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -166,31 +170,16 @@ Respond naturally as the interviewer. Remember: the "Title" is just the topic na
     const data = await response.json();
     const aiResponse = data.choices[0]?.message?.content || "Could you repeat that?";
 
-    // Generate TTS for the response
+    // Generate TTS using Cartesia Sonic-3 (faster than OpenAI TTS)
     let audioBase64: string | null = null;
-    try {
-      const ttsResponse = await fetch("https://api.openai.com/v1/audio/speech", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "tts-1-hd",
-          input: aiResponse,
-          voice: "alloy",
-          response_format: "mp3",
-          speed: 1.0,
-        }),
-      });
-
-      if (ttsResponse.ok) {
-        const audioBuffer = await ttsResponse.arrayBuffer();
+    if (isCartesiaConfigured()) {
+      try {
+        const audioBuffer = await generateTTS(aiResponse, CARTESIA_VOICES.KATIE);
         audioBase64 = Buffer.from(audioBuffer).toString("base64");
+      } catch (ttsErr) {
+        console.error("[Converse] Cartesia TTS Error:", ttsErr);
+        // Continue without audio - text response still works
       }
-    } catch (ttsErr) {
-      console.error("[Converse] TTS Error:", ttsErr);
-      // Continue without audio - text response still works
     }
 
     return NextResponse.json({

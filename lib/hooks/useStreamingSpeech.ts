@@ -95,10 +95,10 @@ export function useStreamingSpeech(options: StreamingSpeechOptions = {}) {
     optionsRef.current.onSentenceStart?.(nextItem.index, nextItem.sentence);
     
     try {
-      // Create audio from base64
+      // Create audio from base64 (WAV format from Cartesia Sonic-3 TTS)
       const audioBlob = new Blob(
         [Uint8Array.from(atob(nextItem.audio), c => c.charCodeAt(0))],
-        { type: "audio/mpeg" }
+        { type: "audio/wav" }
       );
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);

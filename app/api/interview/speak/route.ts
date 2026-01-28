@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
+import { generateTTS, isCartesiaConfigured, CARTESIA_VOICES } from "@/lib/cartesia";
+import { sanitizeForTTS } from "@/lib/questionSanitizer";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -46,8 +48,14 @@ const CLOSINGS_LONG = [
 
 /**
  * Uses GPT to create a natural, human summary of a long question
+ * Still uses OpenAI for LLM summarization
  */
 async function summarizeQuestion(question: string, category?: string): Promise<string> {
+  if (!OPENAI_API_KEY) {
+    // Fallback to first 300 chars if no OpenAI key
+    return question.slice(0, 300) + (question.length > 300 ? "..." : "");
+  }
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -119,7 +127,7 @@ function buildInterviewPrompt(question: string, isLong: boolean, category?: stri
 }
 
 export async function POST(request: NextRequest) {
-  if (!OPENAI_API_KEY) {
+  if (!isCartesiaConfigured()) {
     return NextResponse.json(
       { error: "Service temporarily unavailable" },
       { status: 503 }
@@ -137,8 +145,6 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Support both new format (title + content) and old format (combined question)
-    // New format: questionTitle + questionContent
-    // Old format: question (combined)
     if (!questionTitle && !questionContent && !question) {
       return NextResponse.json(
         { error: "Question is required" },
@@ -146,20 +152,27 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // If using old format, use it directly (questionTitle stays undefined)
+    // If using old format, use it directly
     if (!questionTitle && !questionContent && question) {
       questionContent = question;
     }
 
-    // Sanitize inputs - preserve undefined for questionTitle to indicate "not provided"
+    // Sanitize inputs for security
     if (questionTitle) {
       questionTitle = sanitizeForLLM(questionTitle);
     }
     questionContent = questionContent ? sanitizeForLLM(questionContent) : "";
     category = typeof category === "string" ? sanitizeForLLM(category) : undefined;
 
-    // Validate length - allow shorter content if we have a title (title alone can be spoken)
-    // For content-only, require minimum 10 chars
+    // Sanitize for TTS - remove markdown, code blocks, and formatting artifacts
+    if (questionTitle) {
+      questionTitle = sanitizeForTTS(questionTitle);
+    }
+    if (questionContent) {
+      questionContent = sanitizeForTTS(questionContent);
+    }
+
+    // Validate length
     const minLength = questionTitle ? 0 : 10;
     const contentValidation = validateLength(questionContent, minLength, 5000);
     if (!contentValidation.valid) {
@@ -193,37 +206,16 @@ export async function POST(request: NextRequest) {
     // Build the natural interview prompt
     const speechText = buildInterviewPrompt(spokenQuestion, isLongQuestion, category);
 
-    // Call OpenAI TTS API with HD model for more natural voice
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "tts-1-hd", // HD model for more natural, human-like voice
-        input: speechText,
-        voice: "alloy", // Natural, warm, conversational voice
-        response_format: "mp3",
-        speed: 1.0, // Natural speaking pace
-      }),
-    });
+    console.log(`[Speak] Generating TTS for ${speechText.length} chars with Cartesia Sonic-3`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[TTS] Error:", response.status, errorText);
-      return NextResponse.json(
-        { error: "Speech generation failed" },
-        { status: 500 }
-      );
-    }
+    // Generate TTS using Cartesia Sonic-3
+    const audioBuffer = await generateTTS(speechText, CARTESIA_VOICES.KATIE);
 
-    // Return the audio as a stream
-    const audioBuffer = await response.arrayBuffer();
+    console.log(`[Speak] Generated ${audioBuffer.byteLength} bytes of audio`);
 
     return new NextResponse(audioBuffer, {
       headers: {
-        "Content-Type": "audio/mpeg",
+        "Content-Type": "audio/wav",
         "Content-Length": audioBuffer.byteLength.toString(),
       },
     });
