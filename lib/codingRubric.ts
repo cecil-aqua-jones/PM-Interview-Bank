@@ -1,7 +1,8 @@
 /**
- * FAANG-Level Coding Interview Evaluation Rubric
+ * Top Tech-Level Coding Interview Evaluation Rubric
  * 
- * Based on technical assessment standards used at Google, Meta, Amazon, Apple, Netflix.
+ * Based on technical assessment standards used at Google, Meta, Amazon, Apple, Microsoft,
+ * OpenAI, Anthropic, and other top tech companies.
  * 
  * Scoring: 1-5 scale (half-points allowed for borderline cases)
  * - 5.0: Exceptional (optimal solution, production-quality, rare)
@@ -215,7 +216,7 @@ function getVerdict(score: number): CodingEvaluationResult["verdict"] {
 }
 
 /**
- * Builds the FAANG-level evaluation prompt for coding interviews
+ * Builds the top tech-level evaluation prompt for coding interviews
  * Now includes conversation history to factor in the candidate's thinking process
  */
 export const buildCodingEvaluationPrompt = (
@@ -268,7 +269,7 @@ Penalize candidates who:
 - Showed no systematic thinking`;
   }
 
-  return `You are a FAANG coding interviewer (Google/Meta/Amazon level) evaluating a candidate's solution.
+  return `You are a top tech coding interviewer (Google/Meta/Amazon/OpenAI level) evaluating a candidate's solution.
 
 ## PROBLEM
 ${question}
@@ -368,7 +369,7 @@ export const buildFollowUpPrompt = (
   // Get relevant follow-ups for the weak area
   const areaFollowUps = CODING_FOLLOWUPS[weakestArea as keyof typeof CODING_FOLLOWUPS] || CODING_FOLLOWUPS.complexity;
 
-  return `You are a FAANG coding interviewer conducting follow-up discussion.
+  return `You are a top tech coding interviewer conducting follow-up discussion.
 
 ## ORIGINAL PROBLEM
 ${question}

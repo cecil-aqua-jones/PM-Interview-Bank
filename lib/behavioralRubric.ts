@@ -1,12 +1,12 @@
 /**
- * FAANG-Level Behavioral Interview Evaluation Rubric
+ * Top Tech-Level Behavioral Interview Evaluation Rubric
  * 
  * Based on industry-standard behavioral assessment frameworks used at
- * Google, Meta, Amazon, Apple, and Netflix for leadership and culture fit.
+ * Google, Meta, Amazon, Apple, Microsoft, OpenAI, Anthropic, and other top tech companies.
  * 
  * Scoring: 1-5 scale (half-points allowed for borderline cases)
  * - 5.0: Exceptional (VP-level story, rare)
- * - 4.0-4.5: Strong Pass (ready for FAANG)
+ * - 4.0-4.5: Strong Pass (ready for top tech)
  * - 3.0-3.5: Pass (meets bar, minor polish needed)
  * - 2.5: Borderline (significant prep needed)
  * - 1.0-2.0: Fail (major gaps)
@@ -123,7 +123,7 @@ export const BEHAVIORAL_RUBRIC: BehavioralCriterion[] = [
       "How did you handle disagreement within the team?",
     ],
     feedbackTemplates: {
-      low: "Your story didn't demonstrate leadership or influence. FAANG looks for people who drive outcomes regardless of title. Find examples where you rallied others or influenced without authority.",
+      low: "Your story didn't demonstrate leadership or influence. Top tech companies look for people who drive outcomes regardless of title. Find examples where you rallied others or influenced without authority.",
       mid: "You showed some leadership but could demonstrate more influence. Focus on stories where you convinced skeptics, built coalitions, or led through complexity.",
       high: "Excellent demonstration of leadership. You showed ability to influence without authority and navigate organizational complexity. Your approach to building alignment was impressive.",
     },
@@ -147,7 +147,7 @@ export const BEHAVIORAL_RUBRIC: BehavioralCriterion[] = [
       "What was the biggest uncertainty, and how did you handle it?",
     ],
     feedbackTemplates: {
-      low: "Your story lacked a clear problem-solving approach. FAANG wants systematic thinkers. Practice articulating: What was the problem? What options did you consider? Why did you choose your approach?",
+      low: "Your story lacked a clear problem-solving approach. Top tech companies want systematic thinkers. Practice articulating: What was the problem? What options did you consider? Why did you choose your approach?",
       mid: "You showed problem-solving but could go deeper on your reasoning. Explain the trade-offs you considered and why you rejected alternatives.",
       high: "Excellent problem-solving demonstration. Your systematic approach and clear reasoning showed strong decision-making skills. The way you handled uncertainty was particularly impressive.",
     },
@@ -171,7 +171,7 @@ export const BEHAVIORAL_RUBRIC: BehavioralCriterion[] = [
       "Tell me about a time you were wrong about something important.",
     ],
     feedbackTemplates: {
-      low: "You struggled to discuss failures or learnings authentically. FAANG looks for self-awareness. Prepare 2-3 genuine failure stories where you made a real mistake, took responsibility, learned, and applied that learning.",
+      low: "You struggled to discuss failures or learnings authentically. Top tech companies look for self-awareness. Prepare 2-3 genuine failure stories where you made a real mistake, took responsibility, learned, and applied that learning.",
       mid: "You showed some self-awareness but your reflection was surface-level. Go deeper: What specifically did you learn? How did it change your approach? Give an example of applying that lesson later.",
       high: "Excellent self-awareness and growth mindset. Your honest reflection on failures and the specific way you applied learnings demonstrated maturity and continuous improvement.",
     },
@@ -265,7 +265,7 @@ function getVerdict(score: number, hasRedFlag: boolean): BehavioralEvaluationRes
 }
 
 /**
- * Builds the FAANG-level evaluation prompt for behavioral interviews
+ * Builds the top tech-level evaluation prompt for behavioral interviews
  */
 export function buildBehavioralEvaluationPrompt(
   question: string,
@@ -282,7 +282,7 @@ export function buildBehavioralEvaluationPrompt(
 
   const redFlagsText = BEHAVIORAL_RED_FLAGS.map(f => `- ${f.pattern} → ${f.effect}`).join("\n");
 
-  return `You are a FAANG behavioral interviewer (Google/Meta/Amazon level) evaluating a candidate.
+  return `You are a top tech behavioral interviewer (Google/Meta/Amazon/OpenAI level) evaluating a candidate.
 
 ## INTERVIEW QUESTION
 ${question}
@@ -299,7 +299,7 @@ ${rubricText}
 ${redFlagsText}
 
 ## PASS/FAIL THRESHOLDS
-- 4.5+: Strong Pass (exceptional, ready for FAANG)
+- 4.5+: Strong Pass (exceptional, ready for top tech)
 - 3.5-4.4: Pass (strong, minor polish needed)
 - 2.5-3.4: Borderline (significant preparation needed)
 - 1.5-2.4: Fail (major gaps to address)
@@ -307,7 +307,7 @@ ${redFlagsText}
 - ANY dimension below 3.0 = automatic Fail
 
 ## INSTRUCTIONS
-Be strict. A 3.0 is "meets expectations", not good. A 5.0 should be rare - reserved for stories that would impress a FAANG VP.
+Be strict. A 3.0 is "meets expectations", not good. A 5.0 should be rare - reserved for stories that would impress a VP at Google, OpenAI, or similar.
 Cite specific quotes from the transcript. Make feedback actionable.
 
 Return a JSON object with this exact structure:
@@ -334,7 +334,7 @@ Return a JSON object with this exact structure:
 }
 
 /**
- * Builds follow-up question prompt using FAANG triggers
+ * Builds follow-up question prompt using top tech interview triggers
  */
 export function buildBehavioralFollowUpPrompt(
   originalQuestion: string,
@@ -362,7 +362,7 @@ export function buildBehavioralFollowUpPrompt(
     ? `\nSuggested triggers for ${weakestDimension}:\n${dimensionTriggers.map(t => `- ${t}`).join("\n")}`
     : "";
 
-  return `You are a FAANG behavioral interviewer conducting a follow-up.
+  return `You are a top tech behavioral interviewer conducting a follow-up.
 
 ## ORIGINAL QUESTION
 ${originalQuestion}

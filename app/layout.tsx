@@ -28,17 +28,21 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com"
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Apex Interviewer | FAANG Coding Interview Questions & AI Practice",
+    default: "Apex Interviewer | Top Tech & AI Interview Questions with AI Practice",
     template: "%s | Apex Interviewer"
   },
   description:
-    "Ace your FAANG coding interviews with real questions from Google, Meta, Amazon, Apple, and Netflix. Practice with an AI interviewer that reviews your code and asks follow-up questions.",
+    "Ace your interviews at Google, OpenAI, Meta, Anthropic, Amazon, and the world's most sought-after tech companies. Practice with an AI interviewer that reviews your code and asks follow-up questions.",
   keywords: [
     "coding interview questions",
-    "FAANG interview prep",
+    "top tech interview prep",
     "Google coding interview",
     "Meta coding interview",
     "Amazon coding interview",
+    "OpenAI interview prep",
+    "Anthropic coding interview",
+    "AI company interviews",
+    "TikTok coding interview",
     "LeetCode alternatives",
     "software engineer interview",
     "technical interview preparation",
@@ -60,23 +64,23 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteUrl,
     siteName: "Apex Interviewer",
-    title: "Apex Interviewer | FAANG Coding Interview Questions & AI Practice",
+    title: "Apex Interviewer | Top Tech & AI Interview Questions with AI Practice",
     description:
-      "Ace your FAANG coding interviews with real questions from Google, Meta, Amazon, Apple, and Netflix. Practice with an AI interviewer.",
+      "Ace your interviews at Google, OpenAI, Meta, Anthropic, Amazon, and the world's most sought-after tech companies. Practice with an AI interviewer.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Apex Interviewer - FAANG Coding Interview Prep"
+        alt: "Apex Interviewer - Top Tech & AI Interview Prep"
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Apex Interviewer | FAANG Coding Interview Questions & AI Practice",
+    title: "Apex Interviewer | Top Tech & AI Interview Questions with AI Practice",
     description:
-      "Ace your FAANG coding interviews with real questions from Google, Meta, Amazon, Apple, and Netflix.",
+      "Ace your interviews at Google, OpenAI, Meta, Anthropic, Amazon, and the world's most sought-after tech companies.",
     images: ["/og-image.png"],
     creator: "@apexinterviewer"
   },

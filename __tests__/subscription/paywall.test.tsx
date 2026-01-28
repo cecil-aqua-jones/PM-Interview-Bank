@@ -160,13 +160,13 @@ describe("Paywall Functionality", () => {
             expect(screen.getByText(/Unlock All Questions/i)).toBeInTheDocument();
         });
 
-        it("should display correct pricing ($250)", async () => {
+        it("should display correct pricing ($350)", async () => {
             await act(async () => {
                 render(<PaywallModal onClose={mockOnClose} />);
             });
 
-            expect(screen.getByText("$250")).toBeInTheDocument();
-            expect(screen.getByText(/one-time payment/i)).toBeInTheDocument();
+            expect(screen.getByText("$350")).toBeInTheDocument();
+            expect(screen.getByText(/per year/i)).toBeInTheDocument();
         });
 
         it("should display all feature benefits", async () => {

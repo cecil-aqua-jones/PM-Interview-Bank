@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
           {
             role: "system",
             content:
-              "You are an expert coding interviewer at a FAANG company. Always respond with valid JSON only, no markdown formatting.",
+              "You are an expert coding interviewer at a top tech company (Google, Meta, OpenAI, Anthropic level). Always respond with valid JSON only, no markdown formatting.",
           },
           {
             role: "user",

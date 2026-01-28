@@ -1,17 +1,20 @@
 # Apex Interviewer
 
-FAANG coding interview preparation platform with AI-powered mock interviews.
-Practice real coding questions from Google, Meta, Amazon, Apple, and Netflix
-with an AI interviewer that reviews your code and asks follow-up questions.
+Top Tech & AI coding interview preparation platform with AI-powered mock interviews.
+Practice real coding questions from Google, OpenAI, Meta, Anthropic, Amazon, Apple,
+Microsoft, Netflix, TikTok, Uber, Perplexity, xAI, and Oracle with an AI interviewer
+that reviews your code and asks follow-up questions.
 
 ## Features
-- **Real Questions**: Verified coding questions from FAANG companies
+
+- **Real Questions**: Verified coding questions from top tech and AI companies
 - **Code Editor**: Full-featured editor with syntax highlighting (Python, JS, Java, C++, Go)
 - **AI Interviewer**: Reviews your code, asks follow-up questions about complexity
 - **Voice Practice**: Practice explaining your solutions out loud
 - **Progress Tracking**: Track scores by topic and identify weak areas
 
 ## Files
+
 - `app/page.tsx` — Next.js landing page
 - `app/globals.css` — Visual system and layout
 - `app/dashboard/` — Authenticated app shell and screens
@@ -19,6 +22,7 @@ with an AI interviewer that reviews your code and asks follow-up questions.
 - `lib/codingRubric.ts` — Evaluation criteria for code review
 
 ## Quick Start
+
 Install dependencies and run the dev server:
 
 ```bash
@@ -27,6 +31,7 @@ npm run dev
 ```
 
 ## Environment Variables
+
 Create a `.env.local` with the following:
 
 ```env
@@ -53,7 +58,9 @@ NEXT_PUBLIC_APP_URL=https://apexinterviewer.com
 ```
 
 ## Airtable Schema
+
 Questions table fields:
+
 - `Question` or `Title` (text) — Problem title
 - `Description` (long text) — Full problem description
 - `Company` (single select) — Company name (Google, Meta, etc.)
@@ -67,6 +74,7 @@ Questions table fields:
 - `SpaceComplexity` (text) — Expected space complexity (e.g., "O(1)")
 
 ## Tech Stack
+
 - **Framework**: Next.js 14 (App Router)
 - **Auth**: Supabase
 - **Database**: Airtable

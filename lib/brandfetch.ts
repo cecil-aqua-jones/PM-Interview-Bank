@@ -49,7 +49,10 @@ export const getBrandLogo = (companyName: string): string => {
     databricks: "databricks.com",
     palantir: "palantir.com",
     openai: "openai.com",
-    anthropic: "anthropic.com"
+    anthropic: "anthropic.com",
+    tiktok: "tiktok.com",
+    perplexity: "perplexity.ai",
+    xai: "x.ai"
   };
 
   const normalized = companyName.toLowerCase().trim();
@@ -83,7 +86,11 @@ export const getBrandIcon = (companyName: string): string => {
     notion: "notion.so",
     asana: "asana.com",
     atlassian: "atlassian.com",
-    openai: "openai.com"
+    openai: "openai.com",
+    anthropic: "anthropic.com",
+    tiktok: "tiktok.com",
+    perplexity: "perplexity.ai",
+    xai: "x.ai"
   };
 
   const normalized = companyName.toLowerCase().trim();

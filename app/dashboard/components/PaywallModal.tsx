@@ -106,8 +106,8 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
           </div>
 
           <div className={styles.paywallPricing}>
-            <span className={styles.paywallPrice}>$250</span>
-            <span className={styles.paywallPriceNote}>one-time payment</span>
+            <span className={styles.paywallPrice}>$350</span>
+            <span className={styles.paywallPriceNote}>per year</span>
           </div>
 
           <button

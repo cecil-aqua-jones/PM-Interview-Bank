@@ -1,8 +1,8 @@
 /**
- * FAANG-Level System Design Interview Evaluation Rubric
+ * Top Tech-Level System Design Interview Evaluation Rubric
  * 
- * Based on technical assessment standards used at Google, Meta, Amazon, Apple, Netflix
- * for senior/staff engineer system design interviews.
+ * Based on technical assessment standards used at Google, Meta, Amazon, Apple, Microsoft,
+ * OpenAI, Anthropic, and other top tech companies for senior/staff engineer system design interviews.
  * 
  * Scoring: 1-5 scale (half-points allowed for borderline cases)
  * - 5.0: Exceptional (senior staff/principal level design, rare)
@@ -222,7 +222,7 @@ export type SystemDesignEvaluationResult = {
 };
 
 /**
- * Builds the FAANG-level evaluation prompt for system design interviews
+ * Builds the top tech-level evaluation prompt for system design interviews
  */
 export function buildSystemDesignEvaluationPrompt(
   question: string,
@@ -239,7 +239,7 @@ export function buildSystemDesignEvaluationPrompt(
 
   const redFlagsText = SYSTEM_DESIGN_RED_FLAGS.map(f => `- ${f.pattern} → ${f.effect}`).join("\n");
 
-  return `You are a FAANG system design interviewer (Google/Meta/Amazon staff+ level) evaluating a candidate.
+  return `You are a top tech system design interviewer (Google/Meta/Amazon/OpenAI staff+ level) evaluating a candidate.
 
 ## DESIGN PROBLEM
 ${question}
@@ -326,7 +326,7 @@ export function buildSystemDesignFollowUpPrompt(
   );
   const triggerSuggestions = criterion?.followUpTriggers || [];
 
-  return `You are a FAANG system design interviewer conducting follow-up discussion.
+  return `You are a top tech system design interviewer conducting follow-up discussion.
 
 ## ORIGINAL PROBLEM
 ${question}

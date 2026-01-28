@@ -153,7 +153,7 @@ describe("Follow-up API Logic", () => {
     }) => {
       const { question, code, language, evaluation, conversationHistory } = params;
 
-      let prompt = `You are a FAANG coding interviewer conducting a follow-up discussion.
+      let prompt = `You are a top tech coding interviewer conducting a follow-up discussion.
 
 Question: ${question}
 

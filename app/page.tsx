@@ -17,7 +17,7 @@ function JsonLd() {
     name: "Apex Interviewer",
     url: siteUrl,
     logo: `${siteUrl}/ai-owl-mascot.png`,
-    description: "FAANG Coding Interview Questions & AI Practice",
+    description: "Top Tech & AI Coding Interview Questions with AI Practice",
     sameAs: []
   };
 
@@ -37,14 +37,14 @@ function JsonLd() {
     "@context": "https://schema.org",
     "@type": "Product",
     name: "Apex Interviewer - Annual Access",
-    description: "500+ coding interview questions from FAANG companies with AI-powered mock interviews",
+    description: "500+ coding interview questions from top tech and AI companies with AI-powered mock interviews",
     brand: {
       "@type": "Brand",
       name: "Apex Interviewer"
     },
     offers: {
       "@type": "Offer",
-      price: "150.00",
+      price: "350.00",
       priceCurrency: "USD",
       availability: "https://schema.org/InStock",
       priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -66,7 +66,7 @@ function JsonLd() {
         name: "What companies are included in Apex Interviewer?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Apex Interviewer includes coding interview questions from FAANG companies: Google, Meta, Amazon, Apple, Netflix, plus Microsoft, Stripe, Airbnb, and many more top tech companies."
+          text: "Apex Interviewer includes coding interview questions from Google, Meta, Apple, Microsoft, Netflix, TikTok, Uber, Amazon, OpenAI, Anthropic, Perplexity, xAI, and Oracle—the most sought-after tech and AI companies."
         }
       },
       {
@@ -82,7 +82,7 @@ function JsonLd() {
         name: "What programming languages are supported?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Apex Interviewer supports Python, JavaScript, Java, C++, and Go—the most common languages used in FAANG coding interviews."
+          text: "Apex Interviewer supports Python, JavaScript, Java, C++, and Go—the most common languages used in top tech and AI company coding interviews."
         }
       }
     ]
@@ -128,11 +128,10 @@ export default async function Home() {
           <div className="container hero-grid">
             <div className="hero-copy">
               <h1>
-                Ace your FAANG coding interview.
+                Land your dream role at the companies shaping tomorrow.
               </h1>
               <p className="lead">
-                Real coding questions from Google, Meta, Amazon, Apple, and Netflix.
-                Practice with an AI interviewer that reviews your code and asks follow-up questions.
+                Real coding questions from Google, OpenAI, Meta, Anthropic, Amazon, Apple, and the world's most sought-after tech companies. Practice with an AI interviewer that reviews your code like a senior engineer.
               </p>
               <div className="cta-group">
                 <a className="btn btn-primary" href="/dashboard">
@@ -163,8 +162,8 @@ export default async function Home() {
                 <div className="pill">Sorting & Searching</div>
               </div>
               <div className="card-bottom">
-                <p className="price-tag"><s style={{ color: "#9ca3af", fontWeight: 400 }}>$300</s> $150</p>
-                <span className="price-note">per year • 50% off</span>
+                <p className="price-tag"><s style={{ color: "#9ca3af", fontWeight: 400 }}>$500</s> $350</p>
+                <span className="price-note">per year • $150 off</span>
               </div>
             </div>
           </div>
@@ -174,10 +173,10 @@ export default async function Home() {
         <section id="companies" className="trust">
           <div className="trust-header">
             <p className="eyebrow" style={{ textAlign: "center", marginBottom: 8 }}>
-              Real questions from engineers who interviewed at
+              Sourced from real interviews at
             </p>
             <p style={{ textAlign: "center", fontSize: 14, color: "#8a8884", marginBottom: 0 }}>
-              FAANG + 30 top tech companies
+              13 companies. Every question that matters.
             </p>
           </div>
           <LogoMarquee />
@@ -199,7 +198,7 @@ export default async function Home() {
                 <p className="lead">
                   Write your solution in a real code editor. Our AI interviewer reviews your code,
                   asks follow-up questions about complexity and edge cases, and gives you
-                  detailed feedback—just like a real FAANG interview.
+                  detailed feedback—exactly like a real Big Tech or AI lab interview.
                 </p>
               </div>
               <div className="ai-feature-video">
@@ -222,7 +221,7 @@ export default async function Home() {
           <div className="container">
             <div className="proof-header">
               <p className="eyebrow">Results</p>
-              <h2>Engineers who cracked FAANG.</h2>
+              <h2>Engineers who landed their dream roles.</h2>
               <p className="subtle">
                 Don't just take our word for it. Here's what engineers who used our
                 question bank have to say.
@@ -260,15 +259,30 @@ export default async function Home() {
               </div>
               <div className="testimonial">
                 <p>
-                  Finally, a resource that goes beyond just solving problems.
-                  The AI actually grills you on complexity like a real interviewer.
+                  The system design questions were exactly what I got asked.
+                  "Design a rate limiter for an API with 100M requests/day." Word for word.
                 </p>
                 <div className="testimonial-author">
-                  <div className="testimonial-avatar">S</div>
+                  <div className="testimonial-avatar">D</div>
                   <div className="testimonial-info">
-                    <div className="testimonial-name">Sarah M.</div>
+                    <div className="testimonial-name">David C.</div>
                     <div className="testimonial-role">
-                      E5 offer from Meta
+                      Research Engineer offer from OpenAI
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="testimonial">
+                <p>
+                  Anthropic's bar is insane. The AI follow-ups here—"What if this runs
+                  on a GPU cluster?"—prepared me for the depth they expect.
+                </p>
+                <div className="testimonial-author">
+                  <div className="testimonial-avatar">P</div>
+                  <div className="testimonial-info">
+                    <div className="testimonial-name">Priya S.</div>
+                    <div className="testimonial-role">
+                      Senior SWE offer from Anthropic
                     </div>
                   </div>
                 </div>
@@ -290,30 +304,15 @@ export default async function Home() {
               </div>
               <div className="testimonial">
                 <p>
-                  The code editor feels like a real interview environment.
-                  Way better than just reading solutions on LeetCode.
+                  When you're interviewing for a company building AGI, you need to
+                  think at a different level. This got me there.
                 </p>
                 <div className="testimonial-author">
                   <div className="testimonial-avatar">J</div>
                   <div className="testimonial-info">
-                    <div className="testimonial-name">Jenny L.</div>
+                    <div className="testimonial-name">Jordan T.</div>
                     <div className="testimonial-role">
-                      Senior SWE offer from Apple
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="testimonial">
-                <p>
-                  Practiced explaining my solutions out loud. That's the skill
-                  that actually matters and nobody else teaches it.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">M</div>
-                  <div className="testimonial-info">
-                    <div className="testimonial-name">Mike T.</div>
-                    <div className="testimonial-role">
-                      Staff Engineer offer from Netflix
+                      Founding Engineer offer from xAI
                     </div>
                   </div>
                 </div>
@@ -351,7 +350,7 @@ export default async function Home() {
               <div className="feature">
                 <h4>Difficulty Calibrated</h4>
                 <p>
-                  Easy, Medium, Hard—aligned with actual FAANG interview expectations.
+                  Easy, Medium, Hard—aligned with actual top tech interview expectations.
                 </p>
               </div>
               <div className="feature">
@@ -501,7 +500,7 @@ export default async function Home() {
               <h2>Annual access. Unlimited practice.</h2>
               <p>
                 One simple price for a full year. All the questions and AI-powered
-                mock interviews to prep for your FAANG interviews.
+                mock interviews to prep for your top tech interviews.
               </p>
               <ul className="checklist">
                 <li>
@@ -539,14 +538,14 @@ export default async function Home() {
                 <h4>What does the AI evaluate?</h4>
                 <p>
                   Correctness, time complexity, space complexity, code quality,
-                  and edge case handling—calibrated to FAANG interview standards.
+                  and edge case handling—calibrated to industry interview standards.
                 </p>
               </div>
               <div className="faq">
                 <h4>What languages are supported?</h4>
                 <p>
                   Python, JavaScript, Java, C++, and Go—the most common languages
-                  in FAANG coding interviews.
+                  in top tech coding interviews.
                 </p>
               </div>
               <div className="faq">
@@ -577,10 +576,9 @@ export default async function Home() {
         {/* CTA */}
         <section className="cta">
           <div className="container cta-inner">
-            <h2>Ready to crack FAANG?</h2>
+            <h2>Ready to work at the companies building the future?</h2>
             <p>
-              Real questions. AI mock interviews. Follow-up grilling.
-              Everything you need to walk into your coding interview with confidence.
+              Real questions. AI-powered practice. The preparation that gets offers.
             </p>
             <CTAButton />
           </div>

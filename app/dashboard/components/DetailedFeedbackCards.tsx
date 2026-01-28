@@ -477,15 +477,6 @@ export default function DetailedFeedbackCards({ record }: FeedbackCardsProps) {
               {Math.round(currentDimension.weight * 100)}% weight
             </span>
           </div>
-          <div className={`${styles.feedbackCardScore} ${getScoreColorClass(currentDimension.score)}`}>
-            <span className={styles.feedbackCardScoreValue}>
-              {currentDimension.score.toFixed(1)}
-            </span>
-            <span className={styles.feedbackCardScoreMax}>/5</span>
-            <span className={styles.feedbackCardScoreLabel}>
-              {currentDimension.levelLabel}
-            </span>
-          </div>
         </div>
         
         {/* Score Visual Bar */}

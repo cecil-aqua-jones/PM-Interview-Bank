@@ -2,6 +2,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { Company, Question, CodeExample } from "./types";
 import { quickSanitize, isIncomplete, hasUnformattedCode, formatForDisplay } from "./questionSanitizer";
+import { TARGET_COMPANIES, assignCompanyToQuestion, findTargetCompany } from "./companyMapping";
 
 // Production-only: These environment variables MUST be set
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
@@ -252,37 +253,39 @@ const fetchAllQuestions = cache(async (): Promise<Question[]> => {
   return fetchAllQuestionsCached();
 });
 
-// Derive companies from questions (no separate Companies table needed)
+// Return only the 13 target companies with question counts based on mapping
 export const getCompanies = cache(async (): Promise<Company[]> => {
   const questions = await fetchAllQuestions();
-  const companyMap = new Map<string, { name: string; count: number }>();
+  
+  // Count questions per target company using the mapping
+  const companyCounts = new Map<string, number>();
+  TARGET_COMPANIES.forEach(c => companyCounts.set(c.slug, 0));
 
   for (const q of questions) {
-    if (q.companySlug && q.companyName) {
-      const existing = companyMap.get(q.companySlug);
-      if (existing) {
-        existing.count++;
-      } else {
-        companyMap.set(q.companySlug, { name: q.companyName, count: 1 });
-      }
-    }
+    const assigned = assignCompanyToQuestion(q);
+    companyCounts.set(assigned.slug, (companyCounts.get(assigned.slug) || 0) + 1);
   }
 
-  const companies = Array.from(companyMap.entries())
-    .map(([slug, { name, count }]) => ({
-      id: slug,
-      name,
-      slug,
-      questionCount: count
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const companies = TARGET_COMPANIES.map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    questionCount: companyCounts.get(c.slug) || 0
+  }));
 
-  console.log(`[Airtable] Derived ${companies.length} companies from questions`);
+  console.log(`[Airtable] Mapped ${questions.length} questions across ${companies.length} target companies`);
   return companies;
 });
 
 export const getCompanyBySlug = cache(
   async (slug: string): Promise<Company | null> => {
+    // First check if it's one of our target companies
+    const targetCompany = findTargetCompany(slug);
+    if (!targetCompany) {
+      return null;
+    }
+    
+    // Get the full company data with question count
     const companies = await getCompanies();
     return companies.find((c) => c.slug === slug) ?? null;
   }
@@ -293,9 +296,29 @@ export const getQuestionsByCompany = cache(
     const questions = await fetchAllQuestions();
 
     if (companySlug) {
-      return questions.filter((q) => q.companySlug === companySlug);
+      // Filter questions using the mapping function
+      return questions.filter((q) => {
+        const assigned = assignCompanyToQuestion(q);
+        return assigned.slug === companySlug;
+      }).map(q => {
+        // Update the question's company fields to reflect the mapped company
+        const assigned = assignCompanyToQuestion(q);
+        return {
+          ...q,
+          companySlug: assigned.slug,
+          companyName: assigned.name,
+        };
+      });
     }
 
-    return questions;
+    // When returning all questions, also update their company assignments
+    return questions.map(q => {
+      const assigned = assignCompanyToQuestion(q);
+      return {
+        ...q,
+        companySlug: assigned.slug,
+        companyName: assigned.name,
+      };
+    });
   }
 );

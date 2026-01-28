@@ -3,10 +3,17 @@ import { Company, Question } from "./types";
 export const mockCompanies: Company[] = [
   { id: "google", name: "Google", slug: "google", questionCount: 3 },
   { id: "meta", name: "Meta", slug: "meta", questionCount: 2 },
-  { id: "amazon", name: "Amazon", slug: "amazon", questionCount: 2 },
   { id: "apple", name: "Apple", slug: "apple", questionCount: 2 },
+  { id: "microsoft", name: "Microsoft", slug: "microsoft", questionCount: 2 },
   { id: "netflix", name: "Netflix", slug: "netflix", questionCount: 1 },
-  { id: "microsoft", name: "Microsoft", slug: "microsoft", questionCount: 2 }
+  { id: "tiktok", name: "TikTok", slug: "tiktok", questionCount: 2 },
+  { id: "uber", name: "Uber", slug: "uber", questionCount: 2 },
+  { id: "amazon", name: "Amazon", slug: "amazon", questionCount: 2 },
+  { id: "openai", name: "OpenAI", slug: "openai", questionCount: 3 },
+  { id: "anthropic", name: "Anthropic", slug: "anthropic", questionCount: 2 },
+  { id: "perplexity", name: "Perplexity", slug: "perplexity", questionCount: 1 },
+  { id: "xai", name: "xAI", slug: "xai", questionCount: 1 },
+  { id: "oracle", name: "Oracle", slug: "oracle", questionCount: 2 }
 ];
 
 export const mockQuestions: Question[] = [

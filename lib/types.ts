@@ -239,7 +239,7 @@ export function getQuestionType(question: Question): QuestionType {
     return "behavioral";
   }
   
-  // Default to coding for FAANG interview context
+  // Default to coding for top tech interview context
   return "coding";
 }
 
