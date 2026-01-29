@@ -128,14 +128,14 @@ export default async function Home() {
           <div className="container hero-grid">
             <div className="hero-copy">
               <h1>
-                Land your dream role at the companies shaping tomorrow.
+                Land your dream engineering role.
               </h1>
               <p className="lead">
-                Real coding questions from Google, OpenAI, Meta, Anthropic, Amazon, Apple, and the world's most sought-after tech companies. Practice with an AI interviewer that reviews your code like a senior engineer.
+                Real coding questions from Google, OpenAI, Meta, Anthropic, Amazon, Apple, and the world's most sought-after tech companies.
               </p>
               <div className="cta-group">
                 <a className="btn btn-primary" href="/dashboard">
-                  Start Practicing Free
+                  Start Practicing
                 </a>
                 <a className="btn btn-secondary" href="/dashboard">
                   View Companies
@@ -176,7 +176,7 @@ export default async function Home() {
               Sourced from real interviews at
             </p>
             <p style={{ textAlign: "center", fontSize: 14, color: "#8a8884", marginBottom: 0 }}>
-              13 companies. Every question that matters.
+              Every question that matters.
             </p>
           </div>
           <LogoMarquee />
@@ -194,7 +194,7 @@ export default async function Home() {
             <div className="ai-feature-grid">
               <div className="ai-feature-content">
                 <p className="eyebrow">AI-Powered Practice</p>
-                <h2>Code. Submit. Get grilled.</h2>
+                <h2>Interview. Code. Submit. </h2>
                 <p className="lead">
                   Write your solution in a real code editor. Our AI interviewer reviews your code,
                   asks follow-up questions about complexity and edge cases, and gives you
