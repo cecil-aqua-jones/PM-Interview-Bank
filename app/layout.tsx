@@ -30,12 +30,16 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Apex Interviewer | Top Tech & AI Interview Questions with AI Practice",
+    default: "Apex Interviewer | Real Interview Questions from Google, Meta, Amazon & Top Tech",
     template: "%s | Apex Interviewer"
   },
   description:
-    "Ace your interviews at Google, OpenAI, Meta, Anthropic, Amazon, and the world's most sought-after tech companies. Practice with an AI interviewer that reviews your code and asks follow-up questions.",
+    "Practice with verified interview questions from actual Google, Meta, Amazon, and OpenAI interviews. Company-specific rubrics for coding, system design, and behavioral. Unlimited practice until you're ready.",
   keywords: [
+    "real Google interview questions",
+    "verified tech interview questions",
+    "actual Amazon interview questions",
+    "authentic Meta interview prep",
     "coding interview questions",
     "top tech interview prep",
     "Google coding interview",
@@ -43,7 +47,6 @@ export const metadata: Metadata = {
     "Amazon coding interview",
     "OpenAI interview prep",
     "Anthropic coding interview",
-    "AI company interviews",
     "TikTok coding interview",
     "LeetCode alternatives",
     "software engineer interview",
@@ -51,7 +54,8 @@ export const metadata: Metadata = {
     "algorithm interview questions",
     "data structures interview",
     "system design interview",
-    "coding practice with AI"
+    "company-specific rubrics",
+    "unlimited interview practice"
   ],
   authors: [{ name: "Apex Interviewer" }],
   creator: "Apex Interviewer",
@@ -66,23 +70,23 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteUrl,
     siteName: "Apex Interviewer",
-    title: "Apex Interviewer | Top Tech & AI Interview Questions with AI Practice",
+    title: "Apex Interviewer | Real Interview Questions from Top Tech Companies",
     description:
-      "Ace your interviews at Google, OpenAI, Meta, Anthropic, Amazon, and the world's most sought-after tech companies. Practice with an AI interviewer.",
+      "Verified questions from actual tech interviews. Company-specific rubrics for coding, system design, and behavioral. Practice as many times as you need.",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Apex Interviewer - Top Tech & AI Interview Prep"
+        alt: "Apex Interviewer - Real Interview Questions from Top Tech"
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Apex Interviewer | Top Tech & AI Interview Questions with AI Practice",
+    title: "Apex Interviewer | Real Interview Questions from Top Tech Companies",
     description:
-      "Ace your interviews at Google, OpenAI, Meta, Anthropic, Amazon, and the world's most sought-after tech companies.",
+      "Verified questions from actual tech interviews. Company-specific rubrics. Unlimited practice.",
     images: ["/og-image.png"],
     creator: "@apexinterviewer"
   },

@@ -15,11 +15,15 @@ export const maxDuration = 30;
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const metadata: Metadata = {
-  title: "Apex Interviewer | AI Mock Interviews for Google, Meta, Amazon & Top Tech",
+  title: "Apex Interviewer | Real Interview Questions from Google, Meta, Amazon & Top Tech",
   description:
-    "Practice coding, system design, and behavioral interviews with AI that asks follow-up questions and gives real-time feedback. Used by engineers at Google, Meta, Amazon, OpenAI, and more.",
+    "Practice with verified interview questions from actual Google, Meta, Amazon, and OpenAI interviews. Company-specific rubrics for coding, system design, and behavioral. Unlimited practice sessions.",
   keywords: [
-    "AI mock interview",
+    "real Google interview questions",
+    "verified tech interview questions",
+    "actual Amazon interview questions",
+    "authentic Meta interview prep",
+    "mock interview practice",
     "coding interview practice",
     "tech interview prep",
     "Google interview questions",
@@ -31,17 +35,18 @@ export const metadata: Metadata = {
     "OpenAI interview prep",
     "Anthropic coding interview",
     "LeetCode alternative",
-    "technical interview AI",
     "interview simulator",
     "coding interview feedback",
+    "company-specific rubrics",
+    "unlimited interview practice",
   ],
   alternates: {
     canonical: SITE_URL,
   },
   openGraph: {
-    title: "Apex Interviewer | AI Mock Interviews for Top Tech Companies",
+    title: "Apex Interviewer | Real Interview Questions from Top Tech Companies",
     description:
-      "Practice with an AI interviewer that asks follow-up questions, evaluates your communication, and gives feedback using company-specific rubrics.",
+      "Verified questions from actual tech interviews. Company-specific rubrics for coding, system design, and behavioral. Practice as many times as you need.",
     url: SITE_URL,
     type: "website",
   },
@@ -61,7 +66,7 @@ function JsonLd() {
     url: SITE_URL,
     logo: `${SITE_URL}/ai-owl-mascot.png`,
     description:
-      "AI-powered mock interview platform for tech professionals preparing for coding, system design, and behavioral interviews at top companies.",
+      "Interview simulation platform featuring verified questions from actual tech interviews at Google, Meta, Amazon, OpenAI, and top companies. Company-specific rubrics for coding, system design, and behavioral.",
     sameAs: [],
     contactPoint: {
       "@type": "ContactPoint",
@@ -78,7 +83,7 @@ function JsonLd() {
     name: "Apex Interviewer",
     url: SITE_URL,
     description:
-      "Practice coding, system design, and behavioral interviews with AI-powered mock interviews",
+      "Verified interview questions from actual Google, Meta, Amazon, and OpenAI interviews. Company-specific rubrics. Unlimited practice.",
     publisher: { "@id": `${SITE_URL}/#organization` },
     potentialAction: {
       "@type": "SearchAction",
@@ -108,9 +113,9 @@ function JsonLd() {
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: "Apex Interviewer - AI Mock Interview Platform",
+    name: "Apex Interviewer - Tech Interview Simulation Platform",
     description:
-      "AI-powered interview training with company-specific simulations for Google, Meta, Amazon, OpenAI, and 10+ top tech companies.",
+      "Verified interview questions from actual tech interviews. Company-specific rubrics for coding, system design, and behavioral. Unlimited practice for Google, Meta, Amazon, OpenAI, and 10+ top companies.",
     image: `${SITE_URL}/og-image.png`,
     brand: {
       "@type": "Brand",
@@ -143,7 +148,7 @@ function JsonLd() {
     },
   };
 
-  // Comprehensive FAQ schema with ALL 8 FAQs from the page
+  // Comprehensive FAQ schema with ALL 9 FAQs from the page
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -154,6 +159,14 @@ function JsonLd() {
         acceptedAnswer: {
           "@type": "Answer",
           text: "Those platforms test if you can solve problems. We simulate the actual interview experience—with follow-up questions, communication evaluation, and company-specific rubrics. We also cover behavioral and system design interviews, not just coding.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Where do your interview questions come from?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Every question in our database is sourced from real interview experiences. Engineers who have interviewed at Google, Meta, Amazon, and other top companies submit their questions, which our team verifies for accuracy. We don't use made-up problems—only questions that have actually been asked in interviews.",
         },
       },
       {
@@ -209,7 +222,7 @@ function JsonLd() {
         name: "What makes your company-specific rubrics accurate?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "We've analyzed hundreds of real interview evaluations and debriefs from each company to understand exactly what they look for. Our rubrics reflect the actual criteria senior engineers use when deciding to hire.",
+          text: "We've analyzed hundreds of real interview evaluations and debriefs from each company to understand exactly what they look for. Combined with our verified question database from actual interviews, our rubrics reflect the real criteria senior engineers use when deciding to hire.",
         },
       },
     ],
@@ -221,7 +234,7 @@ function JsonLd() {
     "@type": "HowTo",
     name: "How to Prepare for Tech Interviews with Apex Interviewer",
     description:
-      "Four steps to master your tech interview using AI-powered mock interviews",
+      "Four steps to master your tech interview using realistic interview simulations",
     totalTime: "PT30M",
     step: [
       {
@@ -233,8 +246,8 @@ function JsonLd() {
       {
         "@type": "HowToStep",
         position: 2,
-        name: "Get Interviewed by AI",
-        text: "Solve real coding problems, design systems, and answer behavioral questions while our AI interviewer asks follow-up questions, probes your thinking, and evaluates you exactly like a real senior engineer would.",
+        name: "Simulate a Real Interview",
+        text: "Practice with verified questions sourced from actual interviews at your target company. Experience realistic follow-up questions that probe your thinking—just like facing a real senior engineer.",
       },
       {
         "@type": "HowToStep",
@@ -260,7 +273,7 @@ function JsonLd() {
         "@type": "SiteNavigationElement",
         position: 1,
         name: "Login",
-        description: "Sign in to access AI mock interviews",
+        description: "Sign in to access interview simulations",
         url: `${SITE_URL}/login`,
       },
       {
@@ -281,7 +294,7 @@ function JsonLd() {
         "@type": "SiteNavigationElement",
         position: 4,
         name: "How It Works",
-        description: "Learn how AI mock interviews work",
+        description: "Learn how interview simulations work",
         url: `${SITE_URL}/#how-it-works`,
       },
       {
@@ -305,7 +318,7 @@ function JsonLd() {
         position: 1,
         name: "Coding Interview Practice",
         description:
-          "1000+ problems with AI follow-up questions for Google, Meta, Amazon, and more",
+          "Verified coding questions from actual Google, Meta, Amazon interviews with AI follow-up questions and real-time feedback",
         provider: { "@type": "Organization", name: "Apex Interviewer" },
         url: `${SITE_URL}/dashboard`,
         courseMode: "online",
@@ -316,7 +329,7 @@ function JsonLd() {
         position: 2,
         name: "System Design Interviews",
         description:
-          "Scalability, architecture, and trade-off discussions with AI feedback",
+          "Real system design questions from actual interviews. Practice scalability, architecture, and trade-off discussions with AI feedback",
         provider: { "@type": "Organization", name: "Apex Interviewer" },
         url: `${SITE_URL}/dashboard`,
         courseMode: "online",
@@ -327,7 +340,7 @@ function JsonLd() {
         position: 3,
         name: "Behavioral Interviews",
         description:
-          "Leadership, teamwork, and conflict resolution practice with AI evaluation",
+          "Verified behavioral questions from top tech companies. Practice leadership, teamwork, and conflict resolution with AI evaluation",
         provider: { "@type": "Organization", name: "Apex Interviewer" },
         url: `${SITE_URL}/dashboard`,
         courseMode: "online",
@@ -420,8 +433,9 @@ export default async function Home() {
           <div className="container hero-content">
             <h1>Train Until SWE Interviews Feel Easy</h1>
             <p className="lead">
-              Simulate real coding, behavioral, and system design interviews, get detailed 
-              AI feedback, and fix your weaknesses before you walk into your real interview.
+              Practice with <strong>real, verified interview questions</strong> from Google, Meta, 
+              Amazon, and 13+ top tech companies. Simulate real interview conditions with company-specific 
+              rubrics and practice as many times as you need.
             </p>
             <div className="cta-group">
               <a className="btn btn-primary" href="/dashboard">
@@ -429,9 +443,9 @@ export default async function Home() {
               </a>
             </div>
             <ul className="hero-features">
-              <li>Real-time AI feedback on your answers</li>
-              <li>Company-specific interview simulations for Google, Meta, Amazon, and 10+ top tech companies</li>
-              <li>Track improvement across coding, system design, and behavioral interviews</li>
+              <li>{totalQuestions}+ verified questions from actual tech interviews</li>
+              <li>Company-specific rubrics for coding, system design, and behavioral</li>
+              <li>Unlimited practice until you're ready</li>
             </ul>
           </div>
         </section>
@@ -469,17 +483,17 @@ export default async function Home() {
                 <h4>Choose Your Target Company</h4>
                 <p>
                   Select from Google, Meta, Amazon, Apple, Microsoft, Netflix, TikTok, Uber, 
-                  OpenAI, Anthropic, Perplexity, xAI, or Oracle. Our AI adapts to each company's 
+                  OpenAI, Anthropic, Perplexity, xAI, or Oracle. Each simulation uses that company's 
                   specific interview style, evaluation criteria, and rubrics.
                 </p>
               </div>
               <div className="step">
                 <span className="step-number">02</span>
-                <h4>Get Interviewed by AI</h4>
+                <h4>Simulate a Real Interview</h4>
                 <p>
-                  Solve real coding problems, design systems, and answer behavioral questions 
-                  while our AI interviewer asks follow-up questions, probes your thinking, and 
-                  evaluates you exactly like a real senior engineer would.
+                  Practice with verified questions sourced from actual interviews at your target 
+                  company. Experience realistic follow-up questions that probe your thinking—just 
+                  like facing a real senior engineer.
                 </p>
               </div>
               <div className="step">
@@ -511,18 +525,26 @@ export default async function Home() {
             <h2>Features that matter</h2>
             <div className="feature-grid-editorial">
               <div className="feature-editorial">
-                <h4>Company-Specific Rubrics</h4>
+                <h4>Real Questions from Real Interviews</h4>
                 <p>
-                  Our AI evaluates you using the exact rubrics each company uses internally. 
-                  Google's bar for system design is different from Meta's—we know the difference 
-                  and train you accordingly.
+                  Every question in our database comes from verified interview experiences—submitted 
+                  by engineers who actually interviewed at these companies and validated by our team. 
+                  No made-up problems, just the questions you'll actually face.
                 </p>
               </div>
               <div className="feature-editorial">
-                <h4>AI That Understands Code</h4>
+                <h4>Company-Specific Rubrics</h4>
                 <p>
-                  Not just checking test cases. Our AI evaluates your thought process, 
-                  communication clarity, and code quality in real-time.
+                  Get evaluated using the exact rubrics each company uses internally—for coding, 
+                  system design, and behavioral. Google's bar is different from Meta's. We know 
+                  the difference and train you accordingly.
+                </p>
+              </div>
+              <div className="feature-editorial">
+                <h4>Unlimited Practice Sessions</h4>
+                <p>
+                  Practice as many times as you need, 24/7. Run through coding problems, design 
+                  systems, and rehearse behavioral answers until you're completely confident.
                 </p>
               </div>
               <div className="feature-editorial">
@@ -533,10 +555,10 @@ export default async function Home() {
                 </p>
               </div>
               <div className="feature-editorial">
-                <h4>Real-Time Follow-Up Questions</h4>
+                <h4>Realistic Follow-Up Questions</h4>
                 <p>
-                  The AI probes deeper when you're vague, just like a real interviewer: 
-                  "How would this handle 10 million concurrent requests?"
+                  Experience the pressure of real interviews with probing follow-ups: 
+                  "How would this handle 10 million concurrent requests?" "What's the trade-off?"
                 </p>
               </div>
               <div className="feature-editorial">
@@ -559,8 +581,8 @@ export default async function Home() {
               <div className="testimonial-editorial">
                 <blockquote>
                   "After failing my first two Google interviews, I did 30 mock interviews here. 
-                  The AI was brutal—it caught every unclear explanation and lazy optimization. 
-                  But that's exactly what I needed. Passed my third attempt."
+                  It caught every unclear explanation and lazy optimization. But that's exactly 
+                  what I needed. Passed my third attempt."
                 </blockquote>
                 <div className="testimonial-attribution">
                   <p className="testimonial-name">David Chen</p>
@@ -569,8 +591,8 @@ export default async function Home() {
               </div>
               <div className="testimonial-editorial">
                 <blockquote>
-                  "I paid $200/hour for interview coaching before. This AI gives better feedback, 
-                  it's available 24/7, and it costs a fraction of the price."
+                  "I paid $200/hour for interview coaching before. This gives better feedback, 
+                  it's available 24/7, and I can practice as many times as I want."
                 </blockquote>
                 <div className="testimonial-attribution">
                   <p className="testimonial-name">Aisha Patel</p>
@@ -579,7 +601,7 @@ export default async function Home() {
               </div>
               <div className="testimonial-editorial">
                 <blockquote>
-                  "I thought I knew how to solve the problems. But the AI's follow-up questions—
+                  "I thought I knew how to solve the problems. But the follow-up questions—
                   'What if N is 10 million?' 'How would you handle concurrent requests?'—taught me 
                   what top tech interviewers actually care about."
                 </blockquote>
@@ -729,6 +751,15 @@ export default async function Home() {
                 </p>
               </div>
               <div className="faq-item">
+                <h4>Where do your interview questions come from?</h4>
+                <p>
+                  Every question in our database is sourced from real interview experiences. Engineers 
+                  who have interviewed at Google, Meta, Amazon, and other top companies submit their 
+                  questions, which our team verifies for accuracy. We don't use made-up problems—only 
+                  questions that have actually been asked in interviews.
+                </p>
+              </div>
+              <div className="faq-item">
                 <h4>Can the AI really evaluate soft skills?</h4>
                 <p>
                   Yes. Our AI is trained on thousands of real tech interviews and can detect unclear 
@@ -774,8 +805,9 @@ export default async function Home() {
                 <h4>What makes your company-specific rubrics accurate?</h4>
                 <p>
                   We've analyzed hundreds of real interview evaluations and debriefs from each 
-                  company to understand exactly what they look for. Our rubrics reflect the 
-                  actual criteria senior engineers use when deciding to hire.
+                  company to understand exactly what they look for. Combined with our verified 
+                  question database from actual interviews, our rubrics reflect the real criteria 
+                  senior engineers use when deciding to hire.
                 </p>
               </div>
             </div>

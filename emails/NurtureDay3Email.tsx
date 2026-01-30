@@ -27,8 +27,10 @@ export const NurtureDay3Email = ({ checkoutUrl }: NurtureDay3EmailProps) => {
             <strong>Are you actively preparing for tech interviews right now?</strong>
           </Text>
           <Text style={textStyle}>
-            If so, I wanted to share something that might help. Last month,
-            engineers using our AI mock interviews saw results like these:
+            If so, I wanted to share something that might help. Our platform has{" "}
+            <strong>verified questions from actual Google, Meta, and Amazon interviews</strong> with 
+            company-specific rubrics for coding, system design, and behavioral. Practice as many times 
+            as you need. Last month, engineers using our simulations saw results like these:
           </Text>
         </Section>
 

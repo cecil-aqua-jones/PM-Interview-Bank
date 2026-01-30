@@ -158,7 +158,7 @@ export default function ExitIntentPopup() {
             </h2>
             
             <p className="exit-popup-subtitle">
-              Join 500+ engineers who've used Apex Interviewer to land roles at Google, Meta, Amazon, and OpenAI.
+              Verified questions from actual interviews. Company-specific rubrics for coding, system design, and behavioral. Unlimited practice.
             </p>
 
             <div className="exit-popup-pricing">

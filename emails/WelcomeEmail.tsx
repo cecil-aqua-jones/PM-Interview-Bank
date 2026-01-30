@@ -130,10 +130,11 @@ export const WelcomeEmail = ({
 const FeatureList = () => (
   <Section>
     {[
-      "Unlimited AI mock interviews",
+      "Verified questions from actual tech interviews",
+      "Company-specific rubrics for coding, system design, and behavioral",
+      "Unlimited practice sessions, 24/7",
       "Company-specific simulations (Google, Meta, Amazon, OpenAI...)",
-      "Coding, system design, and behavioral prep",
-      "Real-time AI feedback on your answers",
+      "Realistic follow-up questions that probe your thinking",
       "Performance analytics & progress tracking",
       "2-day money-back guarantee",
     ].map((feature, i) => (

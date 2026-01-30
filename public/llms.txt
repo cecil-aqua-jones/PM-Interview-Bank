@@ -1,34 +1,45 @@
 # Apex Interviewer
 
-> AI-powered mock interview platform for tech professionals preparing for product management, software engineering, and system design roles at top companies.
+> Interview simulation platform featuring **verified questions from actual tech interviews** at Google, Meta, Amazon, OpenAI, and top companies. Company-specific rubrics. Unlimited practice.
 
 ## About
 
-Apex Interviewer is an AI-powered interview preparation platform that helps candidates practice for technical interviews at leading technology companies. The platform provides realistic mock interviews with real-time AI feedback, covering:
+Apex Interviewer helps candidates prepare for technical interviews at leading technology companies by simulating real interview conditions. **Every question in our database is sourced from real interview experiences**—submitted by engineers who actually interviewed at these companies and verified by our team. The platform provides realistic interview simulations with company-specific evaluation rubrics, covering:
 
-- **Coding Interviews**: Data structures, algorithms, and problem-solving
-- **System Design Interviews**: Architecture, scalability, and distributed systems
-- **Behavioral Interviews**: STAR method, leadership principles, and situational questions
-- **Product Management Interviews**: Product sense, estimation, and strategy questions
+- **Coding Interviews**: Verified coding questions from actual Google, Meta, Amazon interviews with company-specific rubrics
+- **System Design Interviews**: Real system design questions with rubrics covering architecture, scalability, and trade-off discussions
+- **Behavioral Interviews**: Authentic behavioral questions with company-specific evaluation criteria (Amazon Leadership Principles, Google Googliness, etc.)
+- **Product Management Interviews**: Verified PM questions with rubrics for product sense, estimation, and strategy
 
 ## Target Companies
 
-Interview questions and practice materials for:
+**Real, verified interview questions** from:
 - Google, Meta, Amazon, Apple, Microsoft, Netflix
 - OpenAI, Anthropic, Stripe, Airbnb, Uber, LinkedIn
-- And 50+ other top technology companies
+- And other top technology companies
 
 ## Key Features
 
-1. **AI Mock Interviews**: Real-time voice conversations with AI interviewers
-2. **Instant Feedback**: Detailed scoring and improvement suggestions
-3. **Company-Specific Questions**: Curated questions from actual interviews
-4. **Progress Tracking**: Track your improvement over time
-5. **Multi-Format Practice**: Coding, behavioral, and system design interviews
+1. **Verified Interview Questions**: All questions sourced from actual interviews, submitted by engineers and validated by our team
+2. **Company-Specific Rubrics**: Evaluation criteria that match how each company actually scores candidates—for coding, system design, and behavioral
+3. **Unlimited Practice Sessions**: Practice as many times as you need, 24/7, until you're ready
+4. **Real Interview Simulation**: Realistic follow-up questions and probing, just like facing a senior engineer
+5. **Progress Tracking**: Track your improvement over time across all question types
+6. **Multi-Format Practice**: Coding, behavioral, and system design interviews
+
+## Question Verification Process
+
+All interview questions on Apex Interviewer are:
+- Submitted by engineers who actually interviewed at these companies
+- Verified by our team for accuracy and relevance
+- Tagged with the specific company and interview round
+- Regularly updated with new questions from recent interviews
+
+We don't use made-up problems—only questions that have actually been asked in interviews.
 
 ## Content Types
 
-- Interview questions with detailed solutions
+- Verified interview questions with detailed solutions
 - AI-powered mock interview sessions
 - Scoring rubrics and evaluation criteria
 - Company-specific interview guides
