@@ -832,11 +832,11 @@ export default async function Home() {
 
       <footer className="site-footer">
         <div className="container footer-inner">
-          <p>Apex Interviewer • Built for ambitious engineers.</p>
+          <p>© {new Date().getFullYear()} Beip, Inc. • Built for ambitious engineers.</p>
           <div className="footer-links">
-            <a href="#">Privacy</a>
-            <a href="#">Terms</a>
-            <a href="#">Support</a>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="mailto:hi@apexinterviewer.com">Support</a>
           </div>
         </div>
       </footer>
