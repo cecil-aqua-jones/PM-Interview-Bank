@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import styles from "../app/dashboard/app.module.css";
 import AnimatedMascot from "./AnimatedMascot";
+import ThemeToggle from "@/app/components/ThemeToggle";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -69,6 +70,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Progress
             </Link>
+            <ThemeToggle />
             <div className={styles.userMenu} ref={dropdownRef}>
               <button
                 className={styles.userMenuTrigger}
@@ -145,6 +147,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               Progress
             </Link>
+            <div style={{ padding: "12px 24px", display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "15px", color: "var(--charcoal)" }}>Theme</span>
+              <ThemeToggle />
+            </div>
             <button
               onClick={() => {
                 setMobileMenuOpen(false);

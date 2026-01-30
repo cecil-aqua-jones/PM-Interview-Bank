@@ -96,6 +96,10 @@ export default function InterviewPanel({
   const [code, setCode] = useState(question.starterCode || DEFAULT_STARTER_CODE[initialLanguage]);
   const [language, setLanguage] = useState<SupportedLanguage>(initialLanguage);
 
+  // Check if user has written meaningful code (different from starter code)
+  const starterCode = question.starterCode || DEFAULT_STARTER_CODE[language];
+  const hasUserCode = code.trim() !== starterCode.trim() && code.trim().length >= 10;
+
   // Conversation state
   const [conversation, setConversation] = useState<ConversationTurn[]>([]);
   const [currentFollowUp, setCurrentFollowUp] = useState<string | null>(null);
@@ -2796,6 +2800,17 @@ export default function InterviewPanel({
                     disabled={!code.trim() || code.trim().length < 10 || isSpeaking}
                   >
                     {evaluation ? "Resubmit Code" : "Submit Code"}
+                  </button>
+                )}
+
+                {/* Show submit button when user has written code but hasn't started the AI conversation */}
+                {panelState === "awaiting_greeting" && hasUserCode && (
+                  <button
+                    className={styles.submitCodeBtn}
+                    onClick={handleSubmitCode}
+                    disabled={!code.trim() || code.trim().length < 10}
+                  >
+                    Submit Code
                   </button>
                 )}
               </div>

@@ -28,21 +28,21 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
         display: "grid",
         gridTemplateColumns: "repeat(3, 1fr)",
         gap: "1px",
-        backgroundColor: "rgba(0,0,0,0.06)",
+        backgroundColor: "var(--smoke)",
         borderRadius: "4px",
         overflow: "hidden",
       }}>
         {/* Total Interviews */}
         <div style={{
           padding: "40px 32px",
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--pearl)",
           textAlign: "center",
         }}>
           <p style={{
             fontSize: "11px",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
-            color: "#9ca3af",
+            color: "var(--graphite)",
             marginBottom: "16px",
           }}>
             Total Sessions
@@ -50,7 +50,7 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
           <p style={{
             fontSize: "48px",
             fontWeight: 300,
-            color: "#1a1a1a",
+            color: "var(--ink)",
             fontFamily: "Playfair Display, Georgia, serif",
             lineHeight: 1,
           }}>
@@ -61,14 +61,14 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
         {/* Overall Average */}
         <div style={{
           padding: "40px 32px",
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--pearl)",
           textAlign: "center",
         }}>
           <p style={{
             fontSize: "11px",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
-            color: "#9ca3af",
+            color: "var(--graphite)",
             marginBottom: "16px",
           }}>
             Overall Score
@@ -76,7 +76,7 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
           <p style={{
             fontSize: "48px",
             fontWeight: 300,
-            color: "#1a1a1a",
+            color: "var(--ink)",
             fontFamily: "Playfair Display, Georgia, serif",
             lineHeight: 1,
             marginBottom: overallVerdict ? "12px" : "0",
@@ -88,10 +88,10 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
               fontSize: "10px",
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: overallVerdict.color === "green" ? "#166534" 
-                : overallVerdict.color === "amber" ? "#92400e" 
-                : overallVerdict.color === "red" ? "#991b1b" 
-                : "#6b7280",
+              color: overallVerdict.color === "green" ? "#4ade80" 
+                : overallVerdict.color === "amber" ? "#fbbf24" 
+                : overallVerdict.color === "red" ? "#f87171" 
+                : "var(--graphite)",
             }}>
               {overallVerdict.verdict}
             </span>
@@ -101,14 +101,14 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
         {/* This Week */}
         <div style={{
           padding: "40px 32px",
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--pearl)",
           textAlign: "center",
         }}>
           <p style={{
             fontSize: "11px",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
-            color: "#9ca3af",
+            color: "var(--graphite)",
             marginBottom: "16px",
           }}>
             This Week
@@ -116,7 +116,7 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
           <p style={{
             fontSize: "48px",
             fontWeight: 300,
-            color: "#1a1a1a",
+            color: "var(--ink)",
             fontFamily: "Playfair Display, Georgia, serif",
             lineHeight: 1,
           }}>
@@ -163,15 +163,15 @@ function CategoryCard({ category, count, average }: CategoryCardProps) {
   return (
     <div style={{
       padding: "32px",
-      backgroundColor: "#ffffff",
+      backgroundColor: "var(--pearl)",
       borderRadius: "4px",
-      border: "1px solid rgba(0,0,0,0.06)",
+      border: "1px solid var(--smoke)",
     }}>
       <p style={{
         fontSize: "11px",
         letterSpacing: "0.15em",
         textTransform: "uppercase",
-        color: "#9ca3af",
+        color: "var(--graphite)",
         marginBottom: "20px",
       }}>
         {category}
@@ -186,14 +186,14 @@ function CategoryCard({ category, count, average }: CategoryCardProps) {
         <span style={{
           fontSize: "32px",
           fontWeight: 300,
-          color: "#1a1a1a",
+          color: "var(--ink)",
           fontFamily: "Playfair Display, Georgia, serif",
         }}>
           {average !== null ? average.toFixed(1) : "—"}
         </span>
         <span style={{
           fontSize: "13px",
-          color: "#9ca3af",
+          color: "var(--graphite)",
         }}>
           / 5
         </span>
@@ -206,7 +206,7 @@ function CategoryCard({ category, count, average }: CategoryCardProps) {
       }}>
         <span style={{
           fontSize: "13px",
-          color: "#6b7280",
+          color: "var(--graphite)",
         }}>
           {count} {count === 1 ? "session" : "sessions"}
         </span>
@@ -216,10 +216,10 @@ function CategoryCard({ category, count, average }: CategoryCardProps) {
             fontSize: "10px",
             letterSpacing: "0.1em",
             textTransform: "uppercase",
-            color: verdict.color === "green" ? "#166534" 
-              : verdict.color === "amber" ? "#92400e" 
-              : verdict.color === "red" ? "#991b1b" 
-              : "#6b7280",
+            color: verdict.color === "green" ? "#4ade80" 
+              : verdict.color === "amber" ? "#fbbf24" 
+              : verdict.color === "red" ? "#f87171" 
+              : "var(--graphite)",
           }}>
             {verdict.verdict}
           </span>

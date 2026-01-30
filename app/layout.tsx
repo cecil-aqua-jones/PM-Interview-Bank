@@ -112,19 +112,37 @@ export const metadata: Metadata = {
   category: "Education"
 };
 
+// Theme initialization script to prevent FOUC (Flash of Unstyled Content)
+const themeInitScript = `
+(function() {
+  try {
+    var stored = localStorage.getItem('apex-theme');
+    var theme = stored === 'light' || stored === 'dark' 
+      ? stored 
+      : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#0d0d0c' : '#fafaf8');
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+`;
+
 export default function RootLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#1a1918" />
+        <meta name="theme-color" content="#0d0d0c" />
       </head>
       <body className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable}`}>
         <Script

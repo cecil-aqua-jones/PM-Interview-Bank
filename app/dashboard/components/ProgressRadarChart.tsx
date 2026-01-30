@@ -123,21 +123,21 @@ export default function ProgressRadarChart({ stats, showPreviousPeriod = true }:
         alignItems: "center",
         justifyContent: "center",
         height: "350px",
-        color: "#9ca3af",
+        color: "var(--graphite)",
         textAlign: "center",
         padding: "48px",
       }}>
         <p style={{ 
           fontSize: "15px",
           fontWeight: 400,
-          color: "#6b7280",
+          color: "var(--charcoal)",
           marginBottom: "8px",
         }}>
           No data available
         </p>
         <p style={{ 
           fontSize: "13px",
-          color: "#9ca3af",
+          color: "var(--graphite)",
         }}>
           Complete interviews to see your performance
         </p>
@@ -150,13 +150,13 @@ export default function ProgressRadarChart({ stats, showPreviousPeriod = true }:
       <ResponsiveContainer width="100%" height={350}>
         <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
           <PolarGrid 
-            stroke="#e5e5e5"
+            stroke="var(--smoke)"
             strokeWidth={0.5}
           />
           <PolarAngleAxis 
             dataKey="dimension" 
             tick={{ 
-              fill: "#6b7280", 
+              fill: "var(--charcoal)", 
               fontSize: 11,
               fontWeight: 400,
             }}
@@ -166,7 +166,7 @@ export default function ProgressRadarChart({ stats, showPreviousPeriod = true }:
             angle={90} 
             domain={[0, 5]} 
             tick={{ 
-              fill: "#9ca3af", 
+              fill: "var(--graphite)", 
               fontSize: 10,
             }}
             tickCount={6}
@@ -178,8 +178,8 @@ export default function ProgressRadarChart({ stats, showPreviousPeriod = true }:
             <Radar
               name="Previous"
               dataKey="previous"
-              stroke="#d1d5db"
-              fill="#e5e7eb"
+              stroke="var(--silver)"
+              fill="var(--smoke)"
               fillOpacity={0.3}
               strokeWidth={1}
               strokeDasharray="4 4"
@@ -190,26 +190,27 @@ export default function ProgressRadarChart({ stats, showPreviousPeriod = true }:
           <Radar
             name="Current"
             dataKey="current"
-            stroke="#1a1a1a"
-            fill="#1a1a1a"
-            fillOpacity={0.08}
+            stroke="var(--accent)"
+            fill="var(--accent)"
+            fillOpacity={0.15}
             strokeWidth={1.5}
           />
           
           <Tooltip
             contentStyle={{
-              backgroundColor: "#ffffff",
-              border: "1px solid #e5e7eb",
+              backgroundColor: "var(--pearl)",
+              border: "1px solid var(--smoke)",
               borderRadius: "4px",
               fontSize: "12px",
               padding: "12px 16px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              color: "var(--ink)",
             }}
             formatter={(value) => [typeof value === "number" ? value.toFixed(2) : "N/A", ""]}
             labelStyle={{
               fontWeight: 500,
               marginBottom: "4px",
-              color: "#1a1a1a",
+              color: "var(--ink)",
             }}
           />
         </RadarChart>
@@ -227,18 +228,18 @@ export default function ProgressRadarChart({ stats, showPreviousPeriod = true }:
             <div style={{
               width: "16px",
               height: "2px",
-              backgroundColor: "#1a1a1a",
+              backgroundColor: "var(--accent)",
             }} />
-            <span style={{ fontSize: "11px", color: "#6b7280", letterSpacing: "0.05em" }}>Current</span>
+            <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>Current</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div style={{
               width: "16px",
               height: "2px",
-              backgroundColor: "#d1d5db",
-              backgroundImage: "repeating-linear-gradient(90deg, #d1d5db 0, #d1d5db 4px, transparent 4px, transparent 8px)",
+              backgroundColor: "var(--silver)",
+              backgroundImage: "repeating-linear-gradient(90deg, var(--silver) 0, var(--silver) 4px, transparent 4px, transparent 8px)",
             }} />
-            <span style={{ fontSize: "11px", color: "#6b7280", letterSpacing: "0.05em" }}>Previous</span>
+            <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>Previous</span>
           </div>
         </div>
       )}

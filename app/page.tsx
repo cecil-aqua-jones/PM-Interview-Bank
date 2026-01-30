@@ -572,48 +572,6 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Testimonials - Proof It Works */}
-        <section className="section alt" id="proof">
-          <div className="container">
-            <p className="eyebrow">Proof It Works</p>
-            <h2>Engineers who changed their trajectory</h2>
-            <div className="testimonial-editorial-grid">
-              <div className="testimonial-editorial">
-                <blockquote>
-                  "After failing my first two Google interviews, I did 30 mock interviews here. 
-                  It caught every unclear explanation and lazy optimization. But that's exactly 
-                  what I needed. Passed my third attempt."
-                </blockquote>
-                <div className="testimonial-attribution">
-                  <p className="testimonial-name">David Chen</p>
-                  <p className="testimonial-title">Software Engineer at Google</p>
-                </div>
-              </div>
-              <div className="testimonial-editorial">
-                <blockquote>
-                  "I paid $200/hour for interview coaching before. This gives better feedback, 
-                  it's available 24/7, and I can practice as many times as I want."
-                </blockquote>
-                <div className="testimonial-attribution">
-                  <p className="testimonial-name">Aisha Patel</p>
-                  <p className="testimonial-title">SWE at Meta</p>
-                </div>
-              </div>
-              <div className="testimonial-editorial">
-                <blockquote>
-                  "I thought I knew how to solve the problems. But the follow-up questions—
-                  'What if N is 10 million?' 'How would you handle concurrent requests?'—taught me 
-                  what top tech interviewers actually care about."
-                </blockquote>
-                <div className="testimonial-attribution">
-                  <p className="testimonial-name">Jake Morrison</p>
-                  <p className="testimonial-title">Engineer at Amazon</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Comparison Table */}
         <section className="section">
           <div className="container narrow">

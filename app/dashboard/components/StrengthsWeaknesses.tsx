@@ -18,20 +18,20 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
         alignItems: "center",
         justifyContent: "center",
         padding: "64px 48px",
-        color: "#9ca3af",
+        color: "var(--graphite)",
         textAlign: "center",
       }}>
         <p style={{ 
           fontSize: "15px",
           fontWeight: 400,
-          color: "#6b7280",
+          color: "var(--charcoal)",
           marginBottom: "8px",
         }}>
           Analysis pending
         </p>
         <p style={{ 
           fontSize: "13px",
-          color: "#9ca3af",
+          color: "var(--graphite)",
           maxWidth: "320px",
         }}>
           Complete a few interviews to reveal your strengths and areas for development
@@ -52,7 +52,7 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
           fontSize: "11px",
           letterSpacing: "0.15em",
           textTransform: "uppercase",
-          color: "#166534",
+          color: "var(--success)",
           marginBottom: "24px",
         }}>
           Strongest Areas
@@ -73,14 +73,14 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
                   <p style={{
                     fontSize: "14px",
                     fontWeight: 500,
-                    color: "#1a1a1a",
+                    color: "var(--ink)",
                     marginBottom: "2px",
                   }}>
                     {item.dimension}
                   </p>
                   <p style={{
                     fontSize: "11px",
-                    color: "#9ca3af",
+                    color: "var(--graphite)",
                     letterSpacing: "0.05em",
                   }}>
                     {item.category}
@@ -89,7 +89,7 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
                 <span style={{
                   fontSize: "18px",
                   fontWeight: 300,
-                  color: "#166534",
+                  color: "var(--success)",
                   fontFamily: "Playfair Display, Georgia, serif",
                 }}>
                   {item.score.toFixed(1)}
@@ -98,14 +98,14 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
             ))}
           </div>
         ) : (
-          <p style={{ fontSize: "13px", color: "#9ca3af" }}>
+          <p style={{ fontSize: "13px", color: "var(--graphite)" }}>
             More data needed
           </p>
         )}
       </div>
 
       {/* Divider */}
-      <div style={{ backgroundColor: "#e5e7eb" }} />
+      <div style={{ backgroundColor: "var(--smoke)" }} />
 
       {/* Areas for Improvement */}
       <div style={{ padding: "0 0 0 48px" }}>
@@ -113,7 +113,7 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
           fontSize: "11px",
           letterSpacing: "0.15em",
           textTransform: "uppercase",
-          color: "#92400e",
+          color: "var(--accent)",
           marginBottom: "24px",
         }}>
           Focus Areas
@@ -134,14 +134,14 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
                   <p style={{
                     fontSize: "14px",
                     fontWeight: 500,
-                    color: "#1a1a1a",
+                    color: "var(--ink)",
                     marginBottom: "2px",
                   }}>
                     {item.dimension}
                   </p>
                   <p style={{
                     fontSize: "11px",
-                    color: "#9ca3af",
+                    color: "var(--graphite)",
                     letterSpacing: "0.05em",
                   }}>
                     {item.category}
@@ -150,7 +150,7 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
                 <span style={{
                   fontSize: "18px",
                   fontWeight: 300,
-                  color: "#92400e",
+                  color: "var(--accent)",
                   fontFamily: "Playfair Display, Georgia, serif",
                 }}>
                   {item.score.toFixed(1)}
@@ -159,7 +159,7 @@ export default function StrengthsWeaknesses({ stats }: StrengthsWeaknessesProps)
             ))}
           </div>
         ) : (
-          <p style={{ fontSize: "13px", color: "#9ca3af" }}>
+          <p style={{ fontSize: "13px", color: "var(--graphite)" }}>
             More data needed
           </p>
         )}

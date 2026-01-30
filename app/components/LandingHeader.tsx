@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AnimatedMascot from "@/components/AnimatedMascot";
+import ThemeToggle from "@/app/components/ThemeToggle";
 
 export default function LandingHeader() {
   return (
@@ -16,12 +17,14 @@ export default function LandingHeader() {
         <nav className="nav-links">
           <a href="/dashboard">Companies</a>
           <a href="#how-it-works">How It Works</a>
-          <a href="#proof">Results</a>
           <a href="#pricing">Pricing</a>
         </nav>
-        <Link href="/login" className="btn btn-primary">
-          Try Free
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <ThemeToggle />
+          <Link href="/login" className="btn btn-primary">
+            Try Free
+          </Link>
+        </div>
       </div>
     </header>
   );

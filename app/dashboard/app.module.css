@@ -37,12 +37,12 @@
 .brandMark {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--white);
+  color: var(--accent-text);
   font-weight: 700;
   font-size: 14px;
   letter-spacing: -0.02em;
@@ -356,7 +356,7 @@
 .companyLogo {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   object-fit: contain;
   background: var(--pearl);
 }
@@ -364,7 +364,7 @@
 .companyLogoFallback {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-sm);
+  border-radius: 50%;
   background: linear-gradient(135deg, var(--pearl) 0%, var(--smoke) 100%);
   display: flex;
   align-items: center;
@@ -939,10 +939,10 @@
 }
 
 .codeBlock {
-  background: #1a1a1a;
+  background: var(--pearl);
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--smoke);
   margin: 8px 0;
 }
 
@@ -953,7 +953,7 @@
   font-family: var(--font-code), monospace;
   font-size: 14px;
   line-height: 1.6;
-  color: #e0e0e0;
+  color: var(--charcoal);
   white-space: pre;
   tab-size: 4;
   font-variant-ligatures: none;
@@ -975,17 +975,17 @@
 }
 
 .codeBlockPre::-webkit-scrollbar-track {
-  background: #2d2d2d;
+  background: var(--smoke);
   border-radius: 3px;
 }
 
 .codeBlockPre::-webkit-scrollbar-thumb {
-  background: #555;
+  background: var(--silver);
   border-radius: 3px;
 }
 
 .codeBlockPre::-webkit-scrollbar-thumb:hover {
-  background: #666;
+  background: var(--slate);
 }
 
 .questionCardBody {
@@ -1859,7 +1859,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border-top-color: var(--ink);
   border-radius: 50%;
   margin-right: 8px;
   animation: spin 0.8s linear infinite;
@@ -2396,12 +2396,12 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 16px;
-  color: var(--white);
+  color: var(--accent-text);
   animation: speakingPulse 2s ease-in-out infinite;
 }
 
@@ -2557,10 +2557,10 @@
 
 /* Speaker Card - Floating indicator */
 .speakerCard {
-  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  background: linear-gradient(135deg, var(--pearl) 0%, var(--smoke) 100%);
   border-radius: 12px;
   padding: 12px 16px;
-  color: white;
+  color: var(--ink);
   flex-shrink: 0;
 }
 
@@ -2574,7 +2574,7 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--smoke);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2750,9 +2750,9 @@
   align-items: center;
   justify-content: center;
   height: 300px;
-  background: #1e1e1e;
+  background: var(--pearl);
   border-radius: 8px;
-  color: #6e6e6e;
+  color: var(--slate);
   gap: 12px;
 }
 
@@ -2978,11 +2978,11 @@
 }
 
 .feedbackScoreCard {
-  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   border-radius: var(--radius-lg);
   padding: 24px 20px;
   text-align: center;
-  color: var(--white);
+  color: var(--accent-text);
 }
 
 @media (min-width: 640px) {
@@ -3673,13 +3673,13 @@
 .paywallIcon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 24px;
-  color: var(--white);
+  color: var(--accent-text);
 }
 
 .paywallTitle {
@@ -4522,7 +4522,7 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--ink) 0%, var(--charcoal) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4533,13 +4533,14 @@
 .scoreValue {
   font-size: 26px;
   font-weight: 600;
-  color: var(--white);
+  color: var(--accent-text);
   line-height: 1;
 }
 
 .scoreLabel {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--accent-text);
+  opacity: 0.7;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 2px;
@@ -5205,15 +5206,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--ink) 0%, #2a2826 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
   border-radius: 50%;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .scoreValueLarge {
   font-size: 42px;
   font-weight: 700;
-  color: var(--white);
+  color: var(--accent-text);
   line-height: 1;
 }
 
@@ -5521,28 +5522,28 @@
 }
 
 .verdictBadge[data-verdict="strong-pass"] {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.2);
+  color: #4ade80;
 }
 
 .verdictBadge[data-verdict="pass"] {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: rgba(21, 101, 192, 0.2);
+  color: #60a5fa;
 }
 
 .verdictBadge[data-verdict="borderline"] {
-  background: #fff8e1;
-  color: #f57c00;
+  background: rgba(245, 124, 0, 0.2);
+  color: #fbbf24;
 }
 
 .verdictBadge[data-verdict="fail"] {
-  background: #fce4ec;
-  color: #c62828;
+  background: rgba(198, 40, 40, 0.2);
+  color: #f87171;
 }
 
 .verdictBadge[data-verdict="strong-fail"] {
-  background: #ffebee;
-  color: #b71c1c;
+  background: rgba(183, 28, 28, 0.25);
+  color: #ef4444;
 }
 
 /* ─── Design Highlights Grid ───────────────────────────────────────────── */

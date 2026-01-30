@@ -60,21 +60,21 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
         alignItems: "center",
         justifyContent: "center",
         height: "250px",
-        color: "#9ca3af",
+        color: "var(--graphite)",
         textAlign: "center",
         padding: "48px",
       }}>
         <p style={{ 
           fontSize: "15px",
           fontWeight: 400,
-          color: "#6b7280",
+          color: "var(--charcoal)",
           marginBottom: "8px",
         }}>
           Insufficient data
         </p>
         <p style={{ 
           fontSize: "13px",
-          color: "#9ca3af",
+          color: "var(--graphite)",
         }}>
           Complete sessions over multiple weeks
         </p>
@@ -91,30 +91,31 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
         >
           <CartesianGrid 
             strokeDasharray="0"
-            stroke="#f3f4f6"
+            stroke="var(--smoke)"
             vertical={false}
           />
           <XAxis 
             dataKey="weekLabel" 
-            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tick={{ fontSize: 10, fill: "var(--graphite)" }}
             tickLine={false}
-            axisLine={{ stroke: "#e5e7eb", strokeWidth: 0.5 }}
+            axisLine={{ stroke: "var(--smoke)", strokeWidth: 0.5 }}
           />
           <YAxis 
             domain={[0, 5]}
-            tick={{ fontSize: 10, fill: "#9ca3af" }}
+            tick={{ fontSize: 10, fill: "var(--graphite)" }}
             tickLine={false}
             axisLine={false}
             tickCount={6}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#ffffff",
-              border: "1px solid #e5e7eb",
+              backgroundColor: "var(--pearl)",
+              border: "1px solid var(--smoke)",
               borderRadius: "4px",
               fontSize: "12px",
               padding: "12px 16px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              color: "var(--ink)",
             }}
             formatter={(value, name) => {
               const label = name === "coding" ? "Coding" 
@@ -125,33 +126,33 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
             labelStyle={{
               fontWeight: 500,
               marginBottom: "4px",
-              color: "#1a1a1a",
+              color: "var(--ink)",
             }}
           />
           <Line
             type="monotone"
             dataKey="coding"
-            stroke="#1a1a1a"
+            stroke="var(--ink)"
             strokeWidth={1.5}
-            dot={{ fill: "#1a1a1a", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "var(--ink)", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
           <Line
             type="monotone"
             dataKey="behavioral"
-            stroke="#b87333"
+            stroke="var(--accent)"
             strokeWidth={1.5}
-            dot={{ fill: "#b87333", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "var(--accent)", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
           <Line
             type="monotone"
             dataKey="systemDesign"
-            stroke="#4a7c6f"
+            stroke="var(--success)"
             strokeWidth={1.5}
-            dot={{ fill: "#4a7c6f", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "var(--success)", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
@@ -169,25 +170,25 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "#1a1a1a",
+            backgroundColor: "var(--ink)",
           }} />
-          <span style={{ fontSize: "11px", color: "#1a1a1a", letterSpacing: "0.05em" }}>Coding</span>
+          <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>Coding</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "#b87333",
+            backgroundColor: "var(--accent)",
           }} />
-          <span style={{ fontSize: "11px", color: "#b87333", letterSpacing: "0.05em" }}>Behavioral</span>
+          <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>Behavioral</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "#4a7c6f",
+            backgroundColor: "var(--success)",
           }} />
-          <span style={{ fontSize: "11px", color: "#4a7c6f", letterSpacing: "0.05em" }}>System Design</span>
+          <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>System Design</span>
         </div>
       </div>
     </div>

@@ -40,14 +40,14 @@ export default function ProgressPage() {
         alignItems: "center",
         justifyContent: "center",
         minHeight: "70vh",
-        color: "#6b7280",
-        backgroundColor: "#faf9f7",
+        color: "var(--graphite)",
+        backgroundColor: "var(--white)",
       }}>
         <div style={{
           width: "40px",
           height: "40px",
-          border: "2px solid #f3f4f6",
-          borderTopColor: "#1a1a1a",
+          border: "2px solid var(--smoke)",
+          borderTopColor: "var(--accent)",
           borderRadius: "50%",
           animation: "spin 0.8s linear infinite",
         }} />
@@ -77,24 +77,24 @@ export default function ProgressPage() {
         alignItems: "center",
         justifyContent: "center",
         minHeight: "70vh",
-        color: "#6b7280",
+        color: "var(--graphite)",
         textAlign: "center",
         padding: "48px",
-        backgroundColor: "#faf9f7",
+        backgroundColor: "var(--white)",
       }}>
         {/* Error Icon */}
         <div style={{
           width: "64px",
           height: "64px",
           borderRadius: "50%",
-          backgroundColor: "#ffffff",
-          border: "1px solid rgba(185, 28, 28, 0.12)",
+          backgroundColor: "var(--pearl)",
+          border: "1px solid var(--error)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           marginBottom: "28px",
         }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="1.5">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--error)" strokeWidth="1.5">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -116,20 +116,12 @@ export default function ProgressPage() {
             fontWeight: 500,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "#1a1a1a",
+            color: "var(--ink)",
             backgroundColor: "transparent",
-            border: "1px solid #1a1a1a",
+            border: "1px solid var(--ink)",
             borderRadius: "2px",
             cursor: "pointer",
             transition: "all 0.4s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#1a1a1a";
-            e.currentTarget.style.color = "#faf9f7";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-            e.currentTarget.style.color = "#1a1a1a";
           }}
         >
           Retry
@@ -149,7 +141,7 @@ export default function ProgressPage() {
         padding: "64px 48px 96px",
         maxWidth: "720px",
         margin: "0 auto",
-        backgroundColor: "#faf9f7",
+        backgroundColor: "var(--white)",
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
@@ -161,15 +153,15 @@ export default function ProgressPage() {
           width: "80px",
           height: "80px",
           borderRadius: "50%",
-          backgroundColor: "#ffffff",
-          border: "1px solid rgba(0,0,0,0.06)",
+          backgroundColor: "var(--pearl)",
+          border: "1px solid var(--smoke)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           marginBottom: "40px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          boxShadow: "var(--shadow-soft)",
         }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--graphite)" strokeWidth="1.5">
             <path d="M12 20V10" />
             <path d="M18 20V4" />
             <path d="M6 20v-4" />
@@ -181,7 +173,7 @@ export default function ProgressPage() {
           fontSize: "11px",
           letterSpacing: "0.2em",
           textTransform: "uppercase",
-          color: "#9ca3af",
+          color: "var(--graphite)",
           marginBottom: "16px",
         }}>
           Performance Analytics
@@ -189,7 +181,7 @@ export default function ProgressPage() {
         <h1 style={{
           fontSize: "36px",
           fontWeight: 400,
-          color: "#1a1a1a",
+          color: "var(--ink)",
           fontFamily: "Playfair Display, Georgia, serif",
           letterSpacing: "-0.01em",
           marginBottom: "24px",
@@ -199,7 +191,7 @@ export default function ProgressPage() {
         </h1>
         <p style={{
           fontSize: "16px",
-          color: "#6b7280",
+          color: "var(--graphite)",
           lineHeight: 1.8,
           textAlign: "center",
           maxWidth: "480px",
@@ -221,21 +213,13 @@ export default function ProgressPage() {
             fontWeight: 500,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "#ffffff",
-            backgroundColor: "#1a1a1a",
+            color: "var(--accent-text)",
+            backgroundColor: "var(--accent)",
             border: "none",
-            borderRadius: "2px",
+            borderRadius: "var(--radius-sm)",
             textDecoration: "none",
             cursor: "pointer",
             transition: "all 0.3s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#333333";
-            e.currentTarget.style.transform = "translateY(-1px)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#1a1a1a";
-            e.currentTarget.style.transform = "translateY(0)";
           }}
         >
           <span>Start Practicing</span>
@@ -252,7 +236,7 @@ export default function ProgressPage() {
       padding: "64px 48px 96px",
       maxWidth: "1280px",
       margin: "0 auto",
-      backgroundColor: "#faf9f7",
+      backgroundColor: "var(--white)",
       minHeight: "100vh",
     }}>
       {/* Greeting Header */}
@@ -263,7 +247,7 @@ export default function ProgressPage() {
           fontSize: "11px",
           letterSpacing: "0.15em",
           textTransform: "uppercase",
-          color: "#9ca3af",
+          color: "var(--graphite)",
           marginBottom: "12px",
         }}>
           Performance Analytics
@@ -271,7 +255,7 @@ export default function ProgressPage() {
         <h1 style={{
           fontSize: "36px",
           fontWeight: 400,
-          color: "#1a1a1a",
+          color: "var(--ink)",
           fontFamily: "Playfair Display, Georgia, serif",
           letterSpacing: "-0.01em",
           marginBottom: "12px",
@@ -280,7 +264,7 @@ export default function ProgressPage() {
         </h1>
         <p style={{
           fontSize: "15px",
-          color: "#6b7280",
+          color: "var(--graphite)",
           lineHeight: 1.7,
         }}>
           Complete at least five interviews across different types to unlock 
@@ -365,18 +349,18 @@ export default function ProgressPage() {
       }}>
         {/* Radar Chart Card */}
         <article style={{
-          backgroundColor: "#ffffff",
-          borderRadius: "4px",
-          border: "1px solid rgba(0,0,0,0.06)",
+          backgroundColor: "var(--pearl)",
+          borderRadius: "var(--radius-md)",
+          border: "1px solid var(--smoke)",
           padding: "48px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          boxShadow: "var(--shadow-soft)",
         }}>
           <header style={{ marginBottom: "40px" }}>
             <p style={{
               fontSize: "11px",
               letterSpacing: "0.15em",
               textTransform: "uppercase",
-              color: "#9ca3af",
+              color: "var(--graphite)",
               marginBottom: "8px",
             }}>
               Skill Distribution
@@ -384,7 +368,7 @@ export default function ProgressPage() {
             <h2 style={{
               fontSize: "24px",
               fontWeight: 400,
-              color: "#1a1a1a",
+              color: "var(--ink)",
               fontFamily: "Playfair Display, Georgia, serif",
             }}>
               Performance Overview
@@ -395,18 +379,18 @@ export default function ProgressPage() {
 
         {/* Trend Chart Card */}
         <article style={{
-          backgroundColor: "#ffffff",
-          borderRadius: "4px",
-          border: "1px solid rgba(0,0,0,0.06)",
+          backgroundColor: "var(--pearl)",
+          borderRadius: "var(--radius-md)",
+          border: "1px solid var(--smoke)",
           padding: "48px",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          boxShadow: "var(--shadow-soft)",
         }}>
           <header style={{ marginBottom: "40px" }}>
             <p style={{
               fontSize: "11px",
               letterSpacing: "0.15em",
               textTransform: "uppercase",
-              color: "#9ca3af",
+              color: "var(--graphite)",
               marginBottom: "8px",
             }}>
               Progression
@@ -414,7 +398,7 @@ export default function ProgressPage() {
             <h2 style={{
               fontSize: "24px",
               fontWeight: 400,
-              color: "#1a1a1a",
+              color: "var(--ink)",
               fontFamily: "Playfair Display, Georgia, serif",
             }}>
               Weekly Trends
@@ -431,18 +415,18 @@ export default function ProgressPage() {
 
       {/* Strengths & Weaknesses */}
       <section style={{
-        backgroundColor: "#ffffff",
-        borderRadius: "4px",
-        border: "1px solid rgba(0,0,0,0.06)",
+        backgroundColor: "var(--pearl)",
+        borderRadius: "var(--radius-md)",
+        border: "1px solid var(--smoke)",
         padding: "48px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+        boxShadow: "var(--shadow-soft)",
       }}>
         <header style={{ marginBottom: "40px", textAlign: "center" }}>
           <p style={{
             fontSize: "11px",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
-            color: "#9ca3af",
+            color: "var(--graphite)",
             marginBottom: "8px",
           }}>
             Insights
@@ -450,7 +434,7 @@ export default function ProgressPage() {
           <h2 style={{
             fontSize: "24px",
             fontWeight: 400,
-            color: "#1a1a1a",
+            color: "var(--ink)",
             fontFamily: "Playfair Display, Georgia, serif",
           }}>
             Areas of Focus
