@@ -10,6 +10,23 @@ const nextConfig = {
       }
     ]
   },
+  // PostHog reverse proxy - routes analytics through your domain to avoid ad blockers
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*"
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://us.i.posthog.com/:path*"
+      },
+      {
+        source: "/ingest/decide",
+        destination: "https://us.i.posthog.com/decide"
+      }
+    ];
+  },
   // Security headers
   async headers() {
     return [
@@ -45,7 +62,9 @@ const nextConfig = {
     ];
   },
   // Disable x-powered-by header
-  poweredByHeader: false
+  poweredByHeader: false,
+  // Required for PostHog reverse proxy
+  skipTrailingSlashRedirect: true
 };
 
 module.exports = nextConfig;

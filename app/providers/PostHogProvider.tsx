@@ -19,11 +19,18 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
 
     posthog.init(posthogKey, {
-      api_host:
-        process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://us.i.posthog.com",
+      // Use reverse proxy to avoid ad blockers
+      api_host: "/ingest",
+      ui_host: "https://us.posthog.com",
       person_profiles: "identified_only",
+      // Event tracking
       capture_pageview: true,
       capture_pageleave: true,
+      // Scroll depth tracking
+      scroll_root_selector: ["#main-content", "main", "body"],
+      // Performance & Web Vitals
+      capture_performance: true,
+      // Autocapture settings
       autocapture: {
         dom_event_allowlist: ["click", "submit"],
         element_allowlist: ["button", "a", "input", "form"],
@@ -35,7 +42,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       // Performance optimization
       loaded: () => {
         if (process.env.NODE_ENV === "development") {
-          console.log("PostHog initialized");
+          console.log("PostHog initialized with reverse proxy");
         }
       },
     });
