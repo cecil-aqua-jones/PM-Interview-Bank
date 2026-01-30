@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
-import { generateTTS, isCartesiaConfigured, CARTESIA_VOICES } from "@/lib/cartesia";
+import { 
+  generateTTS, 
+  isCartesiaConfigured, 
+  CARTESIA_VOICES,
+  TTS_EMOTIONS,
+} from "@/lib/cartesia";
 import { sanitizeForTTS } from "@/lib/questionSanitizer";
+import { preprocessStandard } from "@/lib/ttsPreprocessor";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -206,10 +212,18 @@ export async function POST(request: NextRequest) {
     // Build the natural interview prompt
     const speechText = buildInterviewPrompt(spokenQuestion, isLongQuestion, category);
 
-    console.log(`[Speak] Generating TTS for ${speechText.length} chars with Cartesia Sonic-3`);
+    // Preprocess for natural pauses
+    const processedText = preprocessStandard(speechText);
+    
+    console.log(`[Speak] Generating TTS for ${processedText.length} chars with Cartesia Sonic-3 (Tessa voice)`);
 
-    // Generate TTS using Cartesia Sonic-3
-    const audioBuffer = await generateTTS(speechText, CARTESIA_VOICES.KATIE);
+    // Generate TTS using emotive voice with enthusiastic tone for greetings
+    const audioBuffer = await generateTTS(processedText, CARTESIA_VOICES.DEFAULT, {
+      generationConfig: {
+        speed: 1.0,
+        emotion: TTS_EMOTIONS.ENTHUSIASTIC,
+      },
+    });
 
     console.log(`[Speak] Generated ${audioBuffer.byteLength} bytes of audio`);
 

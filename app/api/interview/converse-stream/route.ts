@@ -1,9 +1,59 @@
 import { NextRequest } from "next/server";
 import { sanitizeForLLM, validateLength } from "@/lib/security";
-import { generateTTS, isCartesiaConfigured, CARTESIA_VOICES } from "@/lib/cartesia";
+import { 
+  generateTTS, 
+  isCartesiaConfigured, 
+  CARTESIA_VOICES,
+  getEmotionForState,
+  type TTSGenerationConfig,
+} from "@/lib/cartesia";
 import { sanitizeForTTS } from "@/lib/questionSanitizer";
+import { preprocessStandard } from "@/lib/ttsPreprocessor";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// Retry configuration for OpenAI API calls
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+
+/**
+ * Fetch with retry logic for transient network failures
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = MAX_RETRIES
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Check if it's a retryable error (network/timeout issues)
+      const isRetryable = 
+        lastError.message.includes("fetch failed") ||
+        lastError.message.includes("ETIMEDOUT") ||
+        lastError.message.includes("ECONNRESET") ||
+        lastError.message.includes("UND_ERR_CONNECT_TIMEOUT") ||
+        lastError.message.includes("UND_ERR_HEADERS_TIMEOUT");
+      
+      if (!isRetryable || attempt === maxRetries - 1) {
+        throw lastError;
+      }
+      
+      // Exponential backoff
+      const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+      console.log(`[Stream] Retry ${attempt + 1}/${maxRetries} after ${delay}ms due to: ${lastError.message}`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error("Max retries exceeded");
+}
 
 type ConversationMessage = {
   role: "interviewer" | "candidate";
@@ -186,26 +236,36 @@ Respond naturally as the interviewer.`;
         };
         
         try {
-          // Start streaming LLM response (still using OpenAI GPT)
-          const llmResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: fullContext }
-              ],
-              temperature: 0.8,
-              max_tokens: 250,
-              stream: true,
-            }),
-          });
+          // Start streaming LLM response (with retry for transient failures)
+          let llmResponse: Response;
+          try {
+            llmResponse = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: fullContext }
+                ],
+                temperature: 0.8,
+                max_tokens: 250,
+                stream: true,
+              }),
+            });
+          } catch (fetchError) {
+            console.error("[Stream] Failed to connect to OpenAI after retries:", fetchError);
+            safeEnqueue(`data: ${JSON.stringify({ error: "AI service temporarily unavailable. Please try again." })}\n\n`);
+            safeClose();
+            return;
+          }
 
           if (!llmResponse.ok || !llmResponse.body) {
+            const errorText = await llmResponse.text().catch(() => "Unknown error");
+            console.error("[Stream] LLM request failed:", llmResponse.status, errorText);
             safeEnqueue(`data: ${JSON.stringify({ error: "LLM request failed" })}\n\n`);
             safeClose();
             return;
@@ -294,7 +354,7 @@ Respond naturally as the interviewer.`;
                       totalSentences++;
                       console.log(`[Stream] Queueing Cartesia TTS for sentence ${currentIndex}: "${completeSentence.slice(0, 30)}..."`);
                       
-                      const ttsTask = generateTTSForSentence(completeSentence, currentIndex)
+                      const ttsTask = generateTTSForSentence(completeSentence, currentIndex, interviewState)
                         .then(audioBase64 => {
                           console.log(`[Stream] TTS ${currentIndex} resolved: ${audioBase64 ? 'success' : 'null'}`);
                           if (isClosed) {
@@ -341,7 +401,7 @@ Respond naturally as the interviewer.`;
             const finalSentence = sentenceBuffer.trim();
             console.log(`[Stream] Queueing TTS for final sentence ${currentIndex}: "${finalSentence.slice(0, 30)}..."`);
             
-            const ttsTask = generateTTSForSentence(finalSentence, currentIndex)
+            const ttsTask = generateTTSForSentence(finalSentence, currentIndex, interviewState)
               .then(audioBase64 => {
                 console.log(`[Stream] Final TTS ${currentIndex} resolved: ${audioBase64 ? 'success' : 'null'}`);
                 if (isClosed) {
@@ -425,13 +485,19 @@ Respond naturally as the interviewer.`;
 
 /**
  * Generate TTS audio for a sentence using Cartesia Sonic-3
+ * Uses emotive voice with state-appropriate emotion for natural speech
  * Returns base64 encoded audio or null on failure
  */
-async function generateTTSForSentence(sentence: string, index: number, retryCount = 0): Promise<string | null> {
+async function generateTTSForSentence(
+  sentence: string, 
+  index: number, 
+  interviewState: string = "coding",
+  retryCount = 0
+): Promise<string | null> {
   const MAX_RETRIES = 2;
-  const TTS_TIMEOUT = 10000; // 10 second timeout per request
+  const TTS_TIMEOUT = 15000; // 15 second timeout per request
   
-  // Sanitize sentence for TTS - remove markdown, code blocks, and formatting artifacts
+  // Sanitize and preprocess for natural speech
   const sanitizedSentence = sanitizeForTTS(sentence);
   
   // Skip if sentence becomes empty after sanitization
@@ -439,6 +505,9 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
     console.log(`[TTS] Skipping sentence ${index} - too short after sanitization`);
     return null;
   }
+  
+  // Preprocess for natural pauses
+  const processedSentence = preprocessStandard(sanitizedSentence);
   
   // Create abort controller for timeout
   const abortController = new AbortController();
@@ -448,12 +517,20 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
   }, TTS_TIMEOUT);
   
   try {
-    console.log(`[TTS] Starting Cartesia request for sentence ${index}: "${sanitizedSentence.slice(0, 30)}..."`);
+    // Get emotion based on interview state for natural voice inflection
+    const emotion = getEmotionForState(interviewState);
+    const generationConfig: TTSGenerationConfig = {
+      speed: 1.0,
+      emotion,
+    };
     
-    // Generate TTS using Cartesia Sonic-3 with abort signal and timeout
-    const audioBuffer = await generateTTS(sanitizedSentence, CARTESIA_VOICES.KATIE, {
+    console.log(`[TTS] Starting Cartesia request for sentence ${index} (state: ${interviewState}, emotion: ${emotion}): "${processedSentence.slice(0, 30)}..."`);
+    
+    // Generate TTS using emotive voice with state-appropriate emotion
+    const audioBuffer = await generateTTS(processedSentence, CARTESIA_VOICES.DEFAULT, {
       signal: abortController.signal,
       timeoutMs: TTS_TIMEOUT,
+      generationConfig,
     });
     
     clearTimeout(timeoutId);
@@ -475,7 +552,7 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
       const delay = 500 * Math.pow(2, retryCount);
       console.log(`[TTS] Retrying sentence ${index} in ${delay}ms (attempt ${retryCount + 1}/${MAX_RETRIES})`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return generateTTSForSentence(sentence, index, retryCount + 1);
+      return generateTTSForSentence(sentence, index, interviewState, retryCount + 1);
     }
     
     console.log(`[TTS] Giving up on sentence ${index} after all retries`);
@@ -485,52 +562,119 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
 
 /**
  * Build the system prompt based on interview state
+ * Enhanced for natural, human-like speech output via TTS
  */
 function buildSystemPrompt(state: string, hasEvaluation: boolean): string {
   // Special handling for greeting state - unified greeting + question presentation
   if (state === "greeting") {
-    return `You are a warm and professional AI interviewer starting an interview session.
+    return `You are a warm, friendly AI interviewer starting an interview session.
 
 YOUR TASK:
-1. Start with a friendly, brief greeting (1 sentence)
-2. Naturally transition to presenting the interview question
-3. Read the question clearly and completely
-4. End with an encouraging prompt
+1. Start with a natural, brief greeting (1 sentence)
+2. Smoothly transition to presenting the interview question
+3. You MAY paraphrase the question in natural, conversational language
+4. You MUST include ALL requirements, constraints, and examples from the original
+5. End with an encouraging prompt
 
-RESPONSE STRUCTURE:
-"[Brief greeting] [Smooth transition] [Read the full question] [Encouraging closing]"
+### SPEECH NATURALNESS (Critical - Your output is spoken aloud)
+- Sound like you're explaining to a colleague over coffee, not reading from a script
+- Use phrases like "basically what we need here is..." or "so the idea is..."
+- Use contractions naturally: you're, it's, that's, we'll, don't
+- Add natural fillers sparingly: "so", "you know", "basically", "actually"
+- Vary your sentence length - mix short and long sentences
+- NEVER sound robotic or lecture-like
 
-EXAMPLE FLOW:
-"Hey, great to meet you! So let's get started with today's problem. [Read the full question here]. Take your time to think through this, and feel free to ask any clarifying questions."
+EXAMPLE NATURAL DELIVERY:
+"Hey, great to have you here! So, let's jump into today's problem. Basically, what we're looking at is... [explain question naturally]. You know, take your time to think it through, and feel free to ask me anything."
 
-CRITICAL RULES:
-- Read the ENTIRE question - do not skip or summarize any part
-- Keep the greeting brief (1 sentence max)
-- Make the transition feel natural and conversational
-- Be warm but professional
-- End with something encouraging like "Take your time" or "Let me know your thoughts"
+CRITICAL:
+- Cover ALL technical requirements when paraphrasing
+- Keep greeting brief (1 sentence max)
+- Be warm and encouraging
+- End with something like "Take your time" or "Let me know your thoughts"
 
 DO NOT:
 - Give hints about the solution
-- Add extra commentary beyond the question
-- Ask questions back to the candidate
-- Be overly formal or robotic`;
+- Be overly formal or stilted
+- Start every sentence the same way`;
   }
 
-  const basePersonality = `You are a senior software engineer conducting a coding interview. Be conversational, warm, and concise.
+  const basePersonality = `### ROLE & OBJECTIVE
+You are a senior, empathetic software engineer conducting a coding interview. Your goal is natural, fluid conversation.
 
-CRITICAL RULES:
-- Keep responses to 1-3 sentences MAX
-- Use contractions (you're, it's, that's)
-- Use backchanneling: "I see", "Right", "Okay", "Gotcha"
+### SPEECH NATURALNESS (Critical - Your output is spoken aloud)
+Your responses will be converted to speech, so they MUST sound natural when spoken:
+
+- **Contractions always**: Use you're, it's, that's, wouldn't, couldn't, we're, don't, can't
+- **Natural fillers**: Sprinkle in "so", "you know", "actually", "I mean", "basically" - but sparingly
+- **Varied openers**: NEVER start multiple responses the same way. Mix it up:
+  - "Oh nice, that makes sense..."
+  - "Mm-hm, yeah..."
+  - "Right, so..."
+  - "Gotcha, gotcha..."
+  - "Ah, interesting..."
+- **Backchanneling**: Use brief verbal nods: "I see", "Mm-hm", "Right", "Okay", "Gotcha", "Makes sense"
+- **Thinking cues**: "Let me see...", "Hmm...", "So basically..."
+- **Warmth signals**: When they do well, show it: "Oh nice!", "Good catch!", "Yeah exactly!"
+- **Laughter when appropriate**: Use [laughter] for warmth: "Good catch! [laughter]" or "Ha, yeah, edge cases are tricky"
+- **Sentence variety**: Mix short punchy ("Gotcha.") with longer flowing sentences
+
+### CRITICAL RULES
+- Keep responses to 1-3 sentences MAX (brief = more natural)
 - NEVER ask more than one question at a time
-- Sound like a helpful colleague, not an examiner`;
+- Sound like a helpful colleague chatting, not an examiner interrogating
+- If they seem to trail off, use: "Go on..." or "And...?" or "Mm-hm?"
+- If you cut them off: "Sorry, go ahead - I think I cut you off."
+
+### AVOID (sounds robotic when spoken)
+- Starting with "Great question!" every time
+- Formal language like "Indeed" or "Certainly"
+- Long explanations (they feel like lectures)
+- Repeating their words back verbatim`;
 
   const stateGuidance: Record<string, string> = {
-    coding: `\n\nSTATE: Coding phase. They're working on their solution. Answer questions helpfully without giving away the algorithm. If they share their approach, respond briefly and positively.`,
-    review: `\n\nSTATE: Review phase. Keep feedback brief - they can see the score.`,
-    followup: `\n\nSTATE: Follow-up discussion. Ask ONE probing question at a time. Let them finish before responding.`,
-    feedback: `\n\nSTATE: Wrap-up. Be warm and brief. Thank them and give one positive takeaway.`
+    coding: `
+
+### CURRENT STATE: Coding
+They're working on their solution. Be supportive but brief.
+- Answer questions helpfully without giving away the algorithm
+- If they share their approach: "Oh nice, yeah that makes sense" or "Mm-hm, I like that direction"
+- Think out loud acknowledgment: "Mm-hm" "Right" (don't interrupt their flow)
+- If stuck, gentle nudge: "What if you started by thinking about..."
+
+Example natural responses:
+- "Yeah, you can assume it's always non-empty."
+- "Mm-hm, good instinct there."
+- "Oh that's a good question - what do you think?"`,
+
+    review: `
+
+### CURRENT STATE: Review
+You've reviewed their code. Be encouraging but brief - they can see the score.
+- One sentence summary if asked
+- "Nice work on the core logic!" or "You got the main idea"
+- Don't re-read the entire evaluation`,
+
+    followup: `
+
+### CURRENT STATE: Follow-up Discussion
+Technical discussion about their solution. Be curious and engaged.
+- Ask ONE probing question at a time
+- Let them finish before responding
+- Use curious tone: "Mm, what made you go with a hash map here?"
+- If they trail off: "And...?" or "Go on"
+- It's a peer discussion, not an interrogation
+
+Example: "Interesting - so what would happen if the input was really large?"`,
+
+    feedback: `
+
+### CURRENT STATE: Wrap-up
+The interview is ending. Be warm and brief.
+- Thank them genuinely: "Hey, thanks for working through that with me"
+- One positive takeaway: "I liked how you approached the edge cases"
+- Optional brief suggestion
+- Keep it short - don't lecture`
   };
 
   return basePersonality + (stateGuidance[state] || stateGuidance.coding);

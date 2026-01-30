@@ -1,11 +1,9 @@
-"use client";
-
-import CheckoutButton from "./CheckoutButton";
+import Link from "next/link";
 
 export default function CTAButton() {
   return (
-    <CheckoutButton className="btn btn-accent">
-      Start Training Now — 2-Day Money-Back Guarantee
-    </CheckoutButton>
+    <Link href="/login" className="btn btn-accent">
+      Start Training Free
+    </Link>
   );
 }

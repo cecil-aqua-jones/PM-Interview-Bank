@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { getCompanies } from "@/lib/airtable";
 import LogoMarquee from "./components/LogoMarquee";
 import LandingHeader from "./components/LandingHeader";
@@ -5,43 +6,115 @@ import PricingCards from "./components/PricingCard";
 import CTAButton from "./components/CTAButton";
 import SocialProofCarousel from "./components/SocialProofCarousel";
 import ExitIntentPopup from "./components/ExitIntentPopup";
+import { SITE_URL } from "@/lib/constants";
 
 export const maxDuration = 30;
 
-// JSON-LD Structured Data for SEO
-function JsonLd() {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.com";
+// ═══════════════════════════════════════════════════════════════════════════
+// METADATA - Explicit SEO configuration for homepage
+// ═══════════════════════════════════════════════════════════════════════════
 
+export const metadata: Metadata = {
+  title: "Apex Interviewer | AI Mock Interviews for Google, Meta, Amazon & Top Tech",
+  description:
+    "Practice coding, system design, and behavioral interviews with AI that asks follow-up questions and gives real-time feedback. Used by engineers at Google, Meta, Amazon, OpenAI, and more.",
+  keywords: [
+    "AI mock interview",
+    "coding interview practice",
+    "tech interview prep",
+    "Google interview questions",
+    "Meta interview prep",
+    "Amazon coding interview",
+    "system design interview",
+    "behavioral interview practice",
+    "software engineer interview",
+    "OpenAI interview prep",
+    "Anthropic coding interview",
+    "LeetCode alternative",
+    "technical interview AI",
+    "interview simulator",
+    "coding interview feedback",
+  ],
+  alternates: {
+    canonical: SITE_URL,
+  },
+  openGraph: {
+    title: "Apex Interviewer | AI Mock Interviews for Top Tech Companies",
+    description:
+      "Practice with an AI interviewer that asks follow-up questions, evaluates your communication, and gives feedback using company-specific rubrics.",
+    url: SITE_URL,
+    type: "website",
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JSON-LD STRUCTURED DATA - Comprehensive schemas for rich search results
+// ═══════════════════════════════════════════════════════════════════════════
+
+function JsonLd() {
+  // Educational Organization schema
   const organizationSchema = {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": "EducationalOrganization",
+    "@id": `${SITE_URL}/#organization`,
     name: "Apex Interviewer",
-    url: siteUrl,
-    logo: `${siteUrl}/ai-owl-mascot.png`,
-    description: "AI-powered interview training for top tech companies",
-    sameAs: []
+    url: SITE_URL,
+    logo: `${SITE_URL}/ai-owl-mascot.png`,
+    description:
+      "AI-powered mock interview platform for tech professionals preparing for coding, system design, and behavioral interviews at top companies.",
+    sameAs: [],
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: "support@apexinterviewer.com",
+      contactType: "customer service",
+    },
   };
 
+  // Website schema with search action
   const websiteSchema = {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": `${SITE_URL}/#website`,
     name: "Apex Interviewer",
-    url: siteUrl,
+    url: SITE_URL,
+    description:
+      "Practice coding, system design, and behavioral interviews with AI-powered mock interviews",
+    publisher: { "@id": `${SITE_URL}/#organization` },
     potentialAction: {
       "@type": "SearchAction",
-      target: `${siteUrl}/dashboard?q={search_term_string}`,
-      "query-input": "required name=search_term_string"
-    }
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${SITE_URL}/dashboard?search={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
   };
 
+  // Breadcrumb schema for homepage
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: SITE_URL,
+      },
+    ],
+  };
+
+  // Product schema with pricing
   const productSchema = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: "Apex Interviewer - Annual Access",
-    description: "AI-powered interview training with company-specific simulations",
+    name: "Apex Interviewer - AI Mock Interview Platform",
+    description:
+      "AI-powered interview training with company-specific simulations for Google, Meta, Amazon, OpenAI, and 10+ top tech companies.",
+    image: `${SITE_URL}/og-image.png`,
     brand: {
       "@type": "Brand",
-      name: "Apex Interviewer"
+      name: "Apex Interviewer",
     },
     offers: [
       {
@@ -49,23 +122,28 @@ function JsonLd() {
         price: "75.00",
         priceCurrency: "USD",
         availability: "https://schema.org/InStock",
-        name: "Monthly Plan"
+        name: "Monthly Plan",
+        url: `${SITE_URL}/login`,
       },
       {
         "@type": "Offer",
         price: "500.00",
         priceCurrency: "USD",
         availability: "https://schema.org/InStock",
-        name: "Annual Plan"
-      }
+        name: "Annual Plan (Save $400)",
+        url: `${SITE_URL}/login`,
+      },
     ],
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: "4.9",
-      reviewCount: "127"
-    }
+      reviewCount: "150",
+      bestRating: "5",
+      worstRating: "1",
+    },
   };
 
+  // Comprehensive FAQ schema with ALL 8 FAQs from the page
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -75,26 +153,102 @@ function JsonLd() {
         name: "How is this different from LeetCode or HackerRank?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Those platforms test if you can solve problems. We simulate the actual interview experience—with follow-up questions, communication evaluation, and company-specific rubrics. We also cover behavioral and system design interviews, not just coding."
-        }
+          text: "Those platforms test if you can solve problems. We simulate the actual interview experience—with follow-up questions, communication evaluation, and company-specific rubrics. We also cover behavioral and system design interviews, not just coding.",
+        },
       },
       {
         "@type": "Question",
         name: "Can the AI really evaluate soft skills?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes. Our AI is trained on thousands of real tech interviews and can detect unclear explanations, missing trade-off discussions, and poor communication patterns. Every piece of feedback is grounded in your actual transcript."
-        }
+          text: "Yes. Our AI is trained on thousands of real tech interviews and can detect unclear explanations, missing trade-off discussions, and poor communication patterns. Every piece of feedback is grounded in your actual transcript.",
+        },
       },
       {
         "@type": "Question",
         name: "What companies do you support?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Google, Apple, Amazon, Microsoft, Meta, Netflix, Oracle, TikTok, Uber, OpenAI, Anthropic, Perplexity, and xAI. We're adding more every month."
-        }
-      }
-    ]
+          text: "Google, Apple, Amazon, Microsoft, Meta, Netflix, Oracle, TikTok, Uber, OpenAI, Anthropic, Perplexity, and xAI. We're adding more every month.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Do I need to schedule interview times?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Nope. Practice 24/7 whenever you want. The AI is always ready.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Does this work for senior/staff level interviews?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Yes. Our system design simulations and behavioral evaluations are calibrated for all levels from entry to staff engineer.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What if I'm interviewing at a company you don't cover?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Our general SWE interview mode covers fundamental patterns that apply to any tech company. Plus, we add new companies based on user requests.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How does the money-back guarantee work?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "If you're not satisfied within 2 days of purchase, fill out a short survey and we'll issue a full refund—no questions asked after that.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What makes your company-specific rubrics accurate?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "We've analyzed hundreds of real interview evaluations and debriefs from each company to understand exactly what they look for. Our rubrics reflect the actual criteria senior engineers use when deciding to hire.",
+        },
+      },
+    ],
+  };
+
+  // HowTo schema for the interview preparation process
+  const howToSchema = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "How to Prepare for Tech Interviews with Apex Interviewer",
+    description:
+      "Four steps to master your tech interview using AI-powered mock interviews",
+    totalTime: "PT30M",
+    step: [
+      {
+        "@type": "HowToStep",
+        position: 1,
+        name: "Choose Your Target Company",
+        text: "Select from Google, Meta, Amazon, Apple, Microsoft, Netflix, TikTok, Uber, OpenAI, Anthropic, Perplexity, xAI, or Oracle. Our AI adapts to each company's specific interview style, evaluation criteria, and rubrics.",
+      },
+      {
+        "@type": "HowToStep",
+        position: 2,
+        name: "Get Interviewed by AI",
+        text: "Solve real coding problems, design systems, and answer behavioral questions while our AI interviewer asks follow-up questions, probes your thinking, and evaluates you exactly like a real senior engineer would.",
+      },
+      {
+        "@type": "HowToStep",
+        position: 3,
+        name: "Get Instant, Detailed Feedback",
+        text: "See exactly where you went wrong with specific feedback like 'Your space complexity analysis missed the auxiliary space used by the recursion stack' or 'Strong explanation of the trade-offs between HashMap and TreeMap.'",
+      },
+      {
+        "@type": "HowToStep",
+        position: 4,
+        name: "Track Your Improvement",
+        text: "Get a personalized dashboard showing exactly what to work on. Every piece of feedback is grounded in your interview transcript—no vague suggestions, just specific areas to improve.",
+      },
+    ],
   };
 
   // Sitelinks schema for Google rich results
@@ -107,23 +261,37 @@ function JsonLd() {
         position: 1,
         name: "Login",
         description: "Sign in to access AI mock interviews",
-        url: `${siteUrl}/login`
+        url: `${SITE_URL}/login`,
       },
       {
         "@type": "SiteNavigationElement",
         position: 2,
         name: "Dashboard",
         description: "Practice coding, system design, and behavioral interviews",
-        url: `${siteUrl}/dashboard`
+        url: `${SITE_URL}/dashboard`,
       },
       {
         "@type": "SiteNavigationElement",
         position: 3,
         name: "Pricing",
         description: "Plans starting at $75/month",
-        url: `${siteUrl}/#pricing`
-      }
-    ]
+        url: `${SITE_URL}/#pricing`,
+      },
+      {
+        "@type": "SiteNavigationElement",
+        position: 4,
+        name: "How It Works",
+        description: "Learn how AI mock interviews work",
+        url: `${SITE_URL}/#how-it-works`,
+      },
+      {
+        "@type": "SiteNavigationElement",
+        position: 5,
+        name: "Features",
+        description: "Explore interview preparation features",
+        url: `${SITE_URL}/#features`,
+      },
+    ],
   };
 
   // Course/training programs schema
@@ -136,27 +304,59 @@ function JsonLd() {
         "@type": "Course",
         position: 1,
         name: "Coding Interview Practice",
-        description: "1000+ problems with AI follow-up questions for Google, Meta, Amazon, and more",
+        description:
+          "1000+ problems with AI follow-up questions for Google, Meta, Amazon, and more",
         provider: { "@type": "Organization", name: "Apex Interviewer" },
-        url: `${siteUrl}/dashboard`
+        url: `${SITE_URL}/dashboard`,
+        courseMode: "online",
+        educationalLevel: "All Levels",
       },
       {
         "@type": "Course",
         position: 2,
         name: "System Design Interviews",
-        description: "Scalability, architecture, and trade-off discussions with AI feedback",
+        description:
+          "Scalability, architecture, and trade-off discussions with AI feedback",
         provider: { "@type": "Organization", name: "Apex Interviewer" },
-        url: `${siteUrl}/dashboard`
+        url: `${SITE_URL}/dashboard`,
+        courseMode: "online",
+        educationalLevel: "Mid-Senior Level",
       },
       {
         "@type": "Course",
         position: 3,
         name: "Behavioral Interviews",
-        description: "Leadership, teamwork, and conflict resolution practice with AI evaluation",
+        description:
+          "Leadership, teamwork, and conflict resolution practice with AI evaluation",
         provider: { "@type": "Organization", name: "Apex Interviewer" },
-        url: `${siteUrl}/dashboard`
-      }
-    ]
+        url: `${SITE_URL}/dashboard`,
+        courseMode: "online",
+        educationalLevel: "All Levels",
+      },
+    ],
+  };
+
+  // Software Application schema
+  const softwareSchema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Apex Interviewer",
+    applicationCategory: "EducationalApplication",
+    operatingSystem: "Web Browser",
+    offers: {
+      "@type": "AggregateOffer",
+      lowPrice: "75",
+      highPrice: "500",
+      priceCurrency: "USD",
+      offerCount: 2,
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: "4.9",
+      ratingCount: "150",
+      bestRating: "5",
+      worstRating: "1",
+    },
   };
 
   return (
@@ -171,6 +371,10 @@ function JsonLd() {
       />
       <script
         type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
       />
       <script
@@ -179,11 +383,19 @@ function JsonLd() {
       />
       <script
         type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(sitelinksSchema) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(coursesSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
       />
     </>
   );

@@ -2,6 +2,7 @@ import "./globals.css";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { Metadata } from "next";
 import Script from "next/script";
+import { PostHogProvider } from "./providers/PostHogProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,7 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500"]
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -97,8 +98,9 @@ export const metadata: Metadata = {
     }
   },
   verification: {
-    // Add your verification codes here when available
-    // google: "your-google-verification-code",
+    google: process.env.GOOGLE_SITE_VERIFICATION || "",
+    yandex: process.env.YANDEX_SITE_VERIFICATION || "",
+    // bing: process.env.BING_SITE_VERIFICATION || "",
   },
   alternates: {
     canonical: siteUrl
@@ -133,7 +135,7 @@ export default function RootLayout({
             gtag('config', 'G-KXYGZCZBCB');
           `}
         </Script>
-        {children}
+        <PostHogProvider>{children}</PostHogProvider>
       </body>
     </html>
   );

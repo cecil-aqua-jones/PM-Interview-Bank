@@ -1,0 +1,76 @@
+# Apex Interviewer
+
+> AI-powered mock interview platform for tech professionals preparing for product management, software engineering, and system design roles at top companies.
+
+## About
+
+Apex Interviewer is an AI-powered interview preparation platform that helps candidates practice for technical interviews at leading technology companies. The platform provides realistic mock interviews with real-time AI feedback, covering:
+
+- **Coding Interviews**: Data structures, algorithms, and problem-solving
+- **System Design Interviews**: Architecture, scalability, and distributed systems
+- **Behavioral Interviews**: STAR method, leadership principles, and situational questions
+- **Product Management Interviews**: Product sense, estimation, and strategy questions
+
+## Target Companies
+
+Interview questions and practice materials for:
+- Google, Meta, Amazon, Apple, Microsoft, Netflix
+- OpenAI, Anthropic, Stripe, Airbnb, Uber, LinkedIn
+- And 50+ other top technology companies
+
+## Key Features
+
+1. **AI Mock Interviews**: Real-time voice conversations with AI interviewers
+2. **Instant Feedback**: Detailed scoring and improvement suggestions
+3. **Company-Specific Questions**: Curated questions from actual interviews
+4. **Progress Tracking**: Track your improvement over time
+5. **Multi-Format Practice**: Coding, behavioral, and system design interviews
+
+## Content Types
+
+- Interview questions with detailed solutions
+- AI-powered mock interview sessions
+- Scoring rubrics and evaluation criteria
+- Company-specific interview guides
+- Technical concept explanations
+
+## Primary URLs
+
+- Homepage: https://www.apexinterviewer.com/
+- Login: https://www.apexinterviewer.com/login
+- Dashboard: https://www.apexinterviewer.com/dashboard (requires authentication)
+
+## Pricing
+
+- Monthly Access: $75/month
+- Annual Access: $500/year (save $400)
+- Free trial available
+
+## Technical Stack
+
+- Built with Next.js 14 and React
+- AI-powered by OpenAI GPT-4 and Cartesia TTS
+- Real-time voice interaction capabilities
+
+## Contact
+
+- Website: https://www.apexinterviewer.com
+- Support: support@apexinterviewer.com
+
+## Structured Data
+
+This site implements Schema.org structured data including:
+- Organization
+- Product
+- Course
+- FAQPage
+- WebSite with SearchAction
+- BreadcrumbList
+
+## Crawling Guidelines
+
+- All public pages are available for indexing
+- Protected dashboard content requires authentication
+- API endpoints are not for crawling
+- Sitemap available at /sitemap.xml
+- robots.txt available at /robots.txt

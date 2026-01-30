@@ -33,25 +33,92 @@ export function getCartesiaApiKey(): string {
 
 /**
  * Cartesia Sonic-3 TTS Voice Options
- * Professional voices suitable for interview context
+ * Using emotive voices for natural, human-like speech
  * 
  * Browse all voices at: https://play.cartesia.ai/
  */
 export const CARTESIA_VOICES = {
-  // Stable voices (recommended for voice agents)
+  // Stable voices (recommended for production voice agents)
   KATIE: "f786b574-daa5-4673-aa0c-cbe3e8534c02",     // Warm, professional female
   KIEFER: "228fca29-3a0a-435c-8728-5cb483251068",   // Professional male
+  RONALD: "daf749c6-4c84-4458-ba4d-e5d1b3ed511b",   // Stable male
+  JACQUELINE: "a3520a8f-226a-428d-9fcd-b0a4711a6829", // Stable female
   
-  // Emotive voices (recommended for expressive characters)
-  TESSA: "6ccbfb76-1fc6-48f7-b71d-91ac6298247b",    // Emotive female
+  // Emotive voices (recommended for expressive, natural speech)
+  TESSA: "6ccbfb76-1fc6-48f7-b71d-91ac6298247b",    // Emotive female - warm, expressive
   KYLE: "c961b81c-a935-4c17-bfb3-ba2239de8c2f",     // Emotive male
-  LEO: "0834f3df-e650-4766-a20c-5a93a43aa6e3",      // Emotive male
+  LEO: "0834f3df-e650-4766-a20c-5a93a43aa6e3",      // Emotive male - best emotional response
+  MAYA: "cbaf8084-f009-4838-a096-07ee2e6612b1",     // Emotive female
   
-  // Default voice for interview context
-  DEFAULT: "f786b574-daa5-4673-aa0c-cbe3e8534c02",  // Katie - warm, professional
+  // Default voice for interview context - Tessa for natural, warm expressiveness
+  DEFAULT: "6ccbfb76-1fc6-48f7-b71d-91ac6298247b",  // Tessa - emotive, natural
 } as const;
 
 export type CartesiaVoice = typeof CARTESIA_VOICES[keyof typeof CARTESIA_VOICES];
+
+/**
+ * Supported emotions for Cartesia Sonic-3 TTS
+ * Primary emotions have best results; others are available but experimental
+ */
+export const TTS_EMOTIONS = {
+  // Primary emotions (best quality)
+  NEUTRAL: "neutral",
+  CONTENT: "content",       // Warm, approachable - good default
+  ENTHUSIASTIC: "enthusiastic", // For greetings
+  CURIOUS: "curious",       // For follow-up questions
+  AFFECTIONATE: "affectionate", // For encouraging feedback
+  
+  // Secondary emotions (good for variety)
+  CALM: "calm",
+  FRIENDLY: "friendly",
+  SYMPATHETIC: "sympathetic",
+  CONFIDENT: "confident",
+  
+  // Contextual emotions
+  EXCITED: "excited",       // When candidate does well
+  CONTEMPLATIVE: "contemplative", // When thinking
+} as const;
+
+export type TTSEmotion = typeof TTS_EMOTIONS[keyof typeof TTS_EMOTIONS];
+
+/**
+ * Emotion mapping for different interview states
+ * Maps interview phases to appropriate emotional tones
+ */
+export const INTERVIEW_STATE_EMOTIONS: Record<string, TTSEmotion> = {
+  greeting: TTS_EMOTIONS.ENTHUSIASTIC,   // Warm welcome
+  coding: TTS_EMOTIONS.CONTENT,          // Supportive, calm
+  review: TTS_EMOTIONS.NEUTRAL,          // Professional feedback
+  followup: TTS_EMOTIONS.CURIOUS,        // Engaged discussion
+  feedback: TTS_EMOTIONS.AFFECTIONATE,   // Encouraging wrap-up
+  default: TTS_EMOTIONS.CONTENT,         // Fallback
+};
+
+/**
+ * Get the appropriate emotion for an interview state
+ */
+export function getEmotionForState(state: string): TTSEmotion {
+  return INTERVIEW_STATE_EMOTIONS[state] || INTERVIEW_STATE_EMOTIONS.default;
+}
+
+/**
+ * TTS Generation Config for natural speech
+ * These parameters guide the model for more human-like output
+ */
+export interface TTSGenerationConfig {
+  speed?: number;    // 0.6 to 1.5 (1.0 = normal)
+  emotion?: TTSEmotion;
+  volume?: number;   // 0.5 to 2.0 (1.0 = normal)
+}
+
+/**
+ * Default generation config for natural interview speech
+ */
+export const DEFAULT_GENERATION_CONFIG: TTSGenerationConfig = {
+  speed: 1.0,
+  emotion: TTS_EMOTIONS.CONTENT,
+  volume: 1.0,
+};
 
 /**
  * Cartesia TTS configuration for interview context
@@ -152,15 +219,47 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export interface GenerateTTSOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
+  generationConfig?: TTSGenerationConfig;
 }
 
 /**
- * Default timeout for TTS generation (10 seconds)
+ * Default timeout for TTS generation (30 seconds)
+ * Increased from 10s because successful calls often take 7-8s under load
  */
-const DEFAULT_TTS_TIMEOUT = 10000;
+const DEFAULT_TTS_TIMEOUT = 30000;
+
+/**
+ * Activity timeout - reset timer when receiving chunks (15 seconds)
+ * This prevents timeout during active streaming
+ */
+const ACTIVITY_TIMEOUT = 15000;
+
+/**
+ * TTS retry configuration for transient WebSocket failures
+ */
+const TTS_MAX_RETRIES = 3;
+const TTS_INITIAL_RETRY_DELAY = 500; // ms
+
+/**
+ * Check if an error is retryable (transient network issues)
+ */
+function isRetryableTTSError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("websocket closed unexpectedly") ||
+    message.includes("1006") ||
+    message.includes("econnreset") ||
+    message.includes("connection error") ||
+    message.includes("etimedout") ||
+    message.includes("enotfound") ||
+    message.includes("socket hang up") ||
+    message.includes("network")
+  );
+}
 
 /**
  * Generate TTS audio using Cartesia Sonic-3 via WebSocket
+ * Includes automatic retry logic for transient network failures
  * Returns audio as ArrayBuffer (PCM s16le format)
  * 
  * @param text - Text to convert to speech
@@ -176,16 +275,70 @@ export async function generateTTS(
     throw new Error("CARTESIA_API_KEY environment variable is not set");
   }
   
-  const { signal, timeoutMs = DEFAULT_TTS_TIMEOUT } = options;
+  const { signal } = options;
   
-  // Check if already aborted
+  // Check if already aborted before starting
   if (signal?.aborted) {
     const error = new Error("TTS generation aborted");
     error.name = "AbortError";
     throw error;
   }
   
-  console.log(`[Cartesia TTS] Generating speech for ${text.length} chars with voice ${voiceId} (timeout: ${timeoutMs}ms)`);
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < TTS_MAX_RETRIES; attempt++) {
+    // Check abort before each attempt
+    if (signal?.aborted) {
+      const error = new Error("TTS generation aborted");
+      error.name = "AbortError";
+      throw error;
+    }
+    
+    try {
+      return await attemptTTSGeneration(text, voiceId, options, attempt);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry abort errors
+      if (lastError.name === "AbortError") {
+        throw lastError;
+      }
+      
+      // Check if error is retryable
+      const isRetryable = isRetryableTTSError(lastError);
+      
+      if (!isRetryable || attempt === TTS_MAX_RETRIES - 1) {
+        throw lastError;
+      }
+      
+      // Exponential backoff
+      const delay = TTS_INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+      console.log(`[Cartesia TTS] Retry ${attempt + 1}/${TTS_MAX_RETRIES} after ${delay}ms: ${lastError.message}`);
+      await sleep(delay);
+    }
+  }
+  
+  throw lastError || new Error("TTS generation failed after retries");
+}
+
+/**
+ * Internal function to attempt a single TTS generation via WebSocket
+ * Called by generateTTS with retry logic
+ */
+async function attemptTTSGeneration(
+  text: string,
+  voiceId: CartesiaVoice,
+  options: GenerateTTSOptions,
+  attemptNumber: number = 0
+): Promise<ArrayBuffer> {
+  const { 
+    signal, 
+    timeoutMs = DEFAULT_TTS_TIMEOUT,
+    generationConfig = DEFAULT_GENERATION_CONFIG 
+  } = options;
+  
+  const attemptLabel = attemptNumber > 0 ? ` (attempt ${attemptNumber + 1})` : '';
+  console.log(`[Cartesia TTS] Generating speech for ${text.length} chars with voice ${voiceId}${attemptLabel} (timeout: ${timeoutMs}ms)`);
   
   return new Promise((resolve, reject) => {
     const wsUrl = getTTSWebSocketUrl();
@@ -193,6 +346,8 @@ export async function generateTTS(
     const audioChunks: ArrayBuffer[] = [];
     const contextId = `tts-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let isResolved = false;
+    let activityTimer: ReturnType<typeof setTimeout> | null = null;
+    let absoluteTimer: ReturnType<typeof setTimeout> | null = null;
     
     // Handle abort signal
     const abortHandler = () => {
@@ -209,18 +364,54 @@ export async function generateTTS(
       signal.addEventListener("abort", abortHandler, { once: true });
     }
     
+    // Reset activity timeout (called when receiving data)
+    const resetActivityTimer = () => {
+      if (activityTimer) {
+        clearTimeout(activityTimer);
+      }
+      activityTimer = setTimeout(() => {
+        if (!isResolved && ws.readyState === WebSocket.OPEN) {
+          console.log(`[Cartesia TTS] Activity timeout after ${ACTIVITY_TIMEOUT}ms of inactivity`);
+          cleanup();
+          ws.close();
+          reject(new Error("TTS generation timeout (no activity)"));
+        }
+      }, ACTIVITY_TIMEOUT);
+    };
+    
     // Cleanup function
     const cleanup = () => {
       isResolved = true;
       if (signal) {
         signal.removeEventListener("abort", abortHandler);
       }
+      if (activityTimer) {
+        clearTimeout(activityTimer);
+      }
+      if (absoluteTimer) {
+        clearTimeout(absoluteTimer);
+      }
     };
     
     ws.onopen = () => {
       console.log("[Cartesia TTS] WebSocket connected");
       
-      // Send generation request
+      // Start activity timer (will be reset when chunks arrive)
+      resetActivityTimer();
+      
+      // Build generation_config for natural speech
+      const genConfig: Record<string, unknown> = {};
+      if (generationConfig.speed !== undefined) {
+        genConfig.speed = generationConfig.speed;
+      }
+      if (generationConfig.emotion) {
+        genConfig.emotion = generationConfig.emotion;
+      }
+      if (generationConfig.volume !== undefined) {
+        genConfig.volume = generationConfig.volume;
+      }
+      
+      // Send generation request with emotion/speed controls
       const request = {
         model_id: TTS_CONFIG.model_id,
         transcript: text,
@@ -233,14 +424,19 @@ export async function generateTTS(
         output_format: TTS_CONFIG.output_format,
         add_timestamps: false,
         continue: false,
+        ...(Object.keys(genConfig).length > 0 && { generation_config: genConfig }),
       };
       
+      console.log(`[Cartesia TTS] Request with emotion: ${generationConfig.emotion || 'default'}, speed: ${generationConfig.speed || 1.0}`);
       ws.send(JSON.stringify(request));
     };
     
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        
+        // Reset activity timer on any message
+        resetActivityTimer();
         
         if (data.type === "chunk" && data.data) {
           // Decode base64 audio chunk
@@ -292,13 +488,13 @@ export async function generateTTS(
       }
     };
     
-    // Timeout using provided timeout value
-    setTimeout(() => {
+    // Absolute timeout using provided timeout value (fallback safety)
+    absoluteTimer = setTimeout(() => {
       if (!isResolved && ws.readyState === WebSocket.OPEN) {
-        console.log(`[Cartesia TTS] Timeout after ${timeoutMs}ms`);
+        console.log(`[Cartesia TTS] Absolute timeout after ${timeoutMs}ms`);
         cleanup();
         ws.close();
-        reject(new Error("TTS generation timeout"));
+        reject(new Error("TTS generation timeout (absolute limit)"));
       }
     }, timeoutMs);
   });

@@ -1,6 +1,7 @@
 import AppShell from "@/components/AppShell";
 import AuthGuard from "@/components/AuthGuard";
 import ScreenshotProtection from "@/components/ScreenshotProtection";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export default function DashboardLayout({
   children
@@ -14,7 +15,9 @@ export default function DashboardLayout({
         blurOnInactive={true}
         watermark="Apex Interviewer - Confidential"
       >
-        <AppShell>{children}</AppShell>
+        <AppShell>
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </AppShell>
       </ScreenshotProtection>
     </AuthGuard>
   );

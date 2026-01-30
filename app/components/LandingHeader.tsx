@@ -1,8 +1,5 @@
-"use client";
-
 import Link from "next/link";
 import AnimatedMascot from "@/components/AnimatedMascot";
-import CheckoutButton from "./CheckoutButton";
 
 export default function LandingHeader() {
   return (
@@ -22,9 +19,9 @@ export default function LandingHeader() {
           <a href="#proof">Results</a>
           <a href="#pricing">Pricing</a>
         </nav>
-        <CheckoutButton className="btn btn-primary">
-          Get Access
-        </CheckoutButton>
+        <Link href="/login" className="btn btn-primary">
+          Try Free
+        </Link>
       </div>
     </header>
   );

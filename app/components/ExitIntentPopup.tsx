@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { track } from "@/lib/posthog";
 
 const STORAGE_KEY = "apex_exit_popup_shown";
 const STORAGE_SUBSCRIBED_KEY = "apex_subscribed";
@@ -30,8 +31,10 @@ export default function ExitIntentPopup() {
       // Only trigger when mouse moves toward top of viewport (browser chrome)
       if (e.clientY <= 10 && !hasTriggered) {
         hasTriggered = true;
+        track({ name: "exit_popup_triggered" });
         setIsVisible(true);
         localStorage.setItem(STORAGE_KEY, Date.now().toString());
+        track({ name: "exit_popup_shown" });
       }
     };
 
@@ -58,12 +61,20 @@ export default function ExitIntentPopup() {
     };
   }, [isVisible]);
 
+  // Track if user interacted with the form
+  const hadInteractionRef = useRef(false);
+
   const handleClose = () => {
+    track({
+      name: "exit_popup_closed",
+      properties: { had_interaction: hadInteractionRef.current },
+    });
     setIsVisible(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    hadInteractionRef.current = true;
     
     if (!email.trim()) {
       setErrorMessage("Please enter your email");
@@ -90,6 +101,11 @@ export default function ExitIntentPopup() {
         throw new Error(data.error || "Something went wrong");
       }
 
+      track({
+        name: "exit_popup_subscribed",
+        properties: { has_first_name: !!firstName.trim() },
+      });
+
       setStatus("success");
       localStorage.setItem(STORAGE_SUBSCRIBED_KEY, "true");
       
@@ -98,8 +114,13 @@ export default function ExitIntentPopup() {
         setIsVisible(false);
       }, 3000);
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Something went wrong";
+      track({
+        name: "exit_popup_subscription_failed",
+        properties: { error: errorMsg },
+      });
       setStatus("error");
-      setErrorMessage(err instanceof Error ? err.message : "Something went wrong");
+      setErrorMessage(errorMsg);
     }
   };
 

@@ -1,5 +1,5 @@
 {
-  "name": "product-leaks",
+  "name": "apex-interviewer",
   "buildCommand": "next build",
   "framework": "nextjs",
   "functions": {

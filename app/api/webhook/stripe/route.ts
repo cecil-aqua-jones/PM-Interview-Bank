@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { getSubscriptionConfirmationEmail } from "@/lib/emailTemplates";
+import { render } from "@react-email/render";
+import { SubscriptionConfirmationEmail, subscriptionSubject } from "@/emails";
+import {
+  captureServerEvent,
+  identifyServerUser,
+  flushPostHog,
+} from "@/lib/posthog-server";
+import { SITE_URL } from "@/lib/constants";
 
 function getStripe(): Stripe | null {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -64,6 +71,16 @@ export async function POST(req: NextRequest) {
         const { data: users } = await supabaseAdmin.auth.admin.listUsers();
         const user = users?.users?.find((u) => u.email === customerEmail);
 
+        // Extract payment details for tracking
+        const planType = session.metadata?.plan_type || "annual";
+        const amountInCents =
+          session.amount_total || (planType === "monthly" ? 7500 : 50000);
+        const amountInDollars = amountInCents / 100;
+
+        // Use user.id for PostHog to match client-side identity (AuthGuard uses session.user.id)
+        // Fall back to email for pending payments (user hasn't signed up yet)
+        const posthogDistinctId = user?.id || customerEmail;
+
         if (user) {
           // Update user metadata to mark as paid
           await supabaseAdmin.auth.admin.updateUserById(user.id, {
@@ -85,31 +102,56 @@ export async function POST(req: NextRequest) {
           console.log("[Webhook] Pending payment recorded:", customerEmail);
         }
 
-        // Send beautiful confirmation email via Resend
+        // Track purchase event in PostHog for revenue analytics
+        // Uses user.id when available to match client-side identity
+        captureServerEvent(posthogDistinctId, "purchase", {
+          plan: planType,
+          revenue: amountInDollars,
+          currency: "USD",
+          stripe_session_id: session.id,
+          promo_code: session.metadata?.promo_code || null,
+          discount_applied: session.metadata?.discount_applied || null,
+          // Include email for reference (useful if distinct_id is user.id)
+          customer_email: customerEmail,
+        });
+
+        // Update user properties in PostHog
+        // Note: Cumulative revenue is tracked via 'purchase' events above,
+        // which PostHog aggregates automatically for revenue analytics.
+        identifyServerUser(posthogDistinctId, {
+          properties: {
+            has_paid: true,
+            plan_type: planType,
+            last_purchase_amount: amountInDollars,
+            last_purchase_date: new Date().toISOString(),
+          },
+          propertiesSetOnce: {
+            first_purchase_date: new Date().toISOString(),
+            first_plan_type: planType,
+          },
+        });
+
+        console.log("[Webhook] PostHog purchase tracked:", posthogDistinctId, `$${amountInDollars}`);
+
+        // Send beautiful confirmation email via Resend using React Email
         const resend = getResend();
         if (resend) {
-          const planType = session.metadata?.plan_type || "annual";
-          const amountPaid = session.amount_total 
-            ? `$${(session.amount_total / 100).toFixed(0)}` 
-            : planType === "monthly" ? "$75" : "$500";
-          const planName = planType === "monthly" 
-            ? "Monthly Access" 
-            : "Annual Access";
-          const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
+          const amountPaid = `$${amountInDollars.toFixed(0)}`;
+          const planName =
+            planType === "monthly" ? "Monthly Access" : "Annual Access";
+          const dashboardUrl = `${SITE_URL}/dashboard`;
 
-          const emailContent = getSubscriptionConfirmationEmail({
-            planName,
-            amount: amountPaid,
-            dashboardUrl: `${siteUrl}/dashboard`,
-          });
+          const emailProps = { planName, amount: amountPaid, dashboardUrl };
+          const html = await render(SubscriptionConfirmationEmail(emailProps));
+          const text = await render(SubscriptionConfirmationEmail(emailProps), { plainText: true });
 
           try {
             await resend.emails.send({
               from: FROM_EMAIL,
               to: customerEmail,
-              subject: emailContent.subject,
-              html: emailContent.html,
-              text: emailContent.text,
+              subject: subscriptionSubject,
+              html,
+              text,
               tags: [
                 { name: "type", value: "subscription_confirmation" },
                 { name: "plan", value: planType },
@@ -125,6 +167,9 @@ export async function POST(req: NextRequest) {
       }
     }
   }
+
+  // Flush PostHog events before returning (important for serverless)
+  await flushPostHog();
 
   return NextResponse.json({ received: true });
 }

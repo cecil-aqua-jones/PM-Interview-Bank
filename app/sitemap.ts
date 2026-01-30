@@ -1,45 +1,70 @@
 import { MetadataRoute } from "next";
-import { getCompanies } from "@/lib/airtable";
+import { SITE_URL } from "@/lib/constants";
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.com";
-
+/**
+ * Sitemap Generation
+ * ==================
+ * Generates sitemap.xml for search engine crawlers.
+ * Only includes public, indexable pages.
+ * 
+ * Protected routes (dashboard, company pages) are excluded
+ * as they require authentication.
+ */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Static pages
-  const staticPages: MetadataRoute.Sitemap = [
+  const currentDate = new Date();
+
+  // Public pages only - protected routes are excluded
+  const pages: MetadataRoute.Sitemap = [
+    // Homepage - highest priority
     {
-      url: siteUrl,
-      lastModified: new Date(),
+      url: SITE_URL,
+      lastModified: currentDate,
       changeFrequency: "weekly",
-      priority: 1.0
+      priority: 1.0,
     },
+    // Login page - important for SEO
     {
-      url: `${siteUrl}/login`,
-      lastModified: new Date(),
+      url: `${SITE_URL}/login`,
+      lastModified: currentDate,
       changeFrequency: "monthly",
-      priority: 0.5
+      priority: 0.8,
+    },
+    // Section anchors for better crawling
+    {
+      url: `${SITE_URL}/#how-it-works`,
+      lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.7,
     },
     {
-      url: `${siteUrl}/dashboard`,
-      lastModified: new Date(),
+      url: `${SITE_URL}/#features`,
+      lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${SITE_URL}/#pricing`,
+      lastModified: currentDate,
       changeFrequency: "weekly",
-      priority: 0.9
-    }
+      priority: 0.9,
+    },
+    {
+      url: `${SITE_URL}/#proof`,
+      lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${SITE_URL}/#companies`,
+      lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
   ];
 
-  // Dynamic company pages
-  let companyPages: MetadataRoute.Sitemap = [];
-  
-  try {
-    const companies = await getCompanies();
-    companyPages = companies.map((company) => ({
-      url: `${siteUrl}/dashboard/company/${company.slug}`,
-      lastModified: new Date(),
-      changeFrequency: "weekly" as const,
-      priority: 0.8
-    }));
-  } catch (error) {
-    console.error("[Sitemap] Error fetching companies:", error);
-  }
+  // Note: Dashboard and company pages are protected behind authentication
+  // and are intentionally excluded from the sitemap.
+  // They are also blocked in robots.txt for crawlers.
 
-  return [...staticPages, ...companyPages];
+  return pages;
 }

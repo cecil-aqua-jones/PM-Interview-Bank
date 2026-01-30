@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { render } from "@react-email/render";
 import {
-  getNurtureDay3Email,
-  getNurtureDay5Email,
-  getNurtureDay7Email,
-  getNurtureDay14Email,
-} from "@/lib/emailTemplates";
+  NurtureDay3Email,
+  nurtureDay3Subject,
+  NurtureDay5Email,
+  nurtureDay5Subject,
+  NurtureDay7Email,
+  nurtureDay7Subject,
+  NurtureDay14Email,
+  nurtureDay14Subject,
+} from "@/emails";
+import { SITE_URL } from "@/lib/constants";
 
 // Initialize clients
 function getSupabaseAdmin() {
@@ -26,32 +32,49 @@ const NURTURE_DAYS = [3, 5, 7, 14] as const;
 
 type NurtureDay = typeof NURTURE_DAYS[number];
 
-// Get the email template for a specific day
-function getEmailForDay(day: NurtureDay, checkoutUrl: string) {
+// Get the email template and subject for a specific day
+async function getEmailForDay(day: NurtureDay, checkoutUrl: string) {
   switch (day) {
-    case 3:
-      return getNurtureDay3Email({ checkoutUrl });
-    case 5:
-      return getNurtureDay5Email({ checkoutUrl });
-    case 7:
-      return getNurtureDay7Email({ checkoutUrl });
-    case 14:
-      return getNurtureDay14Email({ checkoutUrl });
+    case 3: {
+      const html = await render(NurtureDay3Email({ checkoutUrl }));
+      const text = await render(NurtureDay3Email({ checkoutUrl }), { plainText: true });
+      return { subject: nurtureDay3Subject, html, text };
+    }
+    case 5: {
+      const html = await render(NurtureDay5Email({ checkoutUrl }));
+      const text = await render(NurtureDay5Email({ checkoutUrl }), { plainText: true });
+      return { subject: nurtureDay5Subject, html, text };
+    }
+    case 7: {
+      const html = await render(NurtureDay7Email({ checkoutUrl }));
+      const text = await render(NurtureDay7Email({ checkoutUrl }), { plainText: true });
+      return { subject: nurtureDay7Subject, html, text };
+    }
+    case 14: {
+      const html = await render(NurtureDay14Email({ checkoutUrl }));
+      const text = await render(NurtureDay14Email({ checkoutUrl }), { plainText: true });
+      return { subject: nurtureDay14Subject, html, text };
+    }
   }
 }
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret (Vercel sends this automatically, or manual calls need it)
-  const authHeader = req.headers.get("authorization");
+  // Verify cron secret - REQUIRED for security
+  // Vercel automatically sends CRON_SECRET as Authorization header for cron jobs
   const cronSecret = process.env.CRON_SECRET;
   
-  // Allow Vercel cron (no auth) or manual calls with secret
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // Check if this is a Vercel cron request (they don't send auth header)
-    const isVercelCron = req.headers.get("x-vercel-cron") === "true";
-    if (!isVercelCron) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!cronSecret) {
+    console.error("[Nurture Cron] CRON_SECRET environment variable not configured");
+    return NextResponse.json(
+      { error: "Cron job not configured" },
+      { status: 500 }
+    );
+  }
+  
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    console.warn("[Nurture Cron] Unauthorized access attempt");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const supabaseAdmin = getSupabaseAdmin();
@@ -67,7 +90,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Email service not configured" }, { status: 500 });
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
   const results = {
     processed: 0,
     sent: 0,
@@ -120,7 +142,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Get the appropriate email template
-      const emailContent = getEmailForDay(daysSinceSignup as NurtureDay, `${siteUrl}/dashboard`);
+      const emailContent = await getEmailForDay(daysSinceSignup as NurtureDay, `${SITE_URL}/dashboard`);
 
       try {
         // Send the email

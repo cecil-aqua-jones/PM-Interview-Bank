@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { track, getEmailDomain } from "@/lib/posthog";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,12 +14,18 @@ export default function LoginPage() {
   );
   const [message, setMessage] = useState("");
 
+  // Track page view on mount
+  useEffect(() => {
+    track({ name: "login_page_viewed" });
+  }, []);
+
   // Check for error in URL params
   useEffect(() => {
     const error = searchParams.get("error");
     if (error) {
       setStatus("error");
       setMessage(error);
+      track({ name: "login_error", properties: { error } });
     }
   }, [searchParams]);
 
@@ -39,12 +46,18 @@ export default function LoginPage() {
     setStatus("loading");
     setMessage("");
 
+    const trimmedEmail = email.trim();
+    track({
+      name: "login_magic_link_requested",
+      properties: { email_domain: getEmailDomain(trimmedEmail) },
+    });
+
     try {
       // Use custom magic link API with beautiful Resend emails
       const response = await fetch("/api/auth/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: trimmedEmail }),
       });
 
       const data = await response.json();
@@ -53,11 +66,15 @@ export default function LoginPage() {
         throw new Error(data.error || "Failed to send magic link");
       }
 
+      track({ name: "login_magic_link_sent" });
       setStatus("sent");
       setMessage("Check your email for the magic link.");
     } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Something went wrong";
+      track({ name: "login_error", properties: { error: errorMessage } });
       setStatus("error");
-      setMessage(err instanceof Error ? err.message : "Something went wrong");
+      setMessage(errorMessage);
     }
   };
 

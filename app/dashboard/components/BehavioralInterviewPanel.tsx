@@ -8,6 +8,7 @@ import { saveBehavioralInterview, getBehavioralInterview } from "@/lib/interview
 import { BehavioralEvaluationResult } from "@/lib/behavioralRubric";
 import { Question } from "@/lib/types";
 import { isGreeting } from "@/lib/greetingDetection";
+import { track } from "@/lib/posthog";
 import FormattedContent from "./FormattedContent";
 import styles from "../app.module.css";
 
@@ -88,6 +89,17 @@ export default function BehavioralInterviewPanel({
   // Question refs to avoid stale closures
   const questionTitleRef = useRef(question.title);
   const questionPromptRef = useRef(question.prompt);
+  const questionIdRef = useRef(question.id);
+  const questionCompanyNameRef = useRef(question.companyName);
+  
+  // Track if we've fired the interview_started event for this question
+  const hasTrackedStartRef = useRef<string | null>(null);
+  
+  // Ref for evaluation to avoid stale closures in callbacks
+  const evaluationRef = useRef(evaluation);
+  useEffect(() => {
+    evaluationRef.current = evaluation;
+  }, [evaluation]);
 
   // Recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -117,7 +129,9 @@ export default function BehavioralInterviewPanel({
   useEffect(() => {
     questionTitleRef.current = question.title;
     questionPromptRef.current = question.prompt;
-  }, [question.title, question.prompt]);
+    questionIdRef.current = question.id;
+    questionCompanyNameRef.current = question.companyName;
+  }, [question.title, question.prompt, question.id, question.companyName]);
 
   // Streaming hooks
   const streamingConversation = useStreamingConversation();
@@ -392,6 +406,18 @@ export default function BehavioralInterviewPanel({
 
       const data = await evalResponse.json();
       setEvaluation(data.evaluation);
+
+      // Track interview completed
+      track({
+        name: "interview_completed",
+        properties: {
+          type: "behavioral",
+          company: question.companyName ?? "unknown",
+          question_id: question.id,
+          score: data.evaluation.overallScore,
+          duration_seconds: Math.floor((Date.now() - interviewStartTimeRef.current) / 1000),
+        },
+      });
 
       // Save to localStorage
       saveBehavioralInterview(question.id, data.evaluation, candidateResponses, conversationRef.current);
@@ -1089,10 +1115,30 @@ export default function BehavioralInterviewPanel({
     };
   }, []);
 
+  // Track interview start time for duration analytics
+  const interviewStartTimeRef = useRef<number>(Date.now());
+
   // Animate panel in
   useEffect(() => {
     requestAnimationFrame(() => setIsVisible(true));
   }, []);
+
+  // Track interview started - only once per question
+  useEffect(() => {
+    if (hasTrackedStartRef.current === question.id) return;
+    hasTrackedStartRef.current = question.id;
+    interviewStartTimeRef.current = Date.now(); // Reset timer for new question
+    
+    track({
+      name: "interview_started",
+      properties: {
+        type: "behavioral",
+        company: question.companyName ?? "unknown",
+        question_id: question.id,
+        question_title: question.title,
+      },
+    });
+  }, [question.id, question.companyName, question.title]);
 
   // Reset on question change - reinitialize conversation with new question
   useEffect(() => {
@@ -1303,6 +1349,17 @@ export default function BehavioralInterviewPanel({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleClose = useCallback(() => {
+    // Track interview closed
+    track({
+      name: "interview_closed",
+      properties: {
+        type: "behavioral",
+        company: questionCompanyNameRef.current ?? "unknown",
+        question_id: questionIdRef.current,
+        completed: evaluationRef.current !== null,
+      },
+    });
+
     isClosingRef.current = true;
     setIsClosing(true);
     setIsVisible(false);

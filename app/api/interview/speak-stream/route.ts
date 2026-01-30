@@ -3,60 +3,75 @@ import { sanitizeForLLM, validateLength } from "@/lib/security";
 import { 
   generateTTS, 
   isCartesiaConfigured, 
-  CARTESIA_VOICES 
+  CARTESIA_VOICES,
+  TTS_EMOTIONS,
+  getEmotionForState,
+  type TTSGenerationConfig,
 } from "@/lib/cartesia";
 import { sanitizeForTTS } from "@/lib/questionSanitizer";
+import { preprocessStandard } from "@/lib/ttsPreprocessor";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // Character threshold for summarization
 const LONG_QUESTION_THRESHOLD = 400;
 
-// Natural, conversational preambles - varied to sound human
+// Natural, conversational preambles - varied to sound incredibly human
+// Using filler words and natural speech patterns that sound great via TTS
 const PREAMBLES = [
-  "Hey, thanks for being here. So,",
+  "Hey, thanks for being here! So,",
   "Alright, let's jump into this one.",
   "Great to have you. Okay, so",
   "Thanks for joining. Let's see here...",
   "Okay, perfect. So here's what I've got for you.",
   "Alright, let's do this. So,",
-  "Hey, great to meet you. Okay so,",
+  "Hey, great to meet you! Okay so,",
   "Alright, let's get into it.",
+  "Hey! Good to see you. So,",
+  "Okay cool, let's dive in.",
+  "Alright, ready when you are. So,",
+  "Hey there! Let's get started.",
 ];
 
-// Natural transitions - more conversational
+// Natural transitions - very conversational with thinking cues
 const TRANSITIONS = [
   "here's the problem I'd like you to work on.",
   "I'm gonna walk you through the question.",
   "let me describe what we're looking for here.",
   "here's what we've got.",
-  "I'll lay out the problem for you.",
+  "basically, here's the deal.",
+  "so the idea is this.",
+  "let me lay this out for you.",
+  "here's what I need you to look at.",
 ];
 
-// Short question closings - encouraging and human
+// Short question closings - encouraging, warm, and natural
 const CLOSINGS_SHORT = [
   "So yeah, take a sec to think through your approach, and whenever you're ready, just start walking me through your thinking.",
   "Take your time with this. There's no rush. Just let me know when you want to start talking through your solution.",
   "Feel free to think out loud as you work through it. I'm here to have a conversation, not to pressure you.",
   "Just think it through and start whenever you're comfortable. I'm interested in hearing how you approach this.",
   "No need to rush into it. Take a moment, and when you're ready, walk me through how you'd tackle this.",
+  "You know, just take your time. Think it through and we'll chat about it whenever you're ready.",
+  "So yeah, no pressure. Think about your approach and start whenever feels right.",
 ];
 
-// Long question closings - guiding them to read details
+// Long question closings - guiding them naturally to read details
 const CLOSINGS_LONG = [
   "Now, there's more detail in the problem description on your screen, so definitely read through that carefully. The examples especially will help. Take your time, and start coding whenever you're ready.",
   "That's the high-level idea, but the full requirements are on screen. I'd recommend going through the examples and constraints before diving in. Let me know if anything's unclear.",
   "So yeah, that's the gist. But make sure to read through the specifics on screen, especially the edge cases. Those tend to trip people up. Start whenever you're ready.",
   "The complete problem is shown there for you. Read through it, make sure you understand the constraints, and feel free to ask me any clarifying questions before you start.",
+  "I know that's a lot, but it's all written out for you on screen. Take your time reading through it, and let me know if you have any questions.",
 ];
 
 /**
  * Generate TTS for a single sentence with retry logic and timeout
- * Uses Cartesia Sonic-3 for fast, high-quality TTS
+ * Uses Cartesia Sonic-3 with emotive voice for natural, human-like speech
  */
 async function generateTTSForSentence(sentence: string, index: number, retryCount = 0): Promise<string | null> {
   const MAX_RETRIES = 2;
-  const TTS_TIMEOUT = 10000; // 10 second timeout per request
+  const TTS_TIMEOUT = 15000; // 15 second timeout per request
   
   // Create abort controller for timeout
   const abortController = new AbortController();
@@ -66,12 +81,21 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
   }, TTS_TIMEOUT);
   
   try {
+    // Preprocess text for natural pauses
+    const processedSentence = preprocessStandard(sentence);
+    
     console.log(`[TTS] Starting Cartesia request for sentence ${index}: "${sentence.slice(0, 30)}..."`);
     
-    // Generate TTS using Cartesia Sonic-3 with abort signal and timeout
-    const audioBuffer = await generateTTS(sentence, CARTESIA_VOICES.KATIE, {
+    // Generate TTS using emotive voice with enthusiastic tone for greetings
+    const generationConfig: TTSGenerationConfig = {
+      speed: 1.0,
+      emotion: index === 0 ? TTS_EMOTIONS.ENTHUSIASTIC : TTS_EMOTIONS.CONTENT,
+    };
+    
+    const audioBuffer = await generateTTS(processedSentence, CARTESIA_VOICES.DEFAULT, {
       signal: abortController.signal,
       timeoutMs: TTS_TIMEOUT,
+      generationConfig,
     });
     
     clearTimeout(timeoutId);
@@ -103,7 +127,8 @@ async function generateTTSForSentence(sentence: string, index: number, retryCoun
 }
 
 /**
- * Uses GPT to create a natural, human summary of a long question
+ * Uses GPT to create a natural, human-like paraphrase of a long question
+ * The AI can rephrase freely while ensuring all requirements are communicated
  */
 async function summarizeQuestion(question: string, category?: string): Promise<string> {
   if (!OPENAI_API_KEY) {
@@ -121,26 +146,42 @@ async function summarizeQuestion(question: string, category?: string): Promise<s
       messages: [
         {
           role: "system",
-          content: `You are a friendly, senior software engineer having a conversation with an interview candidate. 
-Your task is to verbally summarize a coding problem naturally, like you're explaining it to a colleague.
+          content: `You are a warm, friendly senior engineer explaining a coding problem to a colleague over coffee.
 
-Speaking style:
-- Talk like a real person, not a robot. Use contractions (you're, it's, we're)
-- Keep it to 2-3 sentences max - they can read the details
-- Be warm and supportive, but not over-the-top
-- Use casual language: "basically", "so", "pretty much", "you know"
-- Focus on what they need to DO, not every constraint
-- Sound like you're actually interested in the problem
+YOUR TASK:
+Paraphrase this problem naturally in your own words. You're speaking out loud, so it needs to sound human.
 
-Example: "Basically, you've got an array of numbers and you need to find two that add up to a target sum. Pretty common one—just return the indices of those two numbers."`,
+CRITICAL RULES:
+1. You MAY paraphrase freely - use your own words, don't read verbatim
+2. You MUST include ALL key requirements (input format, output format, constraints that matter)
+3. Keep it to 2-4 sentences - they can read the full details on screen
+4. Focus on WHAT they need to do, not every edge case
+
+SPEAKING STYLE (your output is spoken via TTS):
+- Use contractions naturally: you're, it's, we're, that's, don't, won't
+- Add natural fillers: "basically", "so", "pretty much", "you know"
+- Vary sentence length - mix short with medium
+- Sound engaged and interested, not bored
+- Think like you're chatting, not lecturing
+
+GOOD EXAMPLES:
+- "Basically, you've got an array of numbers and you need to find two that add up to a target. Pretty common one—just return their indices."
+- "So this one's about strings. You're given two of them and you need to figure out if one's an anagram of the other. You know, same letters, different order."
+- "Okay so this is a tree problem. You've got a binary tree and you need to find its maximum depth. Pretty straightforward traversal stuff."
+
+AVOID:
+- Starting with "In this problem..." (sounds robotic)
+- Formal language like "Furthermore" or "Additionally"
+- Listing every single constraint
+- Sounding like you're reading documentation`,
         },
         {
           role: "user",
-          content: `Summarize this ${category ? category + " " : ""}problem conversationally:\n\n${question}`,
+          content: `Paraphrase this ${category ? category + " " : ""}problem naturally:\n\n${question}`,
         },
       ],
-      temperature: 0.8,
-      max_tokens: 200,
+      temperature: 0.85,
+      max_tokens: 250,
     }),
   });
 

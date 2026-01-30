@@ -8,6 +8,7 @@ import { saveSystemDesignInterview, getSystemDesignInterview } from "@/lib/inter
 import { SystemDesignEvaluationResult } from "@/lib/systemDesignRubric";
 import { Question } from "@/lib/types";
 import { isGreeting } from "@/lib/greetingDetection";
+import { track } from "@/lib/posthog";
 import FormattedContent from "./FormattedContent";
 import styles from "../app.module.css";
 
@@ -96,6 +97,20 @@ export default function SystemDesignInterviewPanel({
   // Question refs
   const questionTitleRef = useRef(question.title);
   const questionPromptRef = useRef(question.prompt);
+  const questionIdRef = useRef(question.id);
+  const questionCompanyNameRef = useRef(question.companyName);
+
+  // Track interview start time for duration analytics
+  const interviewStartTimeRef = useRef<number>(Date.now());
+  
+  // Track if we've fired the interview_started event for this question
+  const hasTrackedStartRef = useRef<string | null>(null);
+  
+  // Ref for evaluation to avoid stale closures in callbacks
+  const evaluationRef = useRef(evaluation);
+  useEffect(() => {
+    evaluationRef.current = evaluation;
+  }, [evaluation]);
 
   // Recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -125,7 +140,9 @@ export default function SystemDesignInterviewPanel({
   useEffect(() => {
     questionTitleRef.current = question.title;
     questionPromptRef.current = question.prompt;
-  }, [question.title, question.prompt]);
+    questionIdRef.current = question.id;
+    questionCompanyNameRef.current = question.companyName;
+  }, [question.title, question.prompt, question.id, question.companyName]);
 
   // Streaming hooks
   const streamingConversation = useStreamingConversation();
@@ -407,6 +424,18 @@ export default function SystemDesignInterviewPanel({
       const data = await evalResponse.json();
       setEvaluation(data.evaluation);
       setPanelState("feedback");
+
+      // Track interview completed
+      track({
+        name: "interview_completed",
+        properties: {
+          type: "system_design",
+          company: question.companyName ?? "unknown",
+          question_id: question.id,
+          score: data.evaluation.overallScore,
+          duration_seconds: Math.floor((Date.now() - interviewStartTimeRef.current) / 1000),
+        },
+      });
 
       // Save to storage
       const candidateTranscript = conversationRef.current
@@ -1117,6 +1146,23 @@ export default function SystemDesignInterviewPanel({
     };
   }, []);
 
+  // Track interview started - only once per question
+  useEffect(() => {
+    if (hasTrackedStartRef.current === question.id) return;
+    hasTrackedStartRef.current = question.id;
+    interviewStartTimeRef.current = Date.now(); // Reset timer for new question
+    
+    track({
+      name: "interview_started",
+      properties: {
+        type: "system_design",
+        company: question.companyName ?? "unknown",
+        question_id: question.id,
+        question_title: question.title,
+      },
+    });
+  }, [question.id, question.companyName, question.title]);
+
   // Reset on question change - reinitialize conversation with new question
   useEffect(() => {
     if (isInitialMountRef.current) {
@@ -1301,6 +1347,17 @@ export default function SystemDesignInterviewPanel({
   // ═══════════════════════════════════════════════════════════════════════════
 
   const handleClose = useCallback(() => {
+    // Track interview closed
+    track({
+      name: "interview_closed",
+      properties: {
+        type: "system_design",
+        company: questionCompanyNameRef.current ?? "unknown",
+        question_id: questionIdRef.current,
+        completed: evaluationRef.current !== null,
+      },
+    });
+
     isClosingRef.current = true;
     setIsClosing(true);
     setIsVisible(false);

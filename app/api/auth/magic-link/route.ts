@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import crypto from "crypto";
-import { getMagicLinkEmail } from "@/lib/emailTemplates";
+import { render } from "@react-email/render";
+import { MagicLinkEmail, magicLinkSubject } from "@/emails";
+import { isValidEmail } from "@/lib/security";
+import { SITE_URL } from "@/lib/constants";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -52,7 +55,6 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
     
     // Generate secure token
     const token = crypto.randomBytes(32).toString("hex");
@@ -81,20 +83,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Create magic link URL
-    const magicLink = `${siteUrl}/api/auth/verify?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
+    const magicLink = `${SITE_URL}/api/auth/verify?token=${token}&email=${encodeURIComponent(normalizedEmail)}`;
 
-    // Send beautiful email via Resend
-    const emailContent = getMagicLinkEmail({
-      magicLink,
-      expiresIn: `${TOKEN_EXPIRY_MINUTES} minutes`,
-    });
+    // Send beautiful email via Resend using React Email
+    const expiresIn = `${TOKEN_EXPIRY_MINUTES} minutes`;
+    const html = await render(MagicLinkEmail({ magicLink, expiresIn }));
+    const text = await render(MagicLinkEmail({ magicLink, expiresIn }), { plainText: true });
 
     const { error: emailError } = await resend.emails.send({
       from: FROM_EMAIL,
       to: normalizedEmail,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text,
+      subject: magicLinkSubject,
+      html,
+      text,
       tags: [
         { name: "type", value: "magic_link" },
       ],
@@ -121,9 +122,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { SITE_URL } from "@/lib/constants";
 
 // Valid promo codes and their expiry handling
 const VALID_PROMO_CODES = ["WELCOME20"];
@@ -56,9 +57,7 @@ export async function POST(req: NextRequest) {
             product_data: {
               name: productName,
               description: plan.description,
-              images: [
-                `${process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.com"}/ai-owl-mascot.png`,
-              ],
+              images: [`${SITE_URL}/ai-owl-mascot.png`],
             },
             unit_amount: finalAmount,
           },
@@ -66,14 +65,14 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get("origin")}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || req.headers.get("origin")}/?canceled=true`,
+      success_url: `${SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${SITE_URL}/?canceled=true`,
       customer_email: email || undefined,
       metadata: {
         product: plan.product_key,
         plan_type: planType,
-        promo_code: hasValidPromo ? promoCode : undefined,
-        discount_applied: hasValidPromo ? "20%" : undefined,
+        promo_code: hasValidPromo ? promoCode : null,
+        discount_applied: hasValidPromo ? "20%" : null,
       },
     });
 

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import {
-  getWelcomeEmail,
-  getPromoExpiryDate,
-  formatExpiryDate,
-  PROMO_CODE,
-} from "@/lib/emailTemplates";
+import { render } from "@react-email/render";
+import { WelcomeEmail, getWelcomeSubject } from "@/emails";
+import { getPromoExpiryDate, formatExpiryDate, PROMO_CODE } from "@/lib/emailTemplates";
+import { isValidEmail } from "@/lib/security";
+import { SITE_URL } from "@/lib/constants";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -36,7 +35,6 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
     const expiryDate = getPromoExpiryDate();
     const formattedExpiry = formatExpiryDate(expiryDate);
 
@@ -55,20 +53,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Send the welcome/conversion email
-    const emailContent = getWelcomeEmail({
+    // 2. Send the welcome/conversion email using React Email
+    const checkoutUrl = `${SITE_URL}/dashboard`;
+    const emailProps = {
       firstName,
       promoCode: PROMO_CODE,
       expiryDate: formattedExpiry,
-      checkoutUrl: `${siteUrl}/dashboard`,
-    });
+      checkoutUrl,
+    };
+    
+    const html = await render(WelcomeEmail(emailProps));
+    const text = await render(WelcomeEmail(emailProps), { plainText: true });
+    const subject = getWelcomeSubject(firstName, formattedExpiry);
 
     const { data, error: emailError } = await resend.emails.send({
       from: FROM_EMAIL,
       to: normalizedEmail,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text,
+      subject,
+      html,
+      text,
       tags: [
         { name: "campaign", value: "welcome_discount" },
         { name: "promo_code", value: PROMO_CODE },
@@ -85,11 +88,10 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Subscribe] Welcome email sent to ${normalizedEmail}`, data);
 
+    // Don't leak promo code in response - it's sent via email only
     return NextResponse.json({
       success: true,
-      message: "Subscribed successfully",
-      promoCode: PROMO_CODE,
-      expiryDate: expiryDate.toISOString(),
+      message: "Check your email for your exclusive discount code!",
     });
   } catch (error) {
     console.error("[Subscribe] Error:", error);
@@ -98,9 +100,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
 }

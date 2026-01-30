@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { track } from "@/lib/posthog";
 import styles from "../app.module.css";
 
 type PaywallModalProps = {
@@ -9,21 +10,53 @@ type PaywallModalProps = {
   companyName?: string;
 };
 
-export default function PaywallModal({ onClose, companyName }: PaywallModalProps) {
+export default function PaywallModal({
+  onClose,
+  companyName,
+}: PaywallModalProps) {
   const [loading, setLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | undefined>();
+  
+  // Capture initial company name for analytics (avoids re-firing on prop changes)
+  const initialCompanyRef = useRef(companyName);
+
+  // Track paywall shown on mount - fires only once per modal instance
+  useEffect(() => {
+    track({
+      name: "paywall_shown",
+      properties: {
+        company: initialCompanyRef.current ?? "unknown",
+        trigger: "company_click",
+      },
+    });
+  }, []);
 
   useEffect(() => {
     const getEmail = async () => {
       if (!supabase) return;
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUserEmail(user?.email ?? undefined);
     };
     getEmail();
   }, []);
 
+  const handleClose = () => {
+    track({
+      name: "paywall_closed",
+      properties: { company: companyName ?? "unknown" },
+    });
+    onClose();
+  };
+
   const handleCheckout = async () => {
     setLoading(true);
+
+    track({
+      name: "paywall_checkout_clicked",
+      properties: { company: companyName ?? "unknown" },
+    });
 
     try {
       const response = await fetch("/api/checkout", {
@@ -36,6 +69,10 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
 
       if (error) {
         console.error("[Checkout] Error:", error);
+        track({
+          name: "checkout_failed",
+          properties: { error, plan: "annual" },
+        });
         alert("Something went wrong. Please try again.");
         setLoading(false);
         return;
@@ -46,15 +83,21 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
       }
     } catch (err) {
       console.error("[Checkout] Error:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Unknown error";
+      track({
+        name: "checkout_failed",
+        properties: { error: errorMessage, plan: "annual" },
+      });
       alert("Something went wrong. Please try again.");
       setLoading(false);
     }
   };
 
   return (
-    <div className={styles.paywallOverlay} onClick={onClose}>
+    <div className={styles.paywallOverlay} onClick={handleClose}>
       <div className={styles.paywallModal} onClick={(e) => e.stopPropagation()}>
-        <button className={styles.paywallClose} onClick={onClose}>
+        <button className={styles.paywallClose} onClick={handleClose}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />

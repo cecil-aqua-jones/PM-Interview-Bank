@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import CheckoutButton from "./CheckoutButton";
+import Link from "next/link";
 
 type Plan = "monthly" | "annual";
 
@@ -13,13 +13,11 @@ export default function PricingCards() {
       price: "$75",
       period: "/month",
       savings: null,
-      buttonText: "Start Training",
     },
     annual: {
       price: "$500",
       period: "/year",
       savings: "Save $400 vs monthly",
-      buttonText: "Start Training",
     },
   };
 
@@ -72,12 +70,12 @@ export default function PricingCards() {
             )}
           </ul>
 
-          <CheckoutButton className="btn btn-primary pricing-cta" plan={selectedPlan}>
-            {currentPlan.buttonText}
-          </CheckoutButton>
+          <Link href="/login" className="btn btn-primary pricing-cta">
+            Start Free Trial
+          </Link>
 
           <p className="pricing-guarantee">
-            2-day money-back guarantee
+            Try free, then upgrade anytime
           </p>
         </div>
       </div>

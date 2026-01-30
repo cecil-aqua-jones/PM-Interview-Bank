@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { SITE_URL } from "@/lib/constants";
 
 // Create admin Supabase client
 function getSupabaseAdmin() {
@@ -31,40 +32,33 @@ export async function GET(req: NextRequest) {
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
   try {
-    // Look up token in database
-    const { data: tokenRecord, error: lookupError } = await supabaseAdmin
+    // ATOMIC: Mark token as used and return it in a single operation
+    // This prevents race conditions where the same token could be used twice
+    // by concurrent requests (TOCTOU vulnerability)
+    const { data: tokenRecord, error: updateError } = await supabaseAdmin
       .from("magic_link_tokens")
-      .select("*")
+      .update({ 
+        used: true,
+        used_at: new Date().toISOString(),
+      })
       .eq("email", normalizedEmail)
       .eq("token_hash", tokenHash)
       .eq("used", false)
+      .gt("expires_at", new Date().toISOString())
+      .select()
       .single();
 
-    if (lookupError || !tokenRecord) {
-      console.error("[Verify] Token lookup failed:", lookupError);
+    if (updateError || !tokenRecord) {
+      console.error("[Verify] Token verification failed:", updateError?.message || "Token not found or already used");
       return redirectToLogin("Invalid or expired link");
     }
-
-    // Check if token is expired
-    const expiresAt = new Date(tokenRecord.expires_at);
-    if (expiresAt < new Date()) {
-      console.error("[Verify] Token expired for:", normalizedEmail);
-      return redirectToLogin("Link has expired");
-    }
-
-    // Mark token as used
-    await supabaseAdmin
-      .from("magic_link_tokens")
-      .update({ used: true })
-      .eq("email", normalizedEmail)
-      .eq("token_hash", tokenHash);
 
     // Generate a Supabase magic link for the user (this creates/signs in the user)
     const { data, error: signInError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
       email: normalizedEmail,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com"}/dashboard`,
+        redirectTo: `${SITE_URL}/dashboard`,
       },
     });
 
@@ -76,7 +70,7 @@ export async function GET(req: NextRequest) {
     // Redirect to Supabase's verify endpoint which will set the session
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const hashedToken = data.properties.hashed_token;
-    const verifyUrl = `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com")}/auth/callback`;
+    const verifyUrl = `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(SITE_URL)}/auth/callback`;
 
     console.log(`[Verify] Redirecting ${normalizedEmail} to complete sign-in`);
 
@@ -88,6 +82,5 @@ export async function GET(req: NextRequest) {
 }
 
 function redirectToLogin(error: string) {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
-  return NextResponse.redirect(`${siteUrl}/login?error=${encodeURIComponent(error)}`);
+  return NextResponse.redirect(`${SITE_URL}/login?error=${encodeURIComponent(error)}`);
 }
