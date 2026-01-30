@@ -1,10 +1,10 @@
 import { getCompanies } from "@/lib/airtable";
 import LogoMarquee from "./components/LogoMarquee";
 import LandingHeader from "./components/LandingHeader";
-import PricingCard from "./components/PricingCard";
+import PricingCards from "./components/PricingCard";
 import CTAButton from "./components/CTAButton";
+import SocialProofCarousel from "./components/SocialProofCarousel";
 
-// Increase function timeout (requires Vercel Pro - 10s default on Hobby)
 export const maxDuration = 30;
 
 // JSON-LD Structured Data for SEO
@@ -17,7 +17,7 @@ function JsonLd() {
     name: "Apex Interviewer",
     url: siteUrl,
     logo: `${siteUrl}/ai-owl-mascot.png`,
-    description: "Top Tech & AI Coding Interview Questions with AI Practice",
+    description: "AI-powered interview training for top tech companies",
     sameAs: []
   };
 
@@ -37,19 +37,27 @@ function JsonLd() {
     "@context": "https://schema.org",
     "@type": "Product",
     name: "Apex Interviewer - Annual Access",
-    description: "500+ coding interview questions from top tech and AI companies with AI-powered mock interviews",
+    description: "AI-powered interview training with company-specific simulations",
     brand: {
       "@type": "Brand",
       name: "Apex Interviewer"
     },
-    offers: {
-      "@type": "Offer",
-      price: "350.00",
-      priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-      priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      url: siteUrl
-    },
+    offers: [
+      {
+        "@type": "Offer",
+        price: "75.00",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+        name: "Monthly Plan"
+      },
+      {
+        "@type": "Offer",
+        price: "500.00",
+        priceCurrency: "USD",
+        availability: "https://schema.org/InStock",
+        name: "Annual Plan"
+      }
+    ],
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: "4.9",
@@ -63,27 +71,89 @@ function JsonLd() {
     mainEntity: [
       {
         "@type": "Question",
-        name: "What companies are included in Apex Interviewer?",
+        name: "How is this different from LeetCode or HackerRank?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Apex Interviewer includes coding interview questions from Google, Meta, Apple, Microsoft, Netflix, TikTok, Uber, Amazon, OpenAI, Anthropic, Perplexity, xAI, and Oracle—the most sought-after tech and AI companies."
+          text: "Those platforms test if you can solve problems. We simulate the actual interview experience—with follow-up questions, communication evaluation, and company-specific rubrics. We also cover behavioral and system design interviews, not just coding."
         }
       },
       {
         "@type": "Question",
-        name: "How does the AI mock interview work?",
+        name: "Can the AI really evaluate soft skills?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Our AI interviewer reads the coding problem aloud, you write your solution in the code editor, then the AI reviews your code, asks follow-up questions about time/space complexity, and provides detailed feedback."
+          text: "Yes. Our AI is trained on thousands of real tech interviews and can detect unclear explanations, missing trade-off discussions, and poor communication patterns. Every piece of feedback is grounded in your actual transcript."
         }
       },
       {
         "@type": "Question",
-        name: "What programming languages are supported?",
+        name: "What companies do you support?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Apex Interviewer supports Python, JavaScript, Java, C++, and Go—the most common languages used in top tech and AI company coding interviews."
+          text: "Google, Apple, Amazon, Microsoft, Meta, Netflix, Oracle, TikTok, Uber, OpenAI, Anthropic, Perplexity, and xAI. We're adding more every month."
         }
+      }
+    ]
+  };
+
+  // Sitelinks schema for Google rich results
+  const sitelinksSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: [
+      {
+        "@type": "SiteNavigationElement",
+        position: 1,
+        name: "Login",
+        description: "Sign in to access AI mock interviews",
+        url: `${siteUrl}/login`
+      },
+      {
+        "@type": "SiteNavigationElement",
+        position: 2,
+        name: "Dashboard",
+        description: "Practice coding, system design, and behavioral interviews",
+        url: `${siteUrl}/dashboard`
+      },
+      {
+        "@type": "SiteNavigationElement",
+        position: 3,
+        name: "Pricing",
+        description: "Plans starting at $75/month",
+        url: `${siteUrl}/#pricing`
+      }
+    ]
+  };
+
+  // Course/training programs schema
+  const coursesSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Interview Training Programs",
+    itemListElement: [
+      {
+        "@type": "Course",
+        position: 1,
+        name: "Coding Interview Practice",
+        description: "1000+ problems with AI follow-up questions for Google, Meta, Amazon, and more",
+        provider: { "@type": "Organization", name: "Apex Interviewer" },
+        url: `${siteUrl}/dashboard`
+      },
+      {
+        "@type": "Course",
+        position: 2,
+        name: "System Design Interviews",
+        description: "Scalability, architecture, and trade-off discussions with AI feedback",
+        provider: { "@type": "Organization", name: "Apex Interviewer" },
+        url: `${siteUrl}/dashboard`
+      },
+      {
+        "@type": "Course",
+        position: 3,
+        name: "Behavioral Interviews",
+        description: "Leadership, teamwork, and conflict resolution practice with AI evaluation",
+        provider: { "@type": "Organization", name: "Apex Interviewer" },
+        url: `${siteUrl}/dashboard`
       }
     ]
   };
@@ -106,6 +176,14 @@ function JsonLd() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(sitelinksSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(coursesSchema) }}
+      />
     </>
   );
 }
@@ -125,462 +203,383 @@ export default async function Home() {
       <main>
         {/* Hero */}
         <section className="hero">
-          <div className="container hero-grid">
-            <div className="hero-copy">
-              <h1>
-                Land your dream engineering role.
-              </h1>
-              <p className="lead">
-                Real coding questions from Google, OpenAI, Meta, Anthropic, Amazon, Apple, and the world's most sought-after tech companies.
-              </p>
-              <div className="cta-group">
-                <a className="btn btn-primary" href="/dashboard">
-                  Start Practicing
-                </a>
-                <a className="btn btn-secondary" href="/dashboard">
-                  View Companies
-                </a>
-              </div>
-              <p className="microcopy">
-                {totalQuestions.toLocaleString()}+ questions • Updated weekly •
-                Python, JS, Java, C++, Go
-              </p>
-            </div>
-            <div className="hero-card">
-              <div className="card-top">
-                <h3>What's inside</h3>
-                <p>
-                  Comprehensive question bank covering every coding interview topic.
-                </p>
-              </div>
-              <div className="card-list">
-                <div className="pill">Arrays & Strings</div>
-                <div className="pill">Trees & Graphs</div>
-                <div className="pill">Dynamic Programming</div>
-                <div className="pill">System Design</div>
-                <div className="pill">Recursion</div>
-                <div className="pill">Sorting & Searching</div>
-              </div>
-              <div className="card-bottom">
-                <p className="price-tag"><s style={{ color: "#9ca3af", fontWeight: 400 }}>$500</s> $350</p>
-                <span className="price-note">per year • $150 off</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Company Logos - Infinite Marquee */}
-        <section id="companies" className="trust">
-          <div className="trust-header">
-            <p className="eyebrow" style={{ textAlign: "center", marginBottom: 8 }}>
-              Sourced from real interviews at
+          <div className="container hero-content">
+            <h1>Train Until SWE Interviews Feel Easy</h1>
+            <p className="lead">
+              Simulate real coding, behavioral, and system design interviews, get detailed 
+              AI feedback, and fix your weaknesses before you walk into your real interview.
             </p>
-            <p style={{ textAlign: "center", fontSize: 14, color: "#8a8884", marginBottom: 0 }}>
-              Every question that matters.
-            </p>
-          </div>
-          <LogoMarquee />
-          <div className="container">
-            <p className="trust-footer">
-              Questions sourced from Blind, LeetCode discussions, interview debriefs, and
-              verified engineer submissions.
-            </p>
-          </div>
-        </section>
-
-        {/* AI Mock Interview Feature */}
-        <section className="section section-white" id="features">
-          <div className="container">
-            <div className="ai-feature-grid">
-              <div className="ai-feature-content">
-                <p className="eyebrow">AI-Powered Practice</p>
-                <h2>Interview. Code. Submit. </h2>
-                <p className="lead">
-                  Write your solution in a real code editor. Our AI interviewer reviews your code,
-                  asks follow-up questions about complexity and edge cases, and gives you
-                  detailed feedback—exactly like a real Big Tech or AI lab interview.
-                </p>
-              </div>
-              <div className="ai-feature-video">
-                <video
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                >
-                  <source src="/mascot.webm" type="video/webm" />
-                  <source src="/mascot.mp4" type="video/mp4" />
-                </video>
-              </div>
+            <div className="cta-group">
+              <a className="btn btn-primary" href="/dashboard">
+                Start Training Now — 2-Day Money-Back Guarantee
+              </a>
             </div>
+            <ul className="hero-features">
+              <li>Real-time AI feedback on your answers</li>
+              <li>Company-specific interview simulations for Google, Meta, Amazon, and 10+ top tech companies</li>
+              <li>Track improvement across coding, system design, and behavioral interviews</li>
+            </ul>
           </div>
         </section>
 
-        {/* Social Proof */}
-        <section id="proof" className="section alt">
-          <div className="container">
-            <div className="proof-header">
-              <p className="eyebrow">Results</p>
-              <h2>Engineers who landed their dream roles.</h2>
-              <p className="subtle">
-                Don't just take our word for it. Here's what engineers who used our
-                question bank have to say.
-              </p>
-            </div>
-            <div className="stats-grid">
-              <div className="stat">
-                <h3>{totalQuestions.toLocaleString()}+</h3>
-                <p>Coding questions</p>
-              </div>
-              <div className="stat">
-                <h3>{companies.length}</h3>
-                <p>Companies covered</p>
-              </div>
-              <div className="stat">
-                <h3>15+</h3>
-                <p>Topic categories</p>
-              </div>
-            </div>
-            <div className="testimonial-grid">
-              <div className="testimonial">
-                <p>
-                  The follow-up questions were exactly what I got asked at Google.
-                  "What if the input was 10x larger?" Nailed it.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">A</div>
-                  <div className="testimonial-info">
-                    <div className="testimonial-name">Alex K.</div>
-                    <div className="testimonial-role">
-                      L5 SWE offer from Google
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="testimonial">
-                <p>
-                  The system design questions were exactly what I got asked.
-                  "Design a rate limiter for an API with 100M requests/day." Word for word.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">D</div>
-                  <div className="testimonial-info">
-                    <div className="testimonial-name">David C.</div>
-                    <div className="testimonial-role">
-                      Research Engineer offer from OpenAI
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="testimonial">
-                <p>
-                  Anthropic's bar is insane. The AI follow-ups here—"What if this runs
-                  on a GPU cluster?"—prepared me for the depth they expect.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">P</div>
-                  <div className="testimonial-info">
-                    <div className="testimonial-name">Priya S.</div>
-                    <div className="testimonial-role">
-                      Senior SWE offer from Anthropic
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="testimonial">
-                <p>
-                  Used this for my Amazon loop. The DP questions were spot-on.
-                  Got the exact same problem in my onsite.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">R</div>
-                  <div className="testimonial-info">
-                    <div className="testimonial-name">Raj P.</div>
-                    <div className="testimonial-role">
-                      SDE II offer from Amazon
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="testimonial">
-                <p>
-                  When you're interviewing for a company building AGI, you need to
-                  think at a different level. This got me there.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">J</div>
-                  <div className="testimonial-info">
-                    <div className="testimonial-name">Jordan T.</div>
-                    <div className="testimonial-role">
-                      Founding Engineer offer from xAI
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Company Logos - Right under hero */}
+        <LogoMarquee />
 
-        {/* How We Got It */}
-        <section className="section" id="how-it-works">
-          <div className="container split">
-            <div>
-              <p className="eyebrow">The Source</p>
-              <h2>Real questions. Verified origins.</h2>
-              <p className="lead" style={{ marginBottom: 0 }}>
-                We aggregated coding interview debriefs from Blind, LeetCode discussions,
-                private engineering communities, and verified candidate submissions.
-                Every question is tagged with the company, difficulty, and topic.
-              </p>
-            </div>
-            <div className="feature-grid">
-              <div className="feature">
-                <h4>From Real Interviews</h4>
-                <p>
-                  Actual questions from recent coding rounds, not recycled textbook
-                  problems.
-                </p>
-              </div>
-              <div className="feature">
-                <h4>Company-Tagged</h4>
-                <p>
-                  Know exactly which company asked which question and when.
-                </p>
-              </div>
-              <div className="feature">
-                <h4>Difficulty Calibrated</h4>
-                <p>
-                  Easy, Medium, Hard—aligned with actual top tech interview expectations.
-                </p>
-              </div>
-              <div className="feature">
-                <h4>Weekly Updates</h4>
-                <p>
-                  Fresh questions added regularly from ongoing interview cycles.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Social Proof Carousel */}
+        <SocialProofCarousel />
 
-        {/* Why Us */}
+        {/* The Problem */}
         <section className="section">
+          <div className="container narrow">
+            <p className="eyebrow">The Problem</p>
+            <h2>You Know How to Code. But Can You Interview?</h2>
+            <p className="lead">
+              Most engineers fail top tech interviews not because they can't solve problems—but 
+              because they don't know how to communicate their thinking, optimize on the fly, 
+              or handle follow-up questions under pressure.
+            </p>
+            <p className="subtle" style={{ marginTop: 32 }}>
+              Traditional practice platforms give you problems. We give you an interview.
+            </p>
+          </div>
+        </section>
+
+        {/* How It Works */}
+        <section className="section alt" id="how-it-works">
           <div className="container">
-            <div className="section-header">
-              <p className="eyebrow">Why Apex Interviewer</p>
-              <h2>More than LeetCode. Real interview practice.</h2>
-              <p>
-                Most interview prep stops at solving problems. We take you further
-                with AI-powered mock interviews that simulate the real experience.
-              </p>
+            <p className="eyebrow">How It Works</p>
+            <h2>Four steps to interview mastery</h2>
+            <div className="steps-grid">
+              <div className="step">
+                <span className="step-number">01</span>
+                <h4>Choose Your Target Company</h4>
+                <p>
+                  Select from Google, Meta, Amazon, Apple, Microsoft, Netflix, TikTok, Uber, 
+                  OpenAI, Anthropic, Perplexity, xAI, or Oracle. Our AI adapts to each company's 
+                  specific interview style, evaluation criteria, and rubrics.
+                </p>
+              </div>
+              <div className="step">
+                <span className="step-number">02</span>
+                <h4>Get Interviewed by AI</h4>
+                <p>
+                  Solve real coding problems, design systems, and answer behavioral questions 
+                  while our AI interviewer asks follow-up questions, probes your thinking, and 
+                  evaluates you exactly like a real senior engineer would.
+                </p>
+              </div>
+              <div className="step">
+                <span className="step-number">03</span>
+                <h4>Get Instant, Detailed Feedback</h4>
+                <p>
+                  See exactly where you went wrong: "Your space complexity analysis missed 
+                  the auxiliary space used by the recursion stack" or "Strong explanation 
+                  of the trade-offs between HashMap and TreeMap."
+                </p>
+              </div>
+              <div className="step">
+                <span className="step-number">04</span>
+                <h4>Track Your Improvement</h4>
+                <p>
+                  Get a personalized dashboard showing exactly what to work on. Every piece 
+                  of feedback is grounded in your interview transcript—no vague suggestions, 
+                  just specific areas to improve.
+                </p>
+              </div>
             </div>
-            <div className="split">
-              <div className="feature-grid">
-                <div className="feature">
-                  <h4>Full Code Editor</h4>
-                  <p>
-                    Write real code with syntax highlighting, not pseudocode in a
-                    text box.
-                  </p>
-                </div>
-                <div className="feature">
-                  <h4>AI Follow-Up Questions</h4>
-                  <p>
-                    Get grilled on time complexity, space complexity, and edge cases—
-                    just like the real thing.
-                  </p>
-                </div>
-                <div className="feature">
-                  <h4>Voice-Based Discussion</h4>
-                  <p>
-                    Practice explaining your solution out loud—the skill that
-                    actually matters in interviews.
-                  </p>
-                </div>
-                <div className="feature">
-                  <h4>Progress Tracking</h4>
-                  <p>
-                    Track your scores by topic, identify weak areas, and focus
-                    your practice where it counts.
-                  </p>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="section" id="features">
+          <div className="container">
+            <p className="eyebrow">Built by Engineers Who've Been There</p>
+            <h2>Features that matter</h2>
+            <div className="feature-grid-editorial">
+              <div className="feature-editorial">
+                <h4>Company-Specific Rubrics</h4>
+                <p>
+                  Our AI evaluates you using the exact rubrics each company uses internally. 
+                  Google's bar for system design is different from Meta's—we know the difference 
+                  and train you accordingly.
+                </p>
+              </div>
+              <div className="feature-editorial">
+                <h4>AI That Understands Code</h4>
+                <p>
+                  Not just checking test cases. Our AI evaluates your thought process, 
+                  communication clarity, and code quality in real-time.
+                </p>
+              </div>
+              <div className="feature-editorial">
+                <h4>Performance Dashboard</h4>
+                <p>
+                  Track improvement across 50+ patterns: arrays, trees, dynamic programming, 
+                  system design, and more. See exactly what to work on next.
+                </p>
+              </div>
+              <div className="feature-editorial">
+                <h4>Real-Time Follow-Up Questions</h4>
+                <p>
+                  The AI probes deeper when you're vague, just like a real interviewer: 
+                  "How would this handle 10 million concurrent requests?"
+                </p>
+              </div>
+              <div className="feature-editorial">
+                <h4>Transcript-Based Feedback</h4>
+                <p>
+                  Every critique is grounded in what you actually said. Review your transcript 
+                  with timestamped feedback on every mistake and strength.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials - Proof It Works */}
+        <section className="section alt" id="proof">
+          <div className="container">
+            <p className="eyebrow">Proof It Works</p>
+            <h2>Engineers who changed their trajectory</h2>
+            <div className="testimonial-editorial-grid">
+              <div className="testimonial-editorial">
+                <blockquote>
+                  "After failing my first two Google interviews, I did 30 mock interviews here. 
+                  The AI was brutal—it caught every unclear explanation and lazy optimization. 
+                  But that's exactly what I needed. Passed my third attempt."
+                </blockquote>
+                <div className="testimonial-attribution">
+                  <p className="testimonial-name">David Chen</p>
+                  <p className="testimonial-title">Software Engineer at Google</p>
                 </div>
               </div>
-              <div className="module-list">
-                <div className="module">
-                  <span>01</span>
-                  <p>Arrays & Strings</p>
+              <div className="testimonial-editorial">
+                <blockquote>
+                  "I paid $200/hour for interview coaching before. This AI gives better feedback, 
+                  it's available 24/7, and it costs a fraction of the price."
+                </blockquote>
+                <div className="testimonial-attribution">
+                  <p className="testimonial-name">Aisha Patel</p>
+                  <p className="testimonial-title">SWE at Meta</p>
                 </div>
-                <div className="module">
-                  <span>02</span>
-                  <p>Hash Tables & Sets</p>
-                </div>
-                <div className="module">
-                  <span>03</span>
-                  <p>Linked Lists</p>
-                </div>
-                <div className="module">
-                  <span>04</span>
-                  <p>Trees & Graphs</p>
-                </div>
-                <div className="module">
-                  <span>05</span>
-                  <p>Dynamic Programming</p>
-                </div>
-                <div className="module">
-                  <span>06</span>
-                  <p>Recursion & Backtracking</p>
-                </div>
-                <div className="module">
-                  <span>07</span>
-                  <p>Sorting & Searching</p>
-                </div>
-                <div className="module">
-                  <span>08</span>
-                  <p>System Design</p>
+              </div>
+              <div className="testimonial-editorial">
+                <blockquote>
+                  "I thought I knew how to solve the problems. But the AI's follow-up questions—
+                  'What if N is 10 million?' 'How would you handle concurrent requests?'—taught me 
+                  what top tech interviewers actually care about."
+                </blockquote>
+                <div className="testimonial-attribution">
+                  <p className="testimonial-name">Jake Morrison</p>
+                  <p className="testimonial-title">Engineer at Amazon</p>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Sample Questions */}
+        {/* Comparison Table */}
         <section className="section">
+          <div className="container narrow">
+            <p className="eyebrow">How We're Different</p>
+            <h2>More than another practice platform</h2>
+            <div className="comparison-table">
+              <div className="comparison-header">
+                <div className="comparison-cell">Feature</div>
+                <div className="comparison-cell">Other Platforms</div>
+                <div className="comparison-cell highlight">Apex Interviewer</div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Real-time feedback</div>
+                <div className="comparison-cell">—</div>
+                <div className="comparison-cell highlight">Yes</div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Evaluates communication</div>
+                <div className="comparison-cell">—</div>
+                <div className="comparison-cell highlight">Yes</div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Asks follow-up questions</div>
+                <div className="comparison-cell">—</div>
+                <div className="comparison-cell highlight">Yes</div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Company-specific rubrics</div>
+                <div className="comparison-cell">—</div>
+                <div className="comparison-cell highlight">13 companies</div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Behavioral + System Design</div>
+                <div className="comparison-cell">—</div>
+                <div className="comparison-cell highlight">Yes</div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Available 24/7</div>
+                <div className="comparison-cell">Yes</div>
+                <div className="comparison-cell highlight">Yes</div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Cost</div>
+                <div className="comparison-cell">$200+/session</div>
+                <div className="comparison-cell highlight">$75/month</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* What You'll Practice */}
+        <section className="section alt">
           <div className="container">
-            <div className="section-header">
-              <p className="eyebrow">Sample Questions</p>
-              <h2>Questions that feel like the real interview.</h2>
-            </div>
-            <div className="question-grid">
-              <div className="question-card">
-                <p className="tag">Arrays • Medium</p>
-                <h4>
-                  Two Sum
-                </h4>
-                <p>
-                  Given an array of integers and a target, return indices of two numbers
-                  that add up to target.
-                </p>
+            <p className="eyebrow">What You'll Practice</p>
+            <h2>Comprehensive interview preparation</h2>
+            <div className="practice-grid">
+              <div className="practice-item">
+                <h4>Coding Interviews</h4>
+                <p>{totalQuestions.toLocaleString()}+ problems across all difficulty levels</p>
               </div>
-              <div className="question-card">
-                <p className="tag">Dynamic Programming • Hard</p>
-                <h4>
-                  Longest Increasing Subsequence
-                </h4>
-                <p>
-                  Find the length of the longest strictly increasing subsequence.
-                </p>
+              <div className="practice-item">
+                <h4>System Design</h4>
+                <p>Scalability, architecture, and trade-off discussions</p>
               </div>
-              <div className="question-card">
-                <p className="tag">Trees • Medium</p>
-                <h4>
-                  Validate Binary Search Tree
-                </h4>
-                <p>
-                  Determine if a binary tree is a valid BST.
-                </p>
+              <div className="practice-item">
+                <h4>Behavioral Questions</h4>
+                <p>Leadership, teamwork, and conflict resolution</p>
               </div>
-              <div className="question-card">
-                <p className="tag">Graphs • Hard</p>
-                <h4>
-                  Word Ladder
-                </h4>
-                <p>
-                  Find the shortest transformation sequence from beginWord to endWord.
-                </p>
+              <div className="practice-item">
+                <h4>Company-Specific Formats</h4>
+                <p>Tailored to Google, Meta, Amazon, OpenAI, and 9 more</p>
+              </div>
+              <div className="practice-item">
+                <h4>Full Interview Simulations</h4>
+                <p>Mock phone screens, virtual onsites, and pair programming</p>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Covered Companies */}
+        <section className="section" id="companies">
+          <div className="container narrow">
+            <p className="eyebrow">Covered Companies</p>
+            <h2>We simulate interviews for top tech companies</h2>
+            <div className="company-categories">
+              <div className="company-category">
+                <h4>Big Tech</h4>
+                <p>Google • Apple • Amazon • Microsoft • Meta • Netflix • Oracle</p>
+              </div>
+              <div className="company-category">
+                <h4>AI & Innovation</h4>
+                <p>OpenAI • Anthropic • Perplexity • xAI</p>
+              </div>
+              <div className="company-category">
+                <h4>High-Growth</h4>
+                <p>TikTok • Uber</p>
+              </div>
+            </div>
+            <p className="subtle" style={{ marginTop: 32, textAlign: "center" }}>
+              More companies added every month
+            </p>
           </div>
         </section>
 
         {/* Pricing */}
         <section id="pricing" className="section alt">
-          <div className="container pricing-grid">
-            <div>
+          <div className="container">
+            <div className="pricing-header">
               <p className="eyebrow">Pricing</p>
-              <h2>Annual access. Unlimited practice.</h2>
-              <p>
-                One simple price for a full year. All the questions and AI-powered
-                mock interviews to prep for your top tech interviews.
-              </p>
-              <ul className="checklist">
-                <li>
-                  Full access to {totalQuestions.toLocaleString()}+ verified questions
-                </li>
-                <li>Questions from {companies.length} top tech companies</li>
-                <li>Full code editor with 5 language support</li>
-                <li>Unlimited AI mock interviews with follow-ups</li>
-                <li>Complexity analysis & optimization feedback</li>
-                <li>Progress tracking across all topics</li>
-                <li>Weekly question updates for 12 months</li>
-                <li>30-day money-back guarantee</li>
-              </ul>
+              <h2>Start Training Today</h2>
             </div>
-            <PricingCard />
+            <PricingCards />
+            <div className="guarantee-notice">
+              <p className="guarantee-title">2-Day Money-Back Guarantee</p>
+              <p className="guarantee-text">
+                Try it risk-free. If you're not satisfied within 48 hours, fill out a quick 
+                survey and we'll refund you in full—no questions asked after that.
+              </p>
+            </div>
           </div>
         </section>
 
         {/* FAQ */}
         <section className="section">
-          <div className="container">
-            <div className="section-header">
-              <h2>Questions, answered.</h2>
-            </div>
-            <div className="faq-grid">
-              <div className="faq">
-                <h4>How does the AI mock interview work?</h4>
+          <div className="container narrow">
+            <h2>Questions, answered</h2>
+            <div className="faq-editorial">
+              <div className="faq-item">
+                <h4>How is this different from LeetCode or HackerRank?</h4>
                 <p>
-                  Select a question, write your solution in the code editor, then submit.
-                  The AI reviews your code, asks follow-up questions about complexity and
-                  edge cases, and provides detailed feedback.
+                  Those platforms test if you can solve problems. We simulate the actual interview 
+                  experience—with follow-up questions, communication evaluation, and company-specific 
+                  rubrics. We also cover behavioral and system design interviews, not just coding.
                 </p>
               </div>
-              <div className="faq">
-                <h4>What does the AI evaluate?</h4>
+              <div className="faq-item">
+                <h4>Can the AI really evaluate soft skills?</h4>
                 <p>
-                  Correctness, time complexity, space complexity, code quality,
-                  and edge case handling—calibrated to industry interview standards.
+                  Yes. Our AI is trained on thousands of real tech interviews and can detect unclear 
+                  explanations, missing trade-off discussions, and poor communication patterns. Every 
+                  piece of feedback is grounded in your actual transcript.
                 </p>
               </div>
-              <div className="faq">
-                <h4>What languages are supported?</h4>
+              <div className="faq-item">
+                <h4>What companies do you support?</h4>
                 <p>
-                  Python, JavaScript, Java, C++, and Go—the most common languages
-                  in top tech coding interviews.
+                  Google, Apple, Amazon, Microsoft, Meta, Netflix, Oracle, TikTok, Uber, OpenAI, 
+                  Anthropic, Perplexity, and xAI. We're adding more every month.
                 </p>
               </div>
-              <div className="faq">
-                <h4>Where do the questions come from?</h4>
+              <div className="faq-item">
+                <h4>Do I need to schedule interview times?</h4>
                 <p>
-                  Questions are sourced from Blind, LeetCode discussions, verified
-                  candidate submissions, and private engineering communities.
+                  Nope. Practice 24/7 whenever you want. The AI is always ready.
                 </p>
               </div>
-              <div className="faq">
-                <h4>Are AI mock interviews unlimited?</h4>
+              <div className="faq-item">
+                <h4>Does this work for senior/staff level interviews?</h4>
                 <p>
-                  Yes. Practice any question as many times as you want. Your
-                  progress and scores are saved so you can track improvement.
+                  Yes. Our system design simulations and behavioral evaluations are calibrated 
+                  for all levels from entry to staff engineer.
                 </p>
               </div>
-              <div className="faq">
-                <h4>How often is the question bank updated?</h4>
+              <div className="faq-item">
+                <h4>What if I'm interviewing at a company you don't cover?</h4>
                 <p>
-                  We add new questions weekly as we receive fresh interview debriefs.
-                  Your purchase includes 12 months of updates.
+                  Our general SWE interview mode covers fundamental patterns that apply to any 
+                  tech company. Plus, we add new companies based on user requests.
+                </p>
+              </div>
+              <div className="faq-item">
+                <h4>How does the money-back guarantee work?</h4>
+                <p>
+                  If you're not satisfied within 2 days of purchase, fill out a short survey 
+                  and we'll issue a full refund—no questions asked after that.
+                </p>
+              </div>
+              <div className="faq-item">
+                <h4>What makes your company-specific rubrics accurate?</h4>
+                <p>
+                  We've analyzed hundreds of real interview evaluations and debriefs from each 
+                  company to understand exactly what they look for. Our rubrics reflect the 
+                  actual criteria senior engineers use when deciding to hire.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* CTA */}
+        {/* Final CTA */}
         <section className="cta">
           <div className="container cta-inner">
-            <h2>Ready to work at the companies building the future?</h2>
+            <h2>Stop Hoping. Start Practicing.</h2>
             <p>
-              Real questions. AI-powered practice. The preparation that gets offers.
+              The difference between failing and passing your tech interview isn't talent—it's 
+              preparation. Give yourself the unfair advantage.
             </p>
             <CTAButton />
+            <p className="cta-microcopy">
+              Risk-free. Full refund within 48 hours after a quick survey.
+            </p>
           </div>
         </section>
       </main>

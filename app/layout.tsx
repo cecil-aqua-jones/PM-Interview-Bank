@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { Metadata } from "next";
+import Script from "next/script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -120,6 +121,18 @@ export default function RootLayout({
         <meta name="theme-color" content="#1a1918" />
       </head>
       <body className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable}`}>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-KXYGZCZBCB"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-KXYGZCZBCB');
+          `}
+        </Script>
         {children}
       </body>
     </html>

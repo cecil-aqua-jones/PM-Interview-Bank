@@ -1,18 +1,86 @@
 "use client";
 
+import { useState } from "react";
 import CheckoutButton from "./CheckoutButton";
 
-export default function PricingCard() {
+type Plan = "monthly" | "annual";
+
+export default function PricingCards() {
+  const [selectedPlan, setSelectedPlan] = useState<Plan>("annual");
+
+  const plans = {
+    monthly: {
+      price: "$75",
+      period: "/month",
+      savings: null,
+      buttonText: "Start Training",
+    },
+    annual: {
+      price: "$500",
+      period: "/year",
+      savings: "Save $400 vs monthly",
+      buttonText: "Start Training",
+    },
+  };
+
+  const currentPlan = plans[selectedPlan];
+
   return (
-    <div className="price-card">
-      <p className="price-original">$500</p>
-      <p className="price">$350</p>
-      <p className="price-label">per year</p>
-      <p className="price-savings">Save $150 — Limited time offer</p>
-      <CheckoutButton className="btn btn-primary">
-        Get Access Now
-      </CheckoutButton>
-      <p className="microcopy">Secure checkout • Instant access</p>
+    <div className="pricing-unified">
+      {/* Plan Toggle */}
+      <div className="pricing-toggle">
+        <button
+          type="button"
+          className={`pricing-toggle-option ${selectedPlan === "monthly" ? "active" : ""}`}
+          onClick={() => setSelectedPlan("monthly")}
+        >
+          Monthly
+        </button>
+        <button
+          type="button"
+          className={`pricing-toggle-option ${selectedPlan === "annual" ? "active" : ""}`}
+          onClick={() => setSelectedPlan("annual")}
+        >
+          Annual
+          <span className="pricing-toggle-badge">Best Value</span>
+        </button>
+      </div>
+
+      {/* Single Pricing Card */}
+      <div className="pricing-card-unified">
+        <div className="pricing-card-content">
+          <div className="pricing-card-price">
+            <span className="pricing-amount">{currentPlan.price}</span>
+            <span className="pricing-period">{currentPlan.period}</span>
+          </div>
+          
+          {currentPlan.savings && (
+            <p className="pricing-savings">{currentPlan.savings}</p>
+          )}
+
+          <ul className="pricing-features">
+            <li>Unlimited mock interviews</li>
+            <li>All 13 company simulations</li>
+            <li>Coding, system design, and behavioral</li>
+            <li>Real-time AI feedback</li>
+            <li>Performance analytics</li>
+            {selectedPlan === "annual" && (
+              <>
+                <li>Priority support</li>
+                <li>Lifetime updates</li>
+              </>
+            )}
+          </ul>
+
+          <CheckoutButton className="btn btn-primary pricing-cta">
+            {currentPlan.buttonText}
+          </CheckoutButton>
+
+          <p className="pricing-guarantee">
+            2-day money-back guarantee
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

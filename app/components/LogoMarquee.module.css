@@ -78,36 +78,22 @@
   border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(26, 25, 24, 0.06);
-  filter: grayscale(100%);
-  opacity: 0.7;
-  transition: filter 0.3s ease, opacity 0.3s ease;
-}
-
-.logoItem:hover .logoImage {
-  filter: grayscale(0%);
-  opacity: 1;
+  transition: transform 0.3s ease;
 }
 
 .logoFallback {
   width: 48px;
   height: 48px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #e8e8e8 0%, #d4d4d4 100%);
+  background: linear-gradient(135deg, #f5f4f2 0%, #edebe8 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
   font-size: 18px;
-  color: #8a8a8a;
-  box-shadow: 0 2px 8px rgba(26, 25, 24, 0.06);
-  opacity: 0.7;
-  transition: opacity 0.3s ease, background 0.3s ease, color 0.3s ease;
-}
-
-.logoItem:hover .logoFallback {
-  opacity: 1;
-  background: linear-gradient(135deg, #f5f4f2 0%, #edebe8 100%);
   color: #4a4845;
+  box-shadow: 0 2px 8px rgba(26, 25, 24, 0.06);
+  transition: transform 0.3s ease;
 }
 
 .logoName {
