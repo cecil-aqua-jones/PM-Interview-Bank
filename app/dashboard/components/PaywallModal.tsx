@@ -29,7 +29,7 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail }),
+        body: JSON.stringify({ email: userEmail, plan: "annual" }),
       });
 
       const { url, error } = await response.json();
@@ -106,7 +106,7 @@ export default function PaywallModal({ onClose, companyName }: PaywallModalProps
           </div>
 
           <div className={styles.paywallPricing}>
-            <span className={styles.paywallPrice}>$350</span>
+            <span className={styles.paywallPrice}>$500</span>
             <span className={styles.paywallPriceNote}>per year</span>
           </div>
 

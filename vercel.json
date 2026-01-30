@@ -8,6 +8,15 @@
     },
     "app/page.tsx": {
       "maxDuration": 30
+    },
+    "app/api/cron/nurture/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/nurture",
+      "schedule": "0 14 * * *"
+    }
+  ]
 }

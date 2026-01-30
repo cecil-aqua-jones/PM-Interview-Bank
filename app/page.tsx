@@ -4,12 +4,13 @@ import LandingHeader from "./components/LandingHeader";
 import PricingCards from "./components/PricingCard";
 import CTAButton from "./components/CTAButton";
 import SocialProofCarousel from "./components/SocialProofCarousel";
+import ExitIntentPopup from "./components/ExitIntentPopup";
 
 export const maxDuration = 30;
 
 // JSON-LD Structured Data for SEO
 function JsonLd() {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
+  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.com";
 
   const organizationSchema = {
     "@context": "https://schema.org",
@@ -198,6 +199,7 @@ export default async function Home() {
   return (
     <>
       <JsonLd />
+      <ExitIntentPopup />
       <LandingHeader />
 
       <main>

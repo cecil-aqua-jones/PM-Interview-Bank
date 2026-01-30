@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 import { getCompanies } from "@/lib/airtable";
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://productleaks.co";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages

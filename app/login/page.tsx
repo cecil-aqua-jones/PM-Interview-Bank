@@ -1,16 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
   );
   const [message, setMessage] = useState("");
+
+  // Check for error in URL params
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error) {
+      setStatus("error");
+      setMessage(error);
+    }
+  }, [searchParams]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -29,25 +39,26 @@ export default function LoginPage() {
     setStatus("loading");
     setMessage("");
 
-    if (!supabase) {
+    try {
+      // Use custom magic link API with beautiful Resend emails
+      const response = await fetch("/api/auth/magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send magic link");
+      }
+
+      setStatus("sent");
+      setMessage("Check your email for the magic link.");
+    } catch (err) {
       setStatus("error");
-      setMessage("Missing Supabase configuration.");
-      return;
+      setMessage(err instanceof Error ? err.message : "Something went wrong");
     }
-
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
-    });
-
-    if (error) {
-      setStatus("error");
-      setMessage(error.message);
-      return;
-    }
-
-    setStatus("sent");
-    setMessage("Check your email for the magic link.");
   };
 
   return (

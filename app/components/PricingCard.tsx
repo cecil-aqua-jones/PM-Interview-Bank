@@ -72,7 +72,7 @@ export default function PricingCards() {
             )}
           </ul>
 
-          <CheckoutButton className="btn btn-primary pricing-cta">
+          <CheckoutButton className="btn btn-primary pricing-cta" plan={selectedPlan}>
             {currentPlan.buttonText}
           </CheckoutButton>
 

@@ -266,8 +266,8 @@ describe("Checkout Session Configuration", () => {
       },
     ],
     mode: "payment",
-    success_url: `${appUrl || "https://productleaks.co"}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl || "https://productleaks.co"}/?canceled=true`,
+    success_url: `${appUrl || "https://www.apexinterviewer.com"}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${appUrl || "https://www.apexinterviewer.com"}/?canceled=true`,
     customer_email: email || undefined,
     metadata: {
       product: "apex_interviewer_annual",

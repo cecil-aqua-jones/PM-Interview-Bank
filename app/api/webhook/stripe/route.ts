@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
+import { getSubscriptionConfirmationEmail } from "@/lib/emailTemplates";
 
 function getStripe(): Stripe | null {
   if (!process.env.STRIPE_SECRET_KEY) return null;
@@ -16,6 +18,13 @@ function getSupabaseAdmin(): SupabaseClient | null {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 }
+
+function getResend(): Resend | null {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+}
+
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Apex Interviewer <hello@apexinterviewer.com>";
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -74,6 +83,42 @@ export async function POST(req: NextRequest) {
             payment_date: new Date().toISOString(),
           });
           console.log("[Webhook] Pending payment recorded:", customerEmail);
+        }
+
+        // Send beautiful confirmation email via Resend
+        const resend = getResend();
+        if (resend) {
+          const planType = session.metadata?.plan_type || "annual";
+          const amountPaid = session.amount_total 
+            ? `$${(session.amount_total / 100).toFixed(0)}` 
+            : planType === "monthly" ? "$75" : "$500";
+          const planName = planType === "monthly" 
+            ? "Monthly Access" 
+            : "Annual Access";
+          const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apexinterviewer.com";
+
+          const emailContent = getSubscriptionConfirmationEmail({
+            planName,
+            amount: amountPaid,
+            dashboardUrl: `${siteUrl}/dashboard`,
+          });
+
+          try {
+            await resend.emails.send({
+              from: FROM_EMAIL,
+              to: customerEmail,
+              subject: emailContent.subject,
+              html: emailContent.html,
+              text: emailContent.text,
+              tags: [
+                { name: "type", value: "subscription_confirmation" },
+                { name: "plan", value: planType },
+              ],
+            });
+            console.log("[Webhook] Confirmation email sent to:", customerEmail);
+          } catch (emailErr) {
+            console.error("[Webhook] Failed to send confirmation email:", emailErr);
+          }
         }
       } catch (err) {
         console.error("[Webhook] Error updating user:", err);
