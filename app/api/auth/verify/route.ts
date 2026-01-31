@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
       type: "magiclink",
       email: normalizedEmail,
       options: {
-        redirectTo: `${SITE_URL}/auth/callback`,
+        redirectTo: `${SITE_URL}/auth/token`,
       },
     });
 
