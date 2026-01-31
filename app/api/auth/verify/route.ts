@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     // Redirect to Supabase's verify endpoint which will set the session
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const hashedToken = data.properties.hashed_token;
-    const verifyUrl = `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(SITE_URL)}/auth/callback`;
+    const verifyUrl = `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(`${SITE_URL}/auth/callback`)}`;
 
     console.log(`[Verify] Redirecting ${normalizedEmail} to complete sign-in`);
 
