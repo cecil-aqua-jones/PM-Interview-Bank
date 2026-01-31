@@ -32,9 +32,32 @@ export async function GET(req: NextRequest) {
   const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
   try {
-    // ATOMIC: Mark token as used and return it in a single operation
+    // First, check if token exists at all (without the used/expired filters)
+    // This helps diagnose why verification fails
+    const { data: existingToken } = await supabaseAdmin
+      .from("magic_link_tokens")
+      .select("used, expires_at")
+      .eq("email", normalizedEmail)
+      .eq("token_hash", tokenHash)
+      .maybeSingle();
+
+    if (!existingToken) {
+      console.error("[Verify] Token not found - may have been replaced by newer request");
+      return redirectToLogin("Invalid link - please request a new one");
+    }
+
+    if (existingToken.used) {
+      console.error("[Verify] Token already used");
+      return redirectToLogin("Link already used - please request a new one");
+    }
+
+    if (new Date(existingToken.expires_at) < new Date()) {
+      console.error("[Verify] Token expired");
+      return redirectToLogin("Link expired - please request a new one");
+    }
+
+    // ATOMIC: Mark token as used
     // This prevents race conditions where the same token could be used twice
-    // by concurrent requests (TOCTOU vulnerability)
     const { data: tokenRecord, error: updateError } = await supabaseAdmin
       .from("magic_link_tokens")
       .update({ 
@@ -44,13 +67,12 @@ export async function GET(req: NextRequest) {
       .eq("email", normalizedEmail)
       .eq("token_hash", tokenHash)
       .eq("used", false)
-      .gt("expires_at", new Date().toISOString())
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError || !tokenRecord) {
-      console.error("[Verify] Token verification failed:", updateError?.message || "Token not found or already used");
-      return redirectToLogin("Invalid or expired link");
+      console.error("[Verify] Token update failed:", updateError?.message || "Concurrent use detected");
+      return redirectToLogin("Link already used - please request a new one");
     }
 
     // Generate a Supabase magic link for the user (this creates/signs in the user)
