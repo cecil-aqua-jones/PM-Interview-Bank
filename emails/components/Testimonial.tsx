@@ -12,7 +12,7 @@ export function Testimonial({ quote, author, result }: TestimonialProps) {
     <Section style={testimonialStyle}>
       <Text style={quoteStyle}>"{quote}"</Text>
       <Text style={authorStyle}>
-        — {author}
+        - {author}
         {result && <span style={resultStyle}> ({result})</span>}
       </Text>
     </Section>

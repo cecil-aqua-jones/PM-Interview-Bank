@@ -151,7 +151,7 @@ export default function ProgressShowcaseSection() {
           <p className="progress-showcase-description">
             Watch your skills grow from first attempt to interview-ready.
             Our scoring system tracks 9 dimensions across coding, behavioral,
-            and system design—so you know exactly when you're ready.
+            and system design, so you know exactly when you're ready.
           </p>
           
           {/* Progress Indicators */}

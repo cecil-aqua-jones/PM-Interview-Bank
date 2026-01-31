@@ -22,7 +22,7 @@ export const FollowUp5DaysEmail = ({
   const name = firstName || "there";
 
   return (
-    <EmailLayout preview="3 days left — Engineers who waited regret it">
+    <EmailLayout preview="3 days left. Engineers who waited regret it">
       <Section style={cardStyle}>
         <Header variant="dark" title="Apex Interviewer" />
 
@@ -33,7 +33,7 @@ export const FollowUp5DaysEmail = ({
           </Text>
           <Text style={textStyle}>
             I've seen engineers put off interview prep until the week before
-            their interview—then panic when they realize they're not ready.
+            their interview, then panic when they realize they're not ready.
           </Text>
           <Text style={textStyle}>
             The ones who start early? They walk in confident because they've
@@ -64,7 +64,7 @@ export const FollowUp5DaysEmail = ({
   );
 };
 
-export const subject = "🔥 3 days left — Engineers who waited regret it";
+export const subject = "🔥 3 days left. Engineers who waited regret it";
 
 const cardStyle: React.CSSProperties = {
   backgroundColor: "#ffffff",

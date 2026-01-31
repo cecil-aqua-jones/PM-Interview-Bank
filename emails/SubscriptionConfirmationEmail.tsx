@@ -20,7 +20,7 @@ export const SubscriptionConfirmationEmail = ({
   dashboardUrl,
 }: SubscriptionConfirmationEmailProps) => {
   return (
-    <EmailLayout preview="Welcome to Apex Interviewer — Your training begins now">
+    <EmailLayout preview="Welcome to Apex Interviewer. Your training begins now">
       <Section style={cardStyle}>
         {/* Success Header */}
         <Header
@@ -131,7 +131,7 @@ const FeatureItem = ({ title, description, isLast }: FeatureItemProps) => (
 );
 
 // Subject line export
-export const subject = "Welcome to Apex Interviewer — Your training begins now";
+export const subject = "Welcome to Apex Interviewer. Your training begins now";
 
 // Styles
 const cardStyle: React.CSSProperties = {

@@ -34,7 +34,7 @@ export const FollowUp3DaysEmail = ({
           </Text>
           <Text style={textStyle}>
             Every day you wait is another day you could be practicing with AI
-            that catches the mistakes real interviewers will catch—before they
+            that catches the mistakes real interviewers will catch, before they
             cost you the job.
           </Text>
 

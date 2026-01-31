@@ -34,7 +34,7 @@ export const WelcomeEmail = ({
           <Text style={heroTitle}>Save 20% on Your Interview Prep</Text>
           <Text style={heroText}>Hey {name},</Text>
           <Text style={heroText}>
-            You were just checking out Apex Interviewer—the AI-powered interview
+            You were just checking out Apex Interviewer, the AI-powered interview
             training that's helped engineers land roles at Google, Meta, Amazon,
             OpenAI, and more.
           </Text>

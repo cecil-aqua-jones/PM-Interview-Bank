@@ -66,7 +66,7 @@ const stories: SuccessStory[] = [
     prevTC: "$420k",
     newTC: "$730k",
     increase: "74",
-    quote: "Follow-up questions were brutal—exactly what I needed.",
+    quote: "Follow-up questions were brutal, exactly what I needed.",
     gridArea: "card4",
     level: "Senior SWE",
   },

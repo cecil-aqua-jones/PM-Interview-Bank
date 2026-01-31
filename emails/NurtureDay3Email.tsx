@@ -39,13 +39,13 @@ export const NurtureDay3Email = ({ checkoutUrl }: NurtureDay3EmailProps) => {
             <Text style={quoteStyle}>
               "Passed Google on my third attempt after 30 mock interviews here."
             </Text>
-            <Text style={authorStyle}>— Sarah K., $145k → $280k (+93%)</Text>
+            <Text style={authorStyle}>- Sarah K., $145k → $280k (+93%)</Text>
           </Section>
           <Section style={testimonialBoxStyle}>
             <Text style={quoteStyle}>
               "Better feedback than my $200/hr interview coach."
             </Text>
-            <Text style={authorStyle}>— Marcus T., now at Meta</Text>
+            <Text style={authorStyle}>- Marcus T., now at Meta</Text>
           </Section>
         </Section>
 
@@ -59,7 +59,7 @@ export const NurtureDay3Email = ({ checkoutUrl }: NurtureDay3EmailProps) => {
             href={`${checkoutUrl}?plan=annual&promo=WELCOME20`}
             style={ctaButtonStyle}
           >
-            $400/year (was $500) — Get Started →
+            $400/year (was $500). Get Started →
           </Link>
 
           <Text style={altPriceStyle}>

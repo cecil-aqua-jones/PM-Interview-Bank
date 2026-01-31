@@ -327,7 +327,7 @@ function buildSystemDesignDimensions(
         whatWentWell = `Good trade-off awareness: ${evaluation.designHighlights.mainTradeoff}.`;
         howToImprove = "Continue discussing nuanced trade-offs like eventual vs strong consistency.";
       } else if (score >= 3) {
-        howToImprove = "Be more explicit about trade-offs. Every design decision has downsides—acknowledge them proactively.";
+        howToImprove = "Be more explicit about trade-offs. Every design decision has downsides. Acknowledge them proactively.";
       } else {
         howToImprove = "Study CAP theorem and consistency models. Practice articulating: 'The trade-off here is X vs Y, and I chose X because...'";
       }

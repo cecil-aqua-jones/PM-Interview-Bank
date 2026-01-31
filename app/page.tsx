@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { getCompanies } from "@/lib/airtable";
 import LogoMarquee from "./components/LogoMarquee";
 import LandingHeader from "./components/LandingHeader";
@@ -23,7 +24,7 @@ export const maxDuration = 30;
 export const metadata: Metadata = {
   title: "Apex Interviewer | AI Software Engineer Interview Coach - Google, Meta, Amazon Prep",
   description:
-    "The AI-powered interview coach that helps software engineers pass Google, Meta, Amazon, and FAANG interviews. Real-time feedback on coding, system design, and behavioral interviews. Stop failing technical interviews—practice with AI that evaluates like a real interviewer.",
+    "The AI-powered interview coach that helps software engineers pass Google, Meta, Amazon, and FAANG interviews. Real-time feedback on coding, system design, and behavioral interviews. Stop failing technical interviews. Practice with AI that evaluates like a real interviewer.",
   keywords: [
     // Niche-defining (own the category)
     "ai swe interview coach",
@@ -67,7 +68,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Apex Interviewer | AI Software Engineer Interview Coach",
     description:
-      "AI-powered mock interviews for Google, Meta, Amazon, and FAANG. Real-time feedback on coding, system design, and behavioral interviews. Stop failing—practice with AI that evaluates like a real interviewer.",
+      "AI-powered mock interviews for Google, Meta, Amazon, and FAANG. Real-time feedback on coding, system design, and behavioral interviews. Stop failing. Practice with AI that evaluates like a real interviewer.",
     url: SITE_URL,
     type: "website",
   },
@@ -179,7 +180,7 @@ function JsonLd() {
         name: "How is this different from LeetCode or HackerRank?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Those platforms test if you can solve problems. We simulate the actual interview experience—with follow-up questions, communication evaluation, and company-specific rubrics. We also cover behavioral and system design interviews, not just coding.",
+          text: "Those platforms test if you can solve problems. We simulate the actual interview experience, with follow-up questions, communication evaluation, and company-specific rubrics. We also cover behavioral and system design interviews, not just coding.",
         },
       },
       {
@@ -187,7 +188,7 @@ function JsonLd() {
         name: "Where do your interview questions come from?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Every question in our database is sourced from real interview experiences. Engineers who have interviewed at Google, Meta, Amazon, and other top companies submit their questions, which our team verifies for accuracy. We don't use made-up problems—only questions that have actually been asked in interviews.",
+          text: "Every question in our database is sourced from real interview experiences. Engineers who have interviewed at Google, Meta, Amazon, and other top companies submit their questions, which our team verifies for accuracy. We don't use made-up problems, only questions that have actually been asked in interviews.",
         },
       },
       {
@@ -235,7 +236,7 @@ function JsonLd() {
         name: "How does the money-back guarantee work?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "If you're not satisfied within 2 days of purchase, fill out a short survey and we'll issue a full refund—no questions asked after that.",
+          text: "If you're not satisfied within 2 days of purchase, fill out a short survey and we'll issue a full refund. No questions asked after that.",
         },
       },
       {
@@ -301,7 +302,7 @@ function JsonLd() {
         name: "What do FAANG interviewers actually look for?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Beyond correct solutions, FAANG interviewers evaluate: problem-solving approach, code quality, communication clarity, handling of edge cases, complexity analysis, and cultural fit. Each company has specific rubrics—Google emphasizes 'Googleyness,' Amazon focuses on Leadership Principles. Our company-specific modes are calibrated to these exact criteria.",
+          text: "Beyond correct solutions, FAANG interviewers evaluate: problem-solving approach, code quality, communication clarity, handling of edge cases, complexity analysis, and cultural fit. Each company has specific rubrics. Google emphasizes 'Googleyness,' Amazon focuses on Leadership Principles. Our company-specific modes are calibrated to these exact criteria.",
         },
       },
       {
@@ -309,7 +310,7 @@ function JsonLd() {
         name: "How many mock interviews should I do before a real interview?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Research suggests 15-20 realistic mock interviews build significant confidence. The key is quality over quantity—each practice session should include feedback on your specific weaknesses. With unlimited Apex Interviewer sessions, you can practice until you consistently perform at your target level.",
+          text: "Research suggests 15-20 realistic mock interviews build significant confidence. The key is quality over quantity. Each practice session should include feedback on your specific weaknesses. With unlimited Apex Interviewer sessions, you can practice until you consistently perform at your target level.",
         },
       },
     ],
@@ -334,7 +335,7 @@ function JsonLd() {
         "@type": "HowToStep",
         position: 2,
         name: "Simulate a Real Interview",
-        text: "Practice with verified questions sourced from actual interviews at your target company. Experience realistic follow-up questions that probe your thinking—just like facing a real senior engineer.",
+        text: "Practice with verified questions sourced from actual interviews at your target company. Experience realistic follow-up questions that probe your thinking, just like facing a real senior engineer.",
       },
       {
         "@type": "HowToStep",
@@ -346,7 +347,7 @@ function JsonLd() {
         "@type": "HowToStep",
         position: 4,
         name: "Track Your Improvement",
-        text: "Get a personalized dashboard showing exactly what to work on. Every piece of feedback is grounded in your interview transcript—no vague suggestions, just specific areas to improve.",
+        text: "Get a personalized dashboard showing exactly what to work on. Every piece of feedback is grounded in your interview transcript, no vague suggestions, just specific areas to improve.",
       },
     ],
   };
@@ -551,7 +552,7 @@ export default async function Home() {
               </a>
             </div>
             <ul className="hero-features">
-              <li>{totalQuestions}+ verified questions from actual tech interviews</li>
+              <li>Verified questions from actual tech interviews</li>
               <li>Company-specific rubrics for coding, system design, and behavioral</li>
               <li>Unlimited practice until you're ready</li>
             </ul>
@@ -572,7 +573,7 @@ export default async function Home() {
                 <p className="eyebrow">The Problem</p>
                 <h2>You Know How to Code. But Can You Interview?</h2>
                 <p className="lead">
-                  Most engineers fail top tech interviews not because they can't solve problems—but 
+                  Most engineers fail top tech interviews not because they can't solve problems, but 
                   because they don't know how to communicate their thinking, optimize on the fly, 
                   or handle follow-up questions under pressure.
                 </p>
@@ -622,7 +623,7 @@ export default async function Home() {
                 <h3>Simulate a Real Interview</h3>
                 <p>
                   Practice with verified questions sourced from actual interviews at your target 
-                  company. Experience realistic follow-up questions that probe your thinking—just 
+                  company. Experience realistic follow-up questions that probe your thinking, just 
                   like facing a real senior engineer.
                 </p>
               </div>
@@ -654,7 +655,7 @@ export default async function Home() {
                 <h3>Track Your Improvement</h3>
                 <p>
                   Get a personalized dashboard showing exactly what to work on. Every piece 
-                  of feedback is grounded in your interview transcript—no vague suggestions, 
+                  of feedback is grounded in your interview transcript, no vague suggestions, 
                   just specific areas to improve.
                 </p>
               </div>
@@ -674,7 +675,7 @@ export default async function Home() {
               <div className="feature-editorial">
                 <h4>Real Questions from Real Interviews</h4>
                 <p>
-                  Every question in our database comes from verified interview experiences—submitted 
+                  Every question in our database comes from verified interview experiences, submitted 
                   by engineers who actually interviewed at these companies and validated by our team. 
                   No made-up problems, just the questions you'll actually face.
                 </p>
@@ -682,7 +683,7 @@ export default async function Home() {
               <div className="feature-editorial">
                 <h4>Company-Specific Rubrics</h4>
                 <p>
-                  Get evaluated using the exact rubrics each company uses internally—for coding, 
+                  Get evaluated using the exact rubrics each company uses internally, for coding, 
                   system design, and behavioral. Google's bar is different from Meta's. We know 
                   the difference and train you accordingly.
                 </p>
@@ -724,10 +725,19 @@ export default async function Home() {
                 <h3>The Only Platform That Proves You're Improving</h3>
                 <p className="feature-chart-description">
                   Watch your skills grow from first attempt to interview-ready. 
-                  Our scoring system tracks 9 dimensions across coding, behavioral, and system design—so you know exactly when you're ready.
+                  Our scoring system tracks 9 dimensions across coding, behavioral, and system design, so you know exactly when you're ready.
                 </p>
+                <Link href="/why-ai-coaching" className="link-arrow">
+                  Learn why AI coaching works
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8h10m0 0L9 4m4 4L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </Link>
               </div>
-              <LandingRadarChart />
+              <div className="feature-chart-visuals">
+                <LandingFeedbackPreview />
+                <LandingRadarChart />
+              </div>
             </div>
           </div>
         </section>
@@ -847,7 +857,7 @@ export default async function Home() {
               <p className="guarantee-title">2-Day Money-Back Guarantee</p>
               <p className="guarantee-text">
                 Try it risk-free. If you're not satisfied within 48 hours, fill out a quick 
-                survey and we'll refund you in full—no questions asked after that.
+                survey and we'll refund you in full. No questions asked after that.
               </p>
             </div>
           </div>
@@ -862,7 +872,7 @@ export default async function Home() {
                 <h4>How is this different from LeetCode or HackerRank?</h4>
                 <p>
                   Those platforms test if you can solve problems. We simulate the actual interview 
-                  experience—with follow-up questions, communication evaluation, and company-specific 
+                  experience, with follow-up questions, communication evaluation, and company-specific 
                   rubrics. We also cover behavioral and system design interviews, not just coding.
                 </p>
               </div>
@@ -871,7 +881,7 @@ export default async function Home() {
                 <p>
                   Every question in our database is sourced from real interview experiences. Engineers 
                   who have interviewed at Google, Meta, Amazon, and other top companies submit their 
-                  questions, which our team verifies for accuracy. We don't use made-up problems—only 
+                  questions, which our team verifies for accuracy. We don't use made-up problems, only 
                   questions that have actually been asked in interviews.
                 </p>
               </div>
@@ -914,7 +924,7 @@ export default async function Home() {
                 <h4>How does the money-back guarantee work?</h4>
                 <p>
                   If you're not satisfied within 2 days of purchase, fill out a short survey 
-                  and we'll issue a full refund—no questions asked after that.
+                  and we'll issue a full refund. No questions asked after that.
                 </p>
               </div>
               <div className="faq-item">
@@ -935,7 +945,7 @@ export default async function Home() {
           <div className="container cta-inner">
             <h2>Stop Hoping. Start Practicing.</h2>
             <p>
-              The difference between failing and passing your tech interview isn't talent—it's 
+              The difference between failing and passing your tech interview isn't talent, it's 
               preparation. Give yourself the unfair advantage.
             </p>
             <CTAButton />

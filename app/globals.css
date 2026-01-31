@@ -154,6 +154,8 @@ a {
   display: flex;
   align-items: center;
   gap: 12px;
+  text-decoration: none;
+  color: inherit;
 }
 
 .brand-mark {
@@ -2069,6 +2071,23 @@ a {
   }
 }
 
+/* Feature Chart Visuals - Horizontal Scroll */
+.feature-chart-visuals {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 16px;
+}
+
+.feature-chart-visuals > * {
+  flex-shrink: 0;
+  width: 400px;
+  scroll-snap-align: start;
+}
+
 /* Landing Radar Chart */
 .landing-radar-container {
   background: var(--pearl);
@@ -3456,4 +3475,316 @@ a {
   .legal-section h2 {
     font-size: 1.25rem;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   WHY AI COACHING PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Link Arrow */
+.link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ff5500;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  margin-top: 24px;
+  transition: gap 0.2s ease;
+}
+
+.link-arrow:hover {
+  gap: 12px;
+}
+
+.link-arrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Why AI Page */
+.why-ai-page {
+  background: var(--white);
+}
+
+.why-ai-page .section {
+  padding: 80px 0;
+}
+
+@media (min-width: 768px) {
+  .why-ai-page .section {
+    padding: 120px 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .why-ai-page .section {
+    padding: 140px 0;
+  }
+}
+
+/* Hero */
+.why-ai-hero {
+  padding: 120px 0 80px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--white) 0%, var(--ivory) 100%);
+}
+
+.why-ai-hero h1 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--ink);
+  margin: 16px 0 32px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.why-ai-hero-lead {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--graphite);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.why-ai-hero-lead em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 500;
+}
+
+/* Section Grid */
+.why-ai-section-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 64px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .why-ai-section-grid {
+    grid-template-columns: 1fr 1.1fr;
+    gap: 80px;
+  }
+
+  .why-ai-section-grid.reverse {
+    direction: rtl;
+  }
+
+  .why-ai-section-grid.reverse > * {
+    direction: ltr;
+  }
+}
+
+.why-ai-section-content h2 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 16px 0 24px;
+}
+
+.why-ai-section-text {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--graphite);
+  margin-bottom: 16px;
+}
+
+.why-ai-section-visual {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.why-ai-section-visual > * {
+  max-width: 480px;
+  width: 100%;
+}
+
+/* Benefits List */
+.why-ai-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.why-ai-benefit h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.why-ai-benefit p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--graphite);
+}
+
+/* Visual Stack - Horizontal Scroll */
+.why-ai-visual-stack {
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 16px;
+}
+
+.why-ai-visual-stack > * {
+  flex-shrink: 0;
+  width: 400px;
+  scroll-snap-align: start;
+}
+
+/* Elite Section */
+.why-ai-elite-section {
+  text-align: center;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.why-ai-elite-section h2 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 16px 0 48px;
+}
+
+/* Comparison Cards */
+.why-ai-comparison {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+@media (min-width: 600px) {
+  .why-ai-comparison {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.why-ai-comparison-card {
+  background: var(--pearl);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  text-align: left;
+}
+
+.why-ai-comparison-card.ai {
+  border-color: #ff5500;
+  background: var(--white);
+}
+
+.why-ai-comparison-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--slate);
+  margin-bottom: 8px;
+}
+
+.why-ai-comparison-card.ai .why-ai-comparison-label {
+  color: #ff5500;
+}
+
+.why-ai-comparison-price {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 24px;
+}
+
+.why-ai-comparison-price span {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--graphite);
+}
+
+.why-ai-comparison-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.why-ai-comparison-list li {
+  font-size: 14px;
+  color: var(--charcoal);
+  padding-left: 20px;
+  position: relative;
+}
+
+.why-ai-comparison-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--silver);
+}
+
+.why-ai-comparison-card.ai .why-ai-comparison-list li::before {
+  background: #ff5500;
+}
+
+/* Elite Message */
+.why-ai-elite-message {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.why-ai-elite-message p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--graphite);
+  margin-bottom: 16px;
+}
+
+.why-ai-elite-message strong {
+  color: var(--ink);
+}
+
+/* CTA Section */
+.why-ai-cta {
+  padding: 80px 0;
+  text-align: center;
+  background: var(--ivory);
+}
+
+.why-ai-cta h2 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 16px;
+}
+
+.why-ai-cta p {
+  font-size: 16px;
+  color: var(--graphite);
+  max-width: 480px;
+  margin: 0 auto 32px;
+}
+
+.btn-lg {
+  padding: 16px 32px;
+  font-size: 16px;
 }

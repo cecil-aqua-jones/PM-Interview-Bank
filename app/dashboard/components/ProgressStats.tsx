@@ -81,7 +81,7 @@ export default function ProgressStatsCards({ stats }: ProgressStatsCardsProps) {
             lineHeight: 1,
             marginBottom: overallVerdict ? "12px" : "0",
           }}>
-            {overallAverage !== null ? overallAverage.toFixed(1) : "—"}
+            {overallAverage !== null ? overallAverage.toFixed(1) : "-"}
           </p>
           {overallVerdict && (
             <span style={{
@@ -189,7 +189,7 @@ function CategoryCard({ category, count, average }: CategoryCardProps) {
           color: "var(--ink)",
           fontFamily: "Playfair Display, Georgia, serif",
         }}>
-          {average !== null ? average.toFixed(1) : "—"}
+          {average !== null ? average.toFixed(1) : "-"}
         </span>
         <span style={{
           fontSize: "13px",
