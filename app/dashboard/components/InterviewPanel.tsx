@@ -154,8 +154,8 @@ export default function InterviewPanel({
   const silenceStartRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Auto-listen mode: automatically start listening after AI finishes speaking
-  const autoListenEnabledRef = useRef(true);
+  // Auto-listen mode: disabled - user must manually click "tap to speak" to respond
+  const autoListenEnabledRef = useRef(false);
   const autoListenDelayRef = useRef<NodeJS.Timeout | null>(null);
 
   // Ref to track recording state for async callbacks (avoids stale closures)
@@ -597,15 +597,26 @@ export default function InterviewPanel({
       console.log("[Audio Queue] Creating Audio element for playback");
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
+      
+      // Track playback start time for duration validation
+      let playbackStartTime: number | null = null;
+      const MIN_AUDIO_DURATION_FOR_AUTO_LISTEN = 2; // seconds - minimum expected for any spoken content
 
       audio.addEventListener("timeupdate", () => {
         if (audio.duration) {
           setSpeakingProgress((audio.currentTime / audio.duration) * 100);
         }
       });
+      
+      audio.addEventListener("playing", () => {
+        playbackStartTime = Date.now();
+      });
 
       audio.addEventListener("ended", () => {
-        console.log("[Audio] Playback ended");
+        const actualDuration = audio.duration || 0;
+        const elapsedTime = playbackStartTime ? (Date.now() - playbackStartTime) / 1000 : 0;
+        console.log(`[Audio] Playback ended - duration: ${actualDuration.toFixed(1)}s, elapsed: ${elapsedTime.toFixed(1)}s`);
+        
         URL.revokeObjectURL(audioUrl);
         audioRef.current = null;
         isPlayingRef.current = false;
@@ -621,7 +632,14 @@ export default function InterviewPanel({
         if (audioQueueRef.current.length > 0) {
           processNextInQueue();
         } else {
-          triggerAutoListen();
+          // Validate duration before auto-listening
+          // If audio was suspiciously short, it may have failed silently
+          if (actualDuration < MIN_AUDIO_DURATION_FOR_AUTO_LISTEN) {
+            console.warn(`[Audio] Duration (${actualDuration.toFixed(1)}s) below minimum (${MIN_AUDIO_DURATION_FOR_AUTO_LISTEN}s) - not auto-listening`);
+            // Don't auto-listen for suspiciously short audio - may indicate a problem
+          } else {
+            triggerAutoListen();
+          }
         }
       });
 
@@ -637,10 +655,13 @@ export default function InterviewPanel({
         
         item.onComplete?.();
 
+        // On error, process next in queue but DON'T auto-listen
+        // This prevents jarring transitions when audio fails mid-playback
         if (audioQueueRef.current.length > 0) {
           processNextInQueue();
         } else {
-          triggerAutoListen();
+          console.warn("[Audio] Error during playback - not auto-listening to prevent jarring UX");
+          // Don't auto-listen on errors - let user manually trigger or wait for next interaction
         }
       });
 
@@ -1042,21 +1063,10 @@ export default function InterviewPanel({
       setIsProcessingGreeting(false);
       
       // Wait for unified greeting+question audio to finish playing
-      const waitForGreetingAudio = (): Promise<void> => {
-        return new Promise((resolve) => {
-          const checkAudio = () => {
-            if (!streamingConversation.isStreaming && !streamingConversation.isPlaying) {
-              console.log("[Greeting] Unified greeting+question audio finished");
-              resolve();
-            } else {
-              setTimeout(checkAudio, 100);
-            }
-          };
-          setTimeout(checkAudio, 300);
-        });
-      };
-      
-      await waitForGreetingAudio();
+      // Use waitForCompletion() which reads refs directly for accurate state
+      console.log("[Greeting] Waiting for audio to finish playing...");
+      await streamingConversation.waitForCompletion();
+      console.log("[Greeting] Audio playback complete");
       
       // Transition directly to coding state (question was included in greeting)
       console.log("[Greeting] Complete, transitioning to coding");
@@ -1064,11 +1074,9 @@ export default function InterviewPanel({
       panelStateRef.current = "coding";
       setPanelState("coding");
       
-      // Reset recording state to idle so triggerAutoListen can proceed
+      // Reset recording state to idle - user must manually click "tap to speak" to respond
       conversationRecordingStateRef.current = "idle";
       setConversationRecordingState("idle");
-      
-      setTimeout(() => triggerAutoListen(), 100);
     } catch (err) {
       console.error("[Greeting] Failed to get AI greeting+question:", err);
       setIsProcessingGreeting(false);
@@ -1076,7 +1084,7 @@ export default function InterviewPanel({
       conversationRecordingStateRef.current = "listening";
       setConversationRecordingState("listening");
     }
-  }, [question.title, question.prompt, streamingConversation, triggerAutoListen]);
+  }, [question.title, question.prompt, streamingConversation]);
 
   // Keep ref in sync for use in pauseRecording
   useEffect(() => {
@@ -2206,6 +2214,14 @@ export default function InterviewPanel({
   const lastRecordingStartRef = useRef<number>(0);
   
   useEffect(() => {
+    // Don't start recording if AI is still speaking - prevents mic from interrupting question readout
+    // Exception: During "awaiting_greeting" phase, we NEED to listen for "hello" before AI speaks
+    const isAwaitingGreeting = panelStateRef.current === "awaiting_greeting";
+    if (isSpeaking && !isAwaitingGreeting) {
+      console.log("[Recording] AI is speaking, waiting to start recording...");
+      return;
+    }
+    
     if (conversationRecordingState === "listening") {
       const now = Date.now();
       const timeSinceLastStart = now - lastRecordingStartRef.current;
@@ -2215,7 +2231,7 @@ export default function InterviewPanel({
         console.log("[Recording] Debounce - waiting before restart...");
         const delay = 500 - timeSinceLastStart;
         const timeout = setTimeout(() => {
-          if (conversationRecordingStateRef.current === "listening") {
+          if (conversationRecordingStateRef.current === "listening" && !isPlayingRef.current) {
             console.log("[Recording] State is 'listening', starting after debounce...");
             lastRecordingStartRef.current = Date.now();
             startConversationRecording();
@@ -2229,7 +2245,7 @@ export default function InterviewPanel({
       startConversationRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationRecordingState]); // Intentionally exclude startConversationRecording to prevent infinite loop
+  }, [conversationRecordingState, isSpeaking]); // Intentionally exclude startConversationRecording to prevent infinite loop
 
   /**
    * Debug: Log state changes
@@ -2383,33 +2399,8 @@ export default function InterviewPanel({
   ]);
 
   /**
-   * Auto-trigger listening when idle in a conversational state
-   * This ensures hands-free operation - no button clicks needed
-   */
-  useEffect(() => {
-    // Only auto-listen in conversational states when idle and not playing audio
-    // Also check streaming conversation state to ensure AI has finished speaking
-    if (
-      conversationRecordingState === "idle" &&
-      !isSpeaking &&
-      !isConversing &&
-      !streamingConversation.isStreaming &&
-      !streamingConversation.isPlaying &&
-      (panelState === "coding" || panelState === "review" || panelState === "followup")
-    ) {
-      console.log("[Auto] Idle in conversational state, triggering auto-listen");
-      // Small delay to ensure state is stable
-      const timer = setTimeout(() => {
-        if (autoListenEnabledRef.current && conversationRecordingStateRef.current === "idle") {
-          triggerAutoListen();
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [conversationRecordingState, isSpeaking, isConversing, panelState, triggerAutoListen, streamingConversation.isStreaming, streamingConversation.isPlaying]);
-
-  /**
    * Cleanup auto-listen timeout on unmount
+   * (kept for cleanup even though auto-listen is disabled)
    */
   useEffect(() => {
     return () => {
@@ -2634,12 +2625,9 @@ export default function InterviewPanel({
                 </div>
               )}
 
-              {/* AI Speaking Status - tap to interrupt */}
+              {/* AI Speaking Status */}
               {isSpeaking && (
-                <div 
-                  className={`${styles.aiSpeakingBar} ${styles.speaking}`}
-                  onClick={() => { clearAudioQueue(); streamingSpeechStop(); }}
-                >
+                <div className={`${styles.aiSpeakingBar} ${styles.speaking}`}>
                   <div className={styles.aiSpeakingIcon}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
@@ -2648,7 +2636,6 @@ export default function InterviewPanel({
                     </svg>
                   </div>
                   <span className={styles.aiSpeakingText}>Speaking</span>
-                  <span className={styles.aiSpeakingHint}>tap to interrupt</span>
                 </div>
               )}
 

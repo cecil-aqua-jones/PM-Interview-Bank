@@ -476,9 +476,46 @@ async function attemptTTSGeneration(
     };
     
     ws.onerror = (error) => {
-      console.error("[Cartesia TTS] WebSocket error:", error);
+      // Extract more detailed error information if available
+      let errorCode = "";
+      let errorDetails = "";
+      
+      // Try to extract error code from the ErrorEvent's underlying error
+      // The kError symbol contains the actual Error object with code property
+      try {
+        // In Node.js WebSocket, ErrorEvent has a [kError] symbol property
+        // We use JSON.stringify with a replacer to try to extract it
+        const errorStr = JSON.stringify(error, (key, value) => {
+          if (value instanceof Error) {
+            return { message: value.message, code: (value as NodeJS.ErrnoException).code };
+          }
+          return value;
+        });
+        
+        // Check for common error codes in the stringified output
+        if (errorStr.includes("ETIMEDOUT")) {
+          errorCode = "ETIMEDOUT";
+        } else if (errorStr.includes("ECONNREFUSED")) {
+          errorCode = "ECONNREFUSED";
+        } else if (errorStr.includes("ECONNRESET")) {
+          errorCode = "ECONNRESET";
+        } else if (errorStr.includes("ENOTFOUND")) {
+          errorCode = "ENOTFOUND";
+        }
+      } catch {
+        // Ignore JSON serialization errors
+      }
+      
+      if (errorCode) {
+        errorDetails = ` (${errorCode})`;
+        console.error(`[Cartesia TTS] WebSocket connection failed: ${errorCode}`);
+      } else {
+        console.error("[Cartesia TTS] WebSocket error:", error);
+      }
+      
       cleanup();
-      reject(new Error("WebSocket connection error"));
+      // Include error code in message for better error detection
+      reject(new Error(`WebSocket connection error${errorDetails}`));
     };
     
     ws.onclose = (event) => {
@@ -547,9 +584,69 @@ function writeString(view: DataView, offset: number, string: string): void {
 }
 
 /**
+ * Custom error class for service unavailability (network issues)
+ * Allows the caller to distinguish between network errors and other errors
+ */
+export class ServiceUnavailableError extends Error {
+  constructor(message: string, public readonly cause?: Error) {
+    super(message);
+    this.name = "ServiceUnavailableError";
+  }
+}
+
+/**
+ * Check if an error is a network/service unavailability issue
+ * 
+ * These errors indicate the service is temporarily unreachable and the
+ * client should receive a 503 status to trigger circuit breaker behavior.
+ */
+export function isNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  
+  const networkErrorPatterns = [
+    // Node.js/system errors
+    "fetch failed",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ENOTFOUND",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_HEADERS_TIMEOUT",
+    "socket hang up",
+    "network error",
+    "timed out",
+    "aborted",
+    // WebSocket-related errors
+    "websocket connection error",
+    "websocket closed",
+    "connection closed",
+    "connection refused",
+    "connection error",
+    "connection failed",
+    // TTS-specific timeout errors
+    "tts generation timeout",
+  ];
+  
+  const message = error.message.toLowerCase();
+  const isNetwork = networkErrorPatterns.some(pattern => message.includes(pattern.toLowerCase()));
+  
+  // Log for debugging when network error is detected
+  if (isNetwork) {
+    console.log(`[isNetworkError] Detected network error: "${error.message.slice(0, 100)}"`);
+  }
+  
+  return isNetwork;
+}
+
+/**
  * Transcribe audio using Cartesia ink-whisper batch API
  * Supports various audio formats: WebM, MP3, WAV, OGG, FLAC, MP4
  * Returns transcription text
+ * 
+ * @throws ServiceUnavailableError - When Cartesia service is unreachable
+ * @throws Error - For validation or API errors
  */
 export async function transcribeAudio(
   audioBuffer: ArrayBuffer,
@@ -585,9 +682,16 @@ export async function transcribeAudio(
   // Retry configuration
   const MAX_RETRIES = 3;
   const INITIAL_DELAY_MS = 500;
+  const TIMEOUT_MS = 30000; // 30 second timeout per request
+  
   let lastError: Error | null = null;
+  let wasNetworkError = false;
   
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    
     try {
       if (attempt > 0) {
         const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
@@ -612,7 +716,11 @@ export async function transcribeAudio(
           "Cartesia-Version": CARTESIA_VERSION,
         },
         body: formData,
+        signal: controller.signal,
       });
+      
+      // Clear timeout on successful response
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const result = await response.json();
@@ -629,19 +737,48 @@ export async function transcribeAudio(
         throw new Error(`Cartesia API error: ${response.status} - ${errorText}`);
       }
       
+      // Server errors (5xx) are potentially retryable
       lastError = new Error(`Cartesia API error: ${response.status} - ${errorText}`);
+      wasNetworkError = response.status >= 500;
     } catch (err) {
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
       lastError = err instanceof Error ? err : new Error(String(err));
+      
+      // Check if this is a timeout (AbortError from our controller)
+      const isTimeout = lastError.name === "AbortError";
+      if (isTimeout) {
+        lastError = new Error(`Request timed out after ${TIMEOUT_MS}ms`);
+        wasNetworkError = true;
+      } else {
+        wasNetworkError = isNetworkError(lastError);
+      }
+      
       console.error(`[Cartesia STT] Exception (attempt ${attempt + 1}):`, lastError.message);
       
       // Don't retry on validation errors
       if (lastError.message.includes("too small")) {
         throw lastError;
       }
+      
+      // Don't retry on non-network errors (unless it's a retryable network error)
+      if (!wasNetworkError && !lastError.message.includes("API error")) {
+        throw lastError;
+      }
     }
   }
   
   console.error(`[Cartesia STT] All ${MAX_RETRIES} attempts failed`);
+  
+  // Wrap network errors in ServiceUnavailableError for proper status code handling
+  if (wasNetworkError && lastError) {
+    throw new ServiceUnavailableError(
+      "Transcription service temporarily unavailable",
+      lastError
+    );
+  }
+  
   throw lastError || new Error("Transcription failed after all retries");
 }
 

@@ -123,7 +123,8 @@ export default function SystemDesignInterviewPanel({
   const recordingStartTimeRef = useRef<number>(0);
   const speechDetectedRef = useRef<boolean>(false);
   const continuationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autoListenEnabledRef = useRef(true);
+  // Auto-listen mode: disabled - user must manually click "tap to speak" to respond
+  const autoListenEnabledRef = useRef(false);
   const pendingTranscriptRef = useRef("");
   const streamingFallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -338,32 +339,8 @@ export default function SystemDesignInterviewPanel({
         
         setRecordingState("idle");
         isProcessingMessageRef.current = false;
-        
-        // Wait minimum delay, then poll until audio is done
-        setTimeout(() => {
-          const pollForAudioCompletion = () => {
-            if (isClosingRef.current || panelStateRef.current !== "conversing") {
-              console.log("[SystemDesign] Panel state changed, cancelling auto-listen");
-              return;
-            }
-            
-            // Check if audio is still playing (both streaming text and audio playback)
-            if (streamingConversation.isStreaming || streamingConversation.isPlaying) {
-              console.log("[SystemDesign] Audio still playing, waiting 500ms...");
-              setTimeout(pollForAudioCompletion, 500);
-              return;
-            }
-            
-            // Audio done - start recording if still in idle state
-            if (recordingStateRef.current === "idle") {
-              console.log("[SystemDesign] Audio complete, auto-starting recording now");
-              recordingStateRef.current = "listening";
-              setRecordingState("listening");
-            }
-          };
-          
-          pollForAudioCompletion();
-        }, minDelay);
+        // Audio will complete on its own - user must manually click "tap to speak" to respond
+        // No auto-listen after AI finishes speaking
       } else {
         setRecordingState("idle");
         isProcessingMessageRef.current = false;
@@ -844,13 +821,14 @@ export default function SystemDesignInterviewPanel({
                 console.log("[Greeting] Complete, transitioning to conversing");
                 panelStateRef.current = "conversing";
                 setPanelState("conversing");
-                recordingStateRef.current = "listening";
-                setRecordingState("listening");
+                // User must manually click "tap to speak" to respond
+                recordingStateRef.current = "idle";
+                setRecordingState("idle");
               } catch (err) {
                 console.error("[Greeting] Failed to get AI greeting+question:", err);
                 setIsProcessingGreeting(false);
                 // On error, return to awaiting_greeting state so user can try again
-                setRecordingState("listening");
+                setRecordingState("idle");
                 return;
               }
             } else {
@@ -912,7 +890,18 @@ export default function SystemDesignInterviewPanel({
   // Handle recording state changes with debouncing
   const lastRecordingStartRef = useRef<number>(0);
   
+  // Check if AI is currently speaking (for blocking mic during speech)
+  const isAISpeakingNow = isAISpeaking || streamingConversation.isPlaying;
+  
   useEffect(() => {
+    // Don't start recording if AI is still speaking - prevents mic from interrupting
+    // Exception: During "awaiting_greeting" phase, we NEED to listen for "hello" before AI speaks
+    const isAwaitingGreeting = panelStateRef.current === "awaiting_greeting";
+    if (isAISpeakingNow && !isAwaitingGreeting) {
+      console.log("[Recording] AI is speaking, waiting to start recording...");
+      return;
+    }
+    
     if (recordingState === "listening") {
       const now = Date.now();
       const timeSinceLastStart = now - lastRecordingStartRef.current;
@@ -936,7 +925,7 @@ export default function SystemDesignInterviewPanel({
       startRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordingState]); // Intentionally exclude startRecording to prevent infinite loop
+  }, [recordingState, isAISpeakingNow]); // Intentionally exclude startRecording to prevent infinite loop
 
   // Handle paused state - process and potentially continue
   useEffect(() => {
@@ -1069,13 +1058,14 @@ export default function SystemDesignInterviewPanel({
           console.log("[Greeting] Complete, transitioning to conversing");
           panelStateRef.current = "conversing";
           setPanelState("conversing");
-          recordingStateRef.current = "listening";
-          setRecordingState("listening");
+          // User must manually click "tap to speak" to respond
+          recordingStateRef.current = "idle";
+          setRecordingState("idle");
         } catch (err) {
           console.error("[Greeting] Streaming greeting flow failed:", err);
           setIsProcessingGreeting(false);
           streamingGreetingTriggeredRef.current = false;
-          setRecordingState("listening");
+          setRecordingState("idle");
         }
       })();
     }
@@ -1299,13 +1289,14 @@ export default function SystemDesignInterviewPanel({
       console.log("[Greeting] Complete, transitioning to conversing");
       panelStateRef.current = "conversing";
       setPanelState("conversing");
-      recordingStateRef.current = "listening";
-      setRecordingState("listening");
+      // User must manually click "tap to speak" to respond
+      recordingStateRef.current = "idle";
+      setRecordingState("idle");
     } catch (err) {
       console.error("[Greeting] Failed to get AI greeting+question:", err);
       setIsProcessingGreeting(false);
       // On error, return to awaiting_greeting state so user can try again
-      setRecordingState("listening");
+      setRecordingState("idle");
     }
   }, [streamingConversation, cleanupAudioAnalysis]);
 
@@ -1407,10 +1398,12 @@ export default function SystemDesignInterviewPanel({
     
     panelStateRef.current = "conversing";
     setPanelState("conversing");
-    recordingStateRef.current = "listening";
-    setRecordingState("listening");
+    // User must manually click "tap to speak" to respond
+    recordingStateRef.current = "idle";
+    setRecordingState("idle");
   }, [stopCurrentAudio]);
 
+  // Interrupt handler - stop AI speaking (no longer exposed in UI, but kept for internal use)
   const handleInterrupt = useCallback(() => {
     if (isPlayingPreloadedAudio || streamingSpeechIsPlaying || streamingConversation.isStreaming) {
       stopCurrentAudio();
@@ -1421,8 +1414,9 @@ export default function SystemDesignInterviewPanel({
         setPanelState("conversing");
       }
       
-      recordingStateRef.current = "listening";
-      setRecordingState("listening");
+      // User must manually click "tap to speak" to respond
+      recordingStateRef.current = "idle";
+      setRecordingState("idle");
     }
   }, [isPlayingPreloadedAudio, streamingSpeechIsPlaying, streamingConversation, stopCurrentAudio]);
 
@@ -1438,8 +1432,9 @@ export default function SystemDesignInterviewPanel({
     lastSentMessageRef.current = "";
     lastAddedResponseRef.current = "";
     isProcessingMessageRef.current = false;
-    recordingStateRef.current = "listening";
-    setRecordingState("listening");
+    // User must manually click "tap to speak" to respond
+    recordingStateRef.current = "idle";
+    setRecordingState("idle");
   }, []);
 
   const handleStartRecording = useCallback(() => {
@@ -1745,10 +1740,7 @@ export default function SystemDesignInterviewPanel({
         <div className={styles.behavioralControls}>
           {/* AI Speaking Status */}
           {isAISpeaking && (
-            <div 
-              className={`${styles.aiSpeakingBar} ${styles.speaking}`}
-              onClick={handleInterrupt}
-            >
+            <div className={`${styles.aiSpeakingBar} ${styles.speaking}`}>
               <div className={styles.aiSpeakingIcon}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
@@ -1757,7 +1749,6 @@ export default function SystemDesignInterviewPanel({
                 </svg>
               </div>
               <span className={styles.aiSpeakingText}>Speaking</span>
-              <span className={styles.aiSpeakingHint}>tap to interrupt</span>
               {panelState === "speaking" && (
                 <button className={styles.skipBtn} onClick={(e) => { e.stopPropagation(); skipToConversing(); }}>
                   Skip

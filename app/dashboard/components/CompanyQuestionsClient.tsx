@@ -567,35 +567,26 @@ export default function CompanyQuestionsClient({
                         }
                       }}
                       disabled={isInterviewClosing || !!interviewQuestion}
+                      title={isLoading(selectedQuestion.id) ? "Audio loading in background. Click to start now." : undefined}
                     >
-                      {isPreloaded(selectedQuestion.id) ? (
-                        <>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                          {selectedQuestionType === "coding"
-                            ? "Start Coding Interview"
-                            : selectedQuestionType === "system_design"
-                              ? "Start System Design Interview"
-                              : "Start Behavioral Interview"
-                          }
-                        </>
-                      ) : isLoading(selectedQuestion.id) ? (
-                        <>
-                          <span className={styles.loadingSpinner} />
-                          Preparing...
-                        </>
-                      ) : (
-                        // Not preloaded and not loading - either failed or not started
-                        // Allow user to proceed anyway (audio will load on demand)
-                        <>
-                          {selectedQuestionType === "coding"
-                            ? "Start Coding Interview"
-                            : selectedQuestionType === "system_design"
-                              ? "Start System Design Interview"
-                              : "Start Behavioral Interview"
-                          }
-                        </>
+                      {isPreloaded(selectedQuestion.id) && (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8 }}>
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                      {isLoading(selectedQuestion.id) && (
+                        <span className={styles.loadingSpinnerSmall} style={{ marginRight: 8 }} />
+                      )}
+                      {selectedQuestionType === "coding"
+                        ? "Start Coding Interview"
+                        : selectedQuestionType === "system_design"
+                          ? "Start System Design Interview"
+                          : "Start Behavioral Interview"
+                      }
+                      {isLoading(selectedQuestion.id) && (
+                        <span style={{ marginLeft: 8, opacity: 0.7, fontSize: "0.85em" }}>
+                          ({getProgress(selectedQuestion.id)}%)
+                        </span>
                       )}
                     </button>
                   </div>

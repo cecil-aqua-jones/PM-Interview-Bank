@@ -111,7 +111,8 @@ export default function BehavioralInterviewPanel({
   const speechDetectedRef = useRef(false);
   const recordingStartTimeRef = useRef<number>(0);
   const continuationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const autoListenEnabledRef = useRef(true);
+  // Auto-listen mode: disabled - user must manually click "tap to speak" to respond
+  const autoListenEnabledRef = useRef(false);
   const shouldAutoSendRef = useRef(false);
   const pendingTranscriptRef = useRef<string>("");
   const streamingFallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -323,31 +324,8 @@ export default function BehavioralInterviewPanel({
         setRecordingState("idle");
         isProcessingMessageRef.current = false;
         
-        // Wait minimum delay, then poll until audio is done
-        setTimeout(() => {
-          const pollForAudioCompletion = () => {
-            if (isClosingRef.current || panelStateRef.current !== "conversing") {
-              console.log("[Behavioral] Panel state changed, cancelling auto-listen");
-              return;
-            }
-            
-            // Check if audio is still playing (both streaming text and audio playback)
-            if (streamingConversation.isStreaming || streamingConversation.isPlaying) {
-              console.log("[Behavioral] Audio still playing, waiting 500ms...");
-              setTimeout(pollForAudioCompletion, 500);
-              return;
-            }
-            
-            // Audio done - start recording if still in idle state
-            if (recordingStateRef.current === "idle") {
-              console.log("[Behavioral] Audio complete, auto-starting recording now");
-              recordingStateRef.current = "listening";
-              setRecordingState("listening");
-            }
-          };
-          
-          pollForAudioCompletion();
-        }, minDelay);
+        // Audio will complete on its own - user must manually click "tap to speak" to respond
+        // No auto-listen after AI finishes speaking
       } else {
         setRecordingState("idle");
         isProcessingMessageRef.current = false;
@@ -642,13 +620,14 @@ export default function BehavioralInterviewPanel({
             console.log("[Greeting] Complete, transitioning to conversing");
             panelStateRef.current = "conversing";
             setPanelState("conversing");
-            recordingStateRef.current = "listening";
-            setRecordingState("listening");
+            // User must manually click "tap to speak" to respond
+            recordingStateRef.current = "idle";
+            setRecordingState("idle");
           } catch (err) {
             console.error("[Greeting] Failed to get AI greeting+question:", err);
             setIsProcessingGreeting(false);
             // On error, return to awaiting_greeting state so user can try again
-            setRecordingState("listening");
+            setRecordingState("idle");
             return;
           }
         } else {
@@ -915,7 +894,18 @@ export default function BehavioralInterviewPanel({
   // Use a ref to prevent rapid restarts (debounce)
   const lastRecordingStartRef = useRef<number>(0);
   
+  // Check if AI is currently speaking (for blocking mic during speech)
+  const isAISpeakingNow = isPlayingPreloadedAudio || streamingSpeechIsPlaying || streamingConversation.isStreaming || streamingConversation.isPlaying;
+  
   useEffect(() => {
+    // Don't start recording if AI is still speaking - prevents mic from interrupting
+    // Exception: During "awaiting_greeting" phase, we NEED to listen for "hello" before AI speaks
+    const isAwaitingGreeting = panelStateRef.current === "awaiting_greeting";
+    if (isAISpeakingNow && !isAwaitingGreeting) {
+      console.log("[Recording] AI is speaking, waiting to start recording...");
+      return;
+    }
+    
     if (recordingState === "listening") {
       const now = Date.now();
       const timeSinceLastStart = now - lastRecordingStartRef.current;
@@ -939,7 +929,7 @@ export default function BehavioralInterviewPanel({
       startRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordingState]); // Intentionally exclude startRecording to prevent infinite loop
+  }, [recordingState, isAISpeakingNow]); // Intentionally exclude startRecording to prevent infinite loop
 
   // ═══════════════════════════════════════════════════════════════════════════
   // STREAMING GREETING DETECTION (Fast path - ~300ms latency)
@@ -1062,13 +1052,14 @@ export default function BehavioralInterviewPanel({
           console.log("[Greeting] Complete, transitioning to conversing");
           panelStateRef.current = "conversing";
           setPanelState("conversing");
-          recordingStateRef.current = "listening";
-          setRecordingState("listening");
+          // User must manually click "tap to speak" to respond
+          recordingStateRef.current = "idle";
+          setRecordingState("idle");
         } catch (err) {
           console.error("[Greeting] Streaming greeting flow failed:", err);
           setIsProcessingGreeting(false);
           streamingGreetingTriggeredRef.current = false;
-          setRecordingState("listening");
+          setRecordingState("idle");
         }
       })();
     }
@@ -1277,13 +1268,14 @@ export default function BehavioralInterviewPanel({
       console.log("[Greeting] Complete, transitioning to conversing");
       panelStateRef.current = "conversing";
       setPanelState("conversing");
-      recordingStateRef.current = "listening";
-      setRecordingState("listening");
+      // User must manually click "tap to speak" to respond
+      recordingStateRef.current = "idle";
+      setRecordingState("idle");
     } catch (err) {
       console.error("[Greeting] Failed to get AI greeting+question:", err);
       setIsProcessingGreeting(false);
       // On error, return to awaiting_greeting state so user can try again
-      setRecordingState("listening");
+      setRecordingState("idle");
     }
   }, [streamingConversation, cleanupAudioAnalysis]);
 
@@ -1419,12 +1411,12 @@ export default function BehavioralInterviewPanel({
     
     panelStateRef.current = "conversing";
     setPanelState("conversing");
-    // Auto-start recording immediately
-    recordingStateRef.current = "listening";
-    setRecordingState("listening");
+    // User must manually click "tap to speak" to respond
+    recordingStateRef.current = "idle";
+    setRecordingState("idle");
   }, [stopCurrentAudio]);
 
-  // Interrupt handler - tap to stop AI speaking
+  // Interrupt handler - stop AI speaking (no longer exposed in UI, but kept for internal use)
   const handleInterrupt = useCallback(() => {
     if (isPlayingPreloadedAudio || streamingSpeechIsPlaying || streamingConversation.isStreaming) {
       stopCurrentAudio();
@@ -1436,9 +1428,9 @@ export default function BehavioralInterviewPanel({
         setPanelState("conversing");
       }
       
-      // Auto-start recording immediately after interrupt
-      recordingStateRef.current = "listening";
-      setRecordingState("listening");
+      // User must manually click "tap to speak" to respond
+      recordingStateRef.current = "idle";
+      setRecordingState("idle");
     }
   }, [isPlayingPreloadedAudio, streamingSpeechIsPlaying, streamingConversation, stopCurrentAudio]);
 
@@ -1455,9 +1447,9 @@ export default function BehavioralInterviewPanel({
     lastSentMessageRef.current = "";
     lastAddedResponseRef.current = "";
     isProcessingMessageRef.current = false;
-    // Auto-start recording immediately
-    recordingStateRef.current = "listening";
-    setRecordingState("listening");
+    // User must manually click "tap to speak" to respond
+    recordingStateRef.current = "idle";
+    setRecordingState("idle");
   }, []);
 
   // Manual start recording
@@ -1703,12 +1695,9 @@ export default function BehavioralInterviewPanel({
 
         {/* Bottom Control Area */}
         <div className={styles.behavioralControls}>
-          {/* AI Speaking Status - tap to interrupt */}
+          {/* AI Speaking Status */}
           {isAISpeaking && (
-            <div 
-              className={`${styles.aiSpeakingBar} ${styles.speaking}`}
-              onClick={handleInterrupt}
-            >
+            <div className={`${styles.aiSpeakingBar} ${styles.speaking}`}>
               <div className={styles.aiSpeakingIcon}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
@@ -1717,7 +1706,6 @@ export default function BehavioralInterviewPanel({
                 </svg>
               </div>
               <span className={styles.aiSpeakingText}>Speaking</span>
-              <span className={styles.aiSpeakingHint}>tap to interrupt</span>
               {panelState === "speaking" && (
                 <button className={styles.skipBtn} onClick={(e) => { e.stopPropagation(); skipToConversing(); }}>
                   Skip

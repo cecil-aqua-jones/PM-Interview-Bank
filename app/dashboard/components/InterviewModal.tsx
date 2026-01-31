@@ -188,20 +188,41 @@ export default function InterviewModal({
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
 
+        // Track playback for debugging
+        let playbackStarted = false;
+        
         audio.addEventListener("timeupdate", () => {
           if (audio.duration) {
             setSpeakingProgress((audio.currentTime / audio.duration) * 100);
           }
         });
+        
+        audio.addEventListener("playing", () => {
+          playbackStarted = true;
+          console.log("[TTS] Audio playback started");
+        });
 
         audio.addEventListener("ended", () => {
+          console.log(`[TTS] Audio playback ended normally - duration: ${audio.duration?.toFixed(1)}s`);
           setModalState("coding");
           URL.revokeObjectURL(audioUrl);
         });
 
         audio.addEventListener("error", () => {
-          console.error("[TTS] Audio playback error");
-          setModalState("coding");
+          const errorCode = audio.error?.code;
+          const errorMessage = audio.error?.message || "Unknown error";
+          console.error(`[TTS] Audio playback error - code: ${errorCode}, message: ${errorMessage}, playbackStarted: ${playbackStarted}`);
+          
+          // Clean up the audio URL
+          URL.revokeObjectURL(audioUrl);
+          
+          // Transition to coding after a brief delay to avoid jarring UX
+          // The question is visible on screen, so user can still proceed
+          setTimeout(() => {
+            if (!abortController.signal.aborted) {
+              setModalState("coding");
+            }
+          }, 500);
         });
 
         if (!abortController.signal.aborted) {

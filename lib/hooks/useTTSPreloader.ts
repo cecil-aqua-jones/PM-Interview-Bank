@@ -20,6 +20,20 @@ const CACHE_EXPIRY_MS = 30 * 60 * 1000;
 // Estimated TTS generation time in ms (for progress simulation)
 const ESTIMATED_TTS_TIME_MS = 3000;
 
+// Circuit breaker configuration
+const CIRCUIT_BREAKER_THRESHOLD = 3; // Number of consecutive failures to open circuit
+const CIRCUIT_BREAKER_COOLDOWN_MS = 30000; // 30 seconds before allowing retry
+const CIRCUIT_BREAKER_HALF_OPEN_MAX_ATTEMPTS = 1; // Max attempts in half-open state
+
+type CircuitState = "closed" | "open" | "half-open";
+
+interface CircuitBreakerState {
+  state: CircuitState;
+  failureCount: number;
+  lastFailureTime: number;
+  lastError: string | null;
+}
+
 /**
  * Hook for aggressively preloading TTS audio for instant interview starts.
  * Features:
@@ -30,6 +44,7 @@ const ESTIMATED_TTS_TIME_MS = 3000;
  * - Concurrent request limiting
  * - Reactive state updates when preloads complete
  * - Progress tracking for loading items
+ * - Circuit breaker pattern to prevent hammering unavailable services
  */
 export function useTTSPreloader() {
   const cacheRef = useRef<Map<string, PreloadedAudio>>(new Map());
@@ -38,11 +53,122 @@ export function useTTSPreloader() {
   const isProcessingRef = useRef(false);
   const progressIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   
+  // Circuit breaker state - tracks consecutive failures
+  const circuitBreakerRef = useRef<CircuitBreakerState>({
+    state: "closed",
+    failureCount: 0,
+    lastFailureTime: 0,
+    lastError: null,
+  });
+  
   // Reactive state to trigger re-renders when preload status changes
   const [preloadedIds, setPreloadedIds] = useState<Set<string>>(new Set());
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   // Track loading progress (0-100) for each question
   const [loadingProgress, setLoadingProgress] = useState<Map<string, number>>(new Map());
+  // Service availability status - exposed to consumers
+  const [serviceStatus, setServiceStatus] = useState<{
+    available: boolean;
+    lastError: string | null;
+    circuitState: CircuitState;
+  }>({ available: true, lastError: null, circuitState: "closed" });
+
+  // Update service status from circuit breaker state
+  const updateServiceStatus = useCallback(() => {
+    const cb = circuitBreakerRef.current;
+    setServiceStatus({
+      available: cb.state !== "open",
+      lastError: cb.lastError,
+      circuitState: cb.state,
+    });
+  }, []);
+
+  // Check if circuit allows requests (returns true if allowed)
+  const checkCircuit = useCallback((): boolean => {
+    const cb = circuitBreakerRef.current;
+    const now = Date.now();
+
+    switch (cb.state) {
+      case "closed":
+        return true;
+      
+      case "open":
+        // Check if cooldown period has passed
+        if (now - cb.lastFailureTime >= CIRCUIT_BREAKER_COOLDOWN_MS) {
+          // Transition to half-open state
+          cb.state = "half-open";
+          console.log("[TTS] Circuit breaker: transitioning to half-open state");
+          updateServiceStatus();
+          return true;
+        }
+        return false;
+      
+      case "half-open":
+        // Allow limited requests to test if service is back
+        return loadingRef.current.size < CIRCUIT_BREAKER_HALF_OPEN_MAX_ATTEMPTS;
+      
+      default:
+        return true;
+    }
+  }, [updateServiceStatus]);
+
+  // Record a successful request
+  const recordSuccess = useCallback(() => {
+    const cb = circuitBreakerRef.current;
+    
+    if (cb.state === "half-open") {
+      // Service is back - close the circuit
+      console.log("[TTS] Circuit breaker: service recovered, closing circuit");
+      cb.state = "closed";
+      cb.failureCount = 0;
+      cb.lastError = null;
+      updateServiceStatus();
+    } else if (cb.state === "closed" && cb.failureCount > 0) {
+      // Reset failure count on success
+      cb.failureCount = 0;
+      cb.lastError = null;
+      updateServiceStatus();
+    }
+  }, [updateServiceStatus]);
+
+  // Record a failed request
+  const recordFailure = useCallback((error: string, isNetworkError: boolean) => {
+    const cb = circuitBreakerRef.current;
+    cb.lastError = error;
+    cb.lastFailureTime = Date.now();
+    
+    // Only trigger circuit breaker for network/service errors, not validation errors
+    if (!isNetworkError) {
+      return;
+    }
+    
+    if (cb.state === "half-open") {
+      // Service still down - re-open the circuit
+      console.log("[TTS] Circuit breaker: service still unavailable, re-opening circuit");
+      cb.state = "open";
+      updateServiceStatus();
+    } else {
+      cb.failureCount++;
+      
+      if (cb.failureCount >= CIRCUIT_BREAKER_THRESHOLD) {
+        // Too many failures - open the circuit
+        console.log(`[TTS] Circuit breaker: ${cb.failureCount} consecutive failures, opening circuit`);
+        cb.state = "open";
+        updateServiceStatus();
+      }
+    }
+  }, [updateServiceStatus]);
+
+  // Reset circuit breaker (e.g., user manually wants to retry)
+  const resetCircuitBreaker = useCallback(() => {
+    const cb = circuitBreakerRef.current;
+    cb.state = "closed";
+    cb.failureCount = 0;
+    cb.lastError = null;
+    cb.lastFailureTime = 0;
+    console.log("[TTS] Circuit breaker: manually reset");
+    updateServiceStatus();
+  }, [updateServiceStatus]);
 
   // Cleanup expired cache entries
   const cleanupExpiredCache = useCallback(() => {
@@ -95,6 +221,12 @@ export function useTTSPreloader() {
     if (isProcessingRef.current) return;
     if (queueRef.current.length === 0) return;
     if (loadingRef.current.size >= MAX_CONCURRENT_PRELOADS) return;
+    
+    // Check circuit breaker before processing
+    if (!checkCircuit()) {
+      console.log("[TTS] Circuit breaker open, skipping preload queue");
+      return;
+    }
 
     isProcessingRef.current = true;
 
@@ -105,6 +237,11 @@ export function useTTSPreloader() {
       queueRef.current.length > 0 &&
       loadingRef.current.size < MAX_CONCURRENT_PRELOADS
     ) {
+      // Re-check circuit breaker before each item
+      if (!checkCircuit()) {
+        break;
+      }
+      
       const item = queueRef.current.shift();
       if (!item) break;
 
@@ -118,7 +255,7 @@ export function useTTSPreloader() {
     }
 
     isProcessingRef.current = false;
-  }, []);
+  }, [checkCircuit]);
 
   // Start progress simulation for a question
   const startProgressSimulation = (questionId: string) => {
@@ -178,6 +315,12 @@ export function useTTSPreloader() {
     if (cacheRef.current.has(questionId) || loadingRef.current.has(questionId)) {
       return;
     }
+    
+    // Check circuit breaker before attempting
+    if (!checkCircuit()) {
+      console.log(`[TTS] Circuit breaker open, skipping preload for ${questionId.slice(0, 8)}...`);
+      return;
+    }
 
     const abortController = new AbortController();
     loadingRef.current.set(questionId, abortController);
@@ -187,6 +330,13 @@ export function useTTSPreloader() {
     
     // Start progress simulation
     startProgressSimulation(questionId);
+    
+    // Client-side timeout - abort if TTS takes too long (15 seconds)
+    // This prevents the loading state from being stuck when Cartesia is unreachable
+    const timeoutId = setTimeout(() => {
+      console.log(`[TTS] Preload timeout for ${questionId.slice(0, 8)}...`);
+      abortController.abort();
+    }, 15000);
 
     try {
       const response = await fetch("/api/interview/speak", {
@@ -196,9 +346,15 @@ export function useTTSPreloader() {
         body: JSON.stringify({ questionTitle, questionContent }),
         signal: abortController.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error("Failed to preload TTS");
+        // Check if it's a service unavailability error (503)
+        const isServiceError = response.status === 503 || response.status >= 500;
+        const errorMessage = `HTTP ${response.status}: Failed to preload TTS`;
+        recordFailure(errorMessage, isServiceError);
+        throw new Error(errorMessage);
       }
 
       const audioBlob = await response.blob();
@@ -227,14 +383,41 @@ export function useTTSPreloader() {
 
       // Update preloaded state (triggers re-render)
       setPreloadedIds(prev => new Set(prev).add(questionId));
+      
+      // Record success to circuit breaker
+      recordSuccess();
 
       console.log(`[TTS] ✓ Cached: ${questionId.slice(0, 8)}...`);
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return;
+      clearTimeout(timeoutId);
+      
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      
+      if (!isAbort) {
+        console.error("[TTS] Preload error:", err);
+        // Record failure for network errors (not already recorded for HTTP errors)
+        if (!errorMessage.startsWith("HTTP ")) {
+          const isNetworkError = isAbort || 
+            errorMessage.includes("fetch") || 
+            errorMessage.includes("network") ||
+            errorMessage.includes("timeout");
+          recordFailure(errorMessage, isNetworkError);
+        }
+      } else {
+        console.log(`[TTS] Preload aborted/timed out for ${questionId.slice(0, 8)}...`);
+        // Timeouts are considered network errors for circuit breaker
+        recordFailure("Request timed out", true);
       }
-      console.error("[TTS] Preload error:", err);
-      // Clear progress on error
+      
+      // Clear progress interval on error or abort
+      const interval = progressIntervalsRef.current.get(questionId);
+      if (interval) {
+        clearInterval(interval);
+        progressIntervalsRef.current.delete(questionId);
+      }
+      
+      // Clear progress state on error or abort
       setLoadingProgress(prev => {
         const next = new Map(prev);
         next.delete(questionId);
@@ -284,8 +467,14 @@ export function useTTSPreloader() {
       return;
     }
     
+    // Check circuit breaker before immediate preload
+    if (!checkCircuit()) {
+      console.log(`[TTS] Circuit breaker open, skipping immediate preload for ${questionId.slice(0, 8)}...`);
+      return;
+    }
+    
     await loadSingleAudio(questionId, title, content);
-  }, []);
+  }, [checkCircuit]);
 
   // Batch preload multiple questions
   const preloadBatch = useCallback((questions: { id: string; title: string; content: string }[], basePriority: number = 3) => {
@@ -417,5 +606,8 @@ export function useTTSPreloader() {
     isLoading,
     getProgress,
     clearCache,
+    // Circuit breaker status and controls
+    serviceStatus,
+    resetCircuitBreaker,
   };
 }

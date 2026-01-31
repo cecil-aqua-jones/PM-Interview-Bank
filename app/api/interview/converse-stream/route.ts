@@ -9,51 +9,9 @@ import {
 } from "@/lib/cartesia";
 import { sanitizeForTTS } from "@/lib/questionSanitizer";
 import { preprocessStandard } from "@/lib/ttsPreprocessor";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
-// Retry configuration for OpenAI API calls
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 1000; // 1 second
-
-/**
- * Fetch with retry logic for transient network failures
- */
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  maxRetries = MAX_RETRIES
-): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-      return response;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      
-      // Check if it's a retryable error (network/timeout issues)
-      const isRetryable = 
-        lastError.message.includes("fetch failed") ||
-        lastError.message.includes("ETIMEDOUT") ||
-        lastError.message.includes("ECONNRESET") ||
-        lastError.message.includes("UND_ERR_CONNECT_TIMEOUT") ||
-        lastError.message.includes("UND_ERR_HEADERS_TIMEOUT");
-      
-      if (!isRetryable || attempt === maxRetries - 1) {
-        throw lastError;
-      }
-      
-      // Exponential backoff
-      const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-      console.log(`[Stream] Retry ${attempt + 1}/${maxRetries} after ${delay}ms due to: ${lastError.message}`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  
-  throw lastError || new Error("Max retries exceeded");
-}
 
 type ConversationMessage = {
   role: "interviewer" | "candidate";
@@ -239,23 +197,31 @@ Respond naturally as the interviewer.`;
           // Start streaming LLM response (with retry for transient failures)
           let llmResponse: Response;
           try {
-            llmResponse = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${OPENAI_API_KEY}`,
-                "Content-Type": "application/json",
+            llmResponse = await fetchWithRetry(
+              "https://api.openai.com/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${OPENAI_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "gpt-4o-mini",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: fullContext }
+                  ],
+                  temperature: 0.8,
+                  max_tokens: 250,
+                  stream: true,
+                }),
               },
-              body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  { role: "user", content: fullContext }
-                ],
-                temperature: 0.8,
-                max_tokens: 250,
-                stream: true,
-              }),
-            });
+              {
+                maxRetries: 3,
+                timeoutMs: 30000,
+                logPrefix: "[Stream]",
+              }
+            );
           } catch (fetchError) {
             console.error("[Stream] Failed to connect to OpenAI after retries:", fetchError);
             safeEnqueue(`data: ${JSON.stringify({ error: "AI service temporarily unavailable. Please try again." })}\n\n`);

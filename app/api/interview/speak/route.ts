@@ -5,9 +5,11 @@ import {
   isCartesiaConfigured, 
   CARTESIA_VOICES,
   TTS_EMOTIONS,
+  isNetworkError,
 } from "@/lib/cartesia";
 import { sanitizeForTTS } from "@/lib/questionSanitizer";
 import { preprocessStandard } from "@/lib/ttsPreprocessor";
+import { fetchWithRetry } from "@/lib/fetchWithRetry";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -53,58 +55,127 @@ const CLOSINGS_LONG = [
 ];
 
 /**
- * Uses GPT to create a natural, human summary of a long question
- * Still uses OpenAI for LLM summarization
+ * Rewrites question content for natural spoken delivery.
+ * 
+ * NEVER reads the original text word-for-word. Instead:
+ * - Fixes grammatical issues from Airtable source
+ * - Restructures for verbal clarity
+ * - Makes it casual and conversational
+ * - Keeps it brief (they can read details on screen)
+ * 
+ * @param questionTitle - The question title (optional)
+ * @param questionContent - The raw question content from Airtable
+ * @param category - Question category for context
+ * @param isLong - Whether the question is long (affects output length)
  */
-async function summarizeQuestion(question: string, category?: string): Promise<string> {
+async function naturalizeForSpeech(
+  questionTitle: string | undefined,
+  questionContent: string,
+  category?: string,
+  isLong: boolean = false
+): Promise<string> {
+  // Build context for GPT
+  const questionContext = questionTitle 
+    ? `Problem title: "${questionTitle}"\n\nProblem description:\n${questionContent}`
+    : questionContent;
+
+  // Fallback if no API key or very short content
+  const getFallback = () => {
+    if (questionTitle && questionContent.length < 50) {
+      return `This one's called ${questionTitle}. Take a look at the details on your screen.`;
+    }
+    // Simple fallback - just clean it up a bit
+    const shortened = questionContent.slice(0, 200);
+    return questionTitle 
+      ? `So this is ${questionTitle}. ${shortened}${questionContent.length > 200 ? "... check the screen for the full details." : ""}`
+      : shortened;
+  };
+  
   if (!OPENAI_API_KEY) {
-    // Fallback to first 300 chars if no OpenAI key
-    return question.slice(0, 300) + (question.length > 300 ? "..." : "");
+    return getFallback();
   }
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a friendly, senior software engineer having a conversation with an interview candidate. 
-Your task is to verbally summarize a coding problem naturally, like you're explaining it to a colleague.
+  // Determine output length guidance based on question length
+  const lengthGuidance = isLong 
+    ? "Keep it to 2-3 sentences - just the core idea. They'll read the details on screen."
+    : "Keep it to 2-4 sentences. Cover the main ask clearly.";
 
-Speaking style:
-- Talk like a real person, not a robot. Use contractions (you're, it's, we're)
-- Keep it to 2-3 sentences max - they can read the details
-- Be warm and supportive, but not over-the-top
-- Use casual language: "basically", "so", "pretty much", "you know"
-- Focus on what they need to DO, not every constraint
-- Sound like you're actually interested in the problem
-
-Example: "Basically, you've got an array of numbers and you need to find two that add up to a target sum. Pretty common one—just return the indices of those two numbers."
-
-Another example: "So this one's about designing an LRU cache. You know, least recently used? When it fills up, you kick out whatever you haven't touched in a while. Classic systems design problem."`,
+  try {
+    const response = await fetchWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
         },
-        {
-          role: "user",
-          content: `Summarize this ${category ? category + " " : ""}problem conversationally:\n\n${question}`,
-        },
-      ],
-      temperature: 0.8,
-      max_tokens: 200,
-    }),
-  });
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: `You're a friendly tech interviewer explaining a coding problem to a candidate. Rewrite the problem in your own words for SPOKEN delivery.
 
-  if (!response.ok) {
-    // Fallback to first 300 chars if summarization fails
-    return question.slice(0, 300) + (question.length > 300 ? "..." : "");
+CRITICAL RULES:
+- NEVER read the original text word-for-word
+- ALWAYS rewrite in your own casual, spoken words
+- Fix any grammatical issues or awkward phrasing
+- ${lengthGuidance}
+- Reference that details are "on your screen" or "shown there"
+
+SPEAKING STYLE:
+- Super casual, like chatting with a friend
+- Use contractions: you're, it's, that's, gonna, we've got
+- Natural fillers are okay: "so basically", "you know", "right?"
+- Sound genuinely interested and friendly
+- Explain technical concepts simply
+
+GOOD EXAMPLES:
+"So this one's called Two Sum. Basically, you've got an array of numbers and you need to find two that add up to a target. Just return their indices - pretty straightforward."
+
+"Alright, this is a classic - LRU Cache. You know how caches work, right? When it fills up, you kick out whatever you haven't touched in a while. The details are on your screen."
+
+"So we've got a linked list problem here. You need to reverse it - take the nodes and flip the order around. Not too bad once you get the pointer logic down."
+
+BAD (too robotic/word-for-word):
+"Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target."`,
+            },
+            {
+              role: "user",
+              content: `Rewrite this ${category ? category + " " : ""}problem for spoken delivery:\n\n${questionContext}`,
+            },
+          ],
+          temperature: 0.85, // Slightly higher for more natural variation
+          max_tokens: 250,
+        }),
+      },
+      {
+        maxRetries: 3,
+        timeoutMs: 15000,
+        logPrefix: "[Speak]",
+      }
+    );
+
+    if (!response.ok) {
+      console.warn(`[Speak] OpenAI naturalization failed with status ${response.status}, using fallback`);
+      return getFallback();
+    }
+
+    const data = await response.json();
+    const naturalizedText = data.choices[0]?.message?.content;
+    
+    if (!naturalizedText || naturalizedText.length < 20) {
+      console.warn("[Speak] GPT returned empty/short response, using fallback");
+      return getFallback();
+    }
+    
+    console.log(`[Speak] Naturalized question: "${naturalizedText.slice(0, 100)}..."`);
+    return naturalizedText;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`[Speak] Naturalization failed: ${errorMessage}, using fallback`);
+    return getFallback();
   }
-
-  const data = await response.json();
-  return data.choices[0]?.message?.content || question.slice(0, 300);
 }
 
 function buildInterviewPrompt(question: string, isLong: boolean, category?: string): string {
@@ -190,26 +261,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Question content is too short" }, { status: 400 });
     }
 
-    // Determine if this is a long question that needs summarization
+    // Determine if this is a long question (affects naturalization output length)
     const isLongQuestion = questionContent.length > LONG_QUESTION_THRESHOLD && !forceFullRead;
     
-    let spokenQuestion = questionContent;
-    
-    if (isLongQuestion) {
-      // Summarize long questions using GPT, including title for context
-      const fullContext = questionTitle 
-        ? `Topic: "${questionTitle}"\n\nInstructions: ${questionContent}`
-        : questionContent;
-      spokenQuestion = await summarizeQuestion(fullContext, category);
-    } else if (questionTitle && questionContent.length > 0) {
-      // For short questions with a title, introduce the topic
-      spokenQuestion = `This problem is called "${questionTitle}". ${questionContent}`;
-    } else if (questionTitle) {
-      // Title only - just speak the title
-      spokenQuestion = `This problem is called "${questionTitle}". Take a look at the details on your screen.`;
-    }
+    // ALWAYS naturalize the question for speech clarity
+    // This rewrites the content in casual, spoken language - never reads word-for-word
+    const spokenQuestion = await naturalizeForSpeech(
+      questionTitle,
+      questionContent,
+      category,
+      isLongQuestion
+    );
 
-    // Build the natural interview prompt
+    // Build the natural interview prompt with preamble and closing
     const speechText = buildInterviewPrompt(spokenQuestion, isLongQuestion, category);
 
     // Preprocess for natural pauses
@@ -217,11 +281,11 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Speak] Generating TTS for ${processedText.length} chars with Cartesia Sonic-3 (Tessa voice)`);
 
-    // Generate TTS using emotive voice with enthusiastic tone for greetings
+    // Generate TTS with friendly tone and slightly slower pace for natural delivery
     const audioBuffer = await generateTTS(processedText, CARTESIA_VOICES.DEFAULT, {
       generationConfig: {
-        speed: 1.0,
-        emotion: TTS_EMOTIONS.ENTHUSIASTIC,
+        speed: 0.95,  // Slightly slower for more natural pacing
+        emotion: TTS_EMOTIONS.FRIENDLY,  // Friendly tone for question content
       },
     });
 
@@ -234,7 +298,21 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("[Speak] Error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("[Speak] Error:", errorMessage);
+    
+    // Check if it's a network/service availability issue (including WebSocket errors)
+    const isServiceUnavailable = error instanceof Error && isNetworkError(error);
+    
+    if (isServiceUnavailable) {
+      console.log("[Speak] Returning 503 - service unavailable (network error detected)");
+      return NextResponse.json(
+        { error: "Speech service temporarily unavailable. Please try again." },
+        { status: 503 }
+      );
+    }
+    
+    console.log("[Speak] Returning 500 - internal error");
     return NextResponse.json(
       { error: "Failed to generate speech" },
       { status: 500 }

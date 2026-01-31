@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { 
   isCartesiaConfigured, 
   transcribeAudio, 
-  isSupportedAudioFormat 
+  isSupportedAudioFormat,
+  ServiceUnavailableError,
+  isNetworkError,
 } from "@/lib/cartesia";
 
 // Allowed audio MIME types (Cartesia supports many formats)
@@ -96,6 +98,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[Transcribe] Error:", errorMessage);
+    
+    // Return 503 for service unavailability (network errors, timeouts)
+    if (error instanceof ServiceUnavailableError || isNetworkError(error as Error)) {
+      return NextResponse.json(
+        { error: "Transcription service temporarily unavailable. Please try again." },
+        { status: 503 }
+      );
+    }
+    
     return NextResponse.json(
       { error: `Failed to process audio: ${errorMessage}` },
       { status: 500 }

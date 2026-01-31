@@ -42,6 +42,9 @@ export function useStreamingConversation() {
     currentText: "",
     error: null,
   });
+  
+  // Track playing state with both ref (for internal logic) and state (for re-renders)
+  const [isPlayingState, setIsPlayingState] = useState(false);
 
   const audioQueueRef = useRef<AudioQueueItem[]>([]);
   const isPlayingRef = useRef(false);
@@ -108,6 +111,7 @@ export function useStreamingConversation() {
     // Remove from queue and play
     audioQueueRef.current.shift();
     isPlayingRef.current = true;
+    setIsPlayingState(true);
     nextExpectedIndexRef.current++;
 
     console.log(`[StreamConvo] Playing audio ${nextItem.index}: "${nextItem.sentence.slice(0, 30)}..."`);
@@ -119,6 +123,7 @@ export function useStreamingConversation() {
       console.log(`[StreamConvo] Audio ${nextItem.index} ended, played ${playedAudioCountRef.current + 1}/${totalAudioCountRef.current}`);
       playedAudioCountRef.current++;
       isPlayingRef.current = false;
+      setIsPlayingState(false);
       currentAudioRef.current = null;
       // Small delay before playing next to ensure clean transition
       setTimeout(() => playNextInQueue(), 50);
@@ -128,6 +133,7 @@ export function useStreamingConversation() {
       console.error(`[StreamConvo] Audio ${nextItem.index} error:`, e);
       playedAudioCountRef.current++;
       isPlayingRef.current = false;
+      setIsPlayingState(false);
       currentAudioRef.current = null;
       playNextInQueue();
     });
@@ -138,6 +144,7 @@ export function useStreamingConversation() {
       audio.play().catch((err) => {
         console.error(`[StreamConvo] Audio ${nextItem.index} play failed:`, err);
         isPlayingRef.current = false;
+        setIsPlayingState(false);
         currentAudioRef.current = null;
         playNextInQueue();
       });
@@ -150,6 +157,7 @@ export function useStreamingConversation() {
         audio.play().catch((err) => {
           console.error(`[StreamConvo] Audio ${nextItem.index} fallback play failed:`, err);
           isPlayingRef.current = false;
+          setIsPlayingState(false);
           currentAudioRef.current = null;
           playNextInQueue();
         });
@@ -174,6 +182,7 @@ export function useStreamingConversation() {
     }
     audioQueueRef.current = [];
     isPlayingRef.current = false;
+    setIsPlayingState(false);
     nextExpectedIndexRef.current = 0;
     totalAudioCountRef.current = 0;
     playedAudioCountRef.current = 0;
@@ -191,6 +200,58 @@ export function useStreamingConversation() {
     stopAudio();
     setState(prev => ({ ...prev, isStreaming: false }));
   }, [stopAudio]);
+
+  /**
+   * Wait for all audio to finish playing.
+   * 
+   * This method polls the internal refs directly (not stale state) to accurately
+   * detect when all audio has finished. Use this instead of checking isPlaying
+   * which can be stale due to React's ref behavior.
+   * 
+   * @param timeoutMs - Maximum time to wait (default 60s)
+   * @returns Promise that resolves when all audio is done, or rejects on timeout
+   */
+  const waitForCompletion = useCallback((timeoutMs: number = 60000): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const startTime = Date.now();
+      
+      const check = () => {
+        // Check timeout
+        if (Date.now() - startTime > timeoutMs) {
+          console.warn("[StreamConvo] waitForCompletion timed out");
+          reject(new Error("Audio playback timeout"));
+          return;
+        }
+        
+        // Read refs directly for current values (not stale state)
+        const queueEmpty = audioQueueRef.current.length === 0;
+        const notPlaying = !isPlayingRef.current;
+        const totalExpected = totalAudioCountRef.current;
+        const totalPlayed = playedAudioCountRef.current;
+        const skippedCount = skippedIndicesRef.current.size;
+        
+        // All audio is complete when:
+        // 1. Queue is empty (no pending audio)
+        // 2. Not currently playing
+        // 3. All expected audio has been played (accounting for skipped)
+        const allProcessed = totalExpected === 0 || 
+          (totalPlayed + skippedCount >= totalExpected);
+        
+        console.log(`[StreamConvo] waitForCompletion check: queue=${audioQueueRef.current.length}, playing=${isPlayingRef.current}, played=${totalPlayed}/${totalExpected}, skipped=${skippedCount}`);
+        
+        if (queueEmpty && notPlaying && allProcessed) {
+          console.log("[StreamConvo] waitForCompletion: all audio finished");
+          resolve();
+        } else {
+          // Check again in 100ms
+          setTimeout(check, 100);
+        }
+      };
+      
+      // Start checking after a brief delay to allow state to settle
+      setTimeout(check, 100);
+    });
+  }, []);
 
   /**
    * Send a message and stream the response
@@ -344,9 +405,10 @@ export function useStreamingConversation() {
     sendMessage,
     abort,
     stopAudio,
+    waitForCompletion,
     isStreaming: state.isStreaming,
     currentText: state.currentText,
     error: state.error,
-    isPlaying: isPlayingRef.current,
+    isPlaying: isPlayingState,  // Use state for re-renders, not stale ref
   };
 }
