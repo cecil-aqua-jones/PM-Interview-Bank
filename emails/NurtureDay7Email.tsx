@@ -55,7 +55,7 @@ export const NurtureDay7Email = ({ checkoutUrl }: NurtureDay7EmailProps) => {
           <Text style={featuresTitleStyle}>What you get:</Text>
           {[
             "Unlimited AI mock interviews",
-            "13 company simulations (Google, Meta, Amazon, OpenAI...)",
+            "All company simulations (Google, Meta, Amazon, OpenAI...)",
             "Coding, system design, and behavioral prep",
             "Real-time AI feedback with follow-up questions",
             "2-day money-back guarantee",

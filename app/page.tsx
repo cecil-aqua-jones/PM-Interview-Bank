@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Image from "next/image";
 import { getCompanies } from "@/lib/airtable";
 import LogoMarquee from "./components/LogoMarquee";
 import LandingHeader from "./components/LandingHeader";
@@ -6,6 +7,10 @@ import PricingCards from "./components/PricingCard";
 import CTAButton from "./components/CTAButton";
 import SocialProofCarousel from "./components/SocialProofCarousel";
 import ExitIntentPopup from "./components/ExitIntentPopup";
+import LandingRadarChart from "./components/LandingRadarChart";
+import LandingCompanyGrid from "./components/LandingCompanyGrid";
+import LandingInterviewPreview from "./components/LandingInterviewPreview";
+import LandingFeedbackPreview from "./components/LandingFeedbackPreview";
 import { SITE_URL } from "@/lib/constants";
 
 export const maxDuration = 30;
@@ -414,6 +419,27 @@ function JsonLd() {
   );
 }
 
+// Comparison table icons
+const CheckIcon = () => (
+  <svg className="comparison-icon check" viewBox="0 0 20 20" fill="currentColor">
+    <path
+      fillRule="evenodd"
+      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
+const XIcon = () => (
+  <svg className="comparison-icon x" viewBox="0 0 20 20" fill="currentColor">
+    <path
+      fillRule="evenodd"
+      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
 export default async function Home() {
   const companies = await getCompanies();
   const totalQuestions = companies.reduce(
@@ -433,13 +459,13 @@ export default async function Home() {
           <div className="container hero-content">
             <h1>Train Until SWE Interviews Feel Easy</h1>
             <p className="lead">
-              Practice with <strong>real, verified interview questions</strong> from Google, Meta, 
-              Amazon, and 13+ top tech companies. Simulate real interview conditions with company-specific 
-              rubrics and practice as many times as you need.
+              Practice with verified interview questions from Google, Meta, 
+              Amazon, and other tech companies. Simulate real interview conditions with company-specific scoring 
+              rubrics.
             </p>
             <div className="cta-group">
               <a className="btn btn-primary" href="/dashboard">
-                Start Training Now — 2-Day Money-Back Guarantee
+                Start Now
               </a>
             </div>
             <ul className="hero-features">
@@ -458,17 +484,30 @@ export default async function Home() {
 
         {/* The Problem */}
         <section className="section">
-          <div className="container narrow">
-            <p className="eyebrow">The Problem</p>
-            <h2>You Know How to Code. But Can You Interview?</h2>
-            <p className="lead">
-              Most engineers fail top tech interviews not because they can't solve problems—but 
-              because they don't know how to communicate their thinking, optimize on the fly, 
-              or handle follow-up questions under pressure.
-            </p>
-            <p className="subtle" style={{ marginTop: 32 }}>
-              Traditional practice platforms give you problems. We give you an interview.
-            </p>
+          <div className="container">
+            <div className="problem-section-grid">
+              <div className="problem-section-content">
+                <p className="eyebrow">The Problem</p>
+                <h2>You Know How to Code. But Can You Interview?</h2>
+                <p className="lead">
+                  Most engineers fail top tech interviews not because they can't solve problems—but 
+                  because they don't know how to communicate their thinking, optimize on the fly, 
+                  or handle follow-up questions under pressure.
+                </p>
+                <p className="subtle" style={{ marginTop: 32 }}>
+                  Traditional practice platforms give you problems. We give you an interview.
+                </p>
+              </div>
+              <div className="problem-section-mascot">
+                <Image
+                  src="/mascot.png"
+                  alt="Apex Interviewer Mascot"
+                  width={320}
+                  height={320}
+                  priority
+                />
+              </div>
+            </div>
           </div>
         </section>
 
@@ -477,42 +516,68 @@ export default async function Home() {
           <div className="container">
             <p className="eyebrow">How It Works</p>
             <h2>Four steps to interview mastery</h2>
-            <div className="steps-grid">
-              <div className="step">
-                <span className="step-number">01</span>
-                <h4>Choose Your Target Company</h4>
+            
+            {/* Step 01 */}
+            <div className="how-it-works-row">
+              <div className="how-it-works-text">
+                <span className="how-it-works-number">01</span>
+                <h3>Choose Your Target Company</h3>
                 <p>
                   Select from Google, Meta, Amazon, Apple, Microsoft, Netflix, TikTok, Uber, 
                   OpenAI, Anthropic, Perplexity, xAI, or Oracle. Each simulation uses that company's 
                   specific interview style, evaluation criteria, and rubrics.
                 </p>
               </div>
-              <div className="step">
-                <span className="step-number">02</span>
-                <h4>Simulate a Real Interview</h4>
+              <div className="how-it-works-preview">
+                <LandingCompanyGrid />
+              </div>
+            </div>
+
+            {/* Step 02 */}
+            <div className="how-it-works-row reverse">
+              <div className="how-it-works-text">
+                <span className="how-it-works-number">02</span>
+                <h3>Simulate a Real Interview</h3>
                 <p>
                   Practice with verified questions sourced from actual interviews at your target 
                   company. Experience realistic follow-up questions that probe your thinking—just 
                   like facing a real senior engineer.
                 </p>
               </div>
-              <div className="step">
-                <span className="step-number">03</span>
-                <h4>Get Instant, Detailed Feedback</h4>
+              <div className="how-it-works-preview">
+                <LandingInterviewPreview />
+              </div>
+            </div>
+
+            {/* Step 03 */}
+            <div className="how-it-works-row">
+              <div className="how-it-works-text">
+                <span className="how-it-works-number">03</span>
+                <h3>Get Instant, Detailed Feedback</h3>
                 <p>
                   See exactly where you went wrong: "Your space complexity analysis missed 
                   the auxiliary space used by the recursion stack" or "Strong explanation 
                   of the trade-offs between HashMap and TreeMap."
                 </p>
               </div>
-              <div className="step">
-                <span className="step-number">04</span>
-                <h4>Track Your Improvement</h4>
+              <div className="how-it-works-preview">
+                <LandingFeedbackPreview />
+              </div>
+            </div>
+
+            {/* Step 04 */}
+            <div className="how-it-works-row reverse">
+              <div className="how-it-works-text">
+                <span className="how-it-works-number">04</span>
+                <h3>Track Your Improvement</h3>
                 <p>
                   Get a personalized dashboard showing exactly what to work on. Every piece 
                   of feedback is grounded in your interview transcript—no vague suggestions, 
                   just specific areas to improve.
                 </p>
+              </div>
+              <div className="how-it-works-preview">
+                <LandingRadarChart />
               </div>
             </div>
           </div>
@@ -569,52 +634,88 @@ export default async function Home() {
                 </p>
               </div>
             </div>
+
+            {/* Performance Dashboard Visual */}
+            <div className="feature-chart-showcase">
+              <div className="feature-chart-content">
+                <p className="eyebrow">Measurable Progress</p>
+                <h3>The Only Platform That Proves You're Improving</h3>
+                <p className="feature-chart-description">
+                  Watch your skills grow from first attempt to interview-ready. 
+                  Our scoring system tracks 9 dimensions across coding, behavioral, and system design—so you know exactly when you're ready.
+                </p>
+              </div>
+              <LandingRadarChart />
+            </div>
           </div>
         </section>
 
         {/* Comparison Table */}
         <section className="section">
-          <div className="container narrow">
+          <div className="container">
             <p className="eyebrow">How We're Different</p>
             <h2>More than another practice platform</h2>
             <div className="comparison-table">
               <div className="comparison-header">
                 <div className="comparison-cell">Feature</div>
-                <div className="comparison-cell">Other Platforms</div>
+                <div className="comparison-cell">Practice Platforms</div>
+                <div className="comparison-cell">Peer Platforms</div>
+                <div className="comparison-cell">Human Coaches</div>
                 <div className="comparison-cell highlight">Apex Interviewer</div>
               </div>
               <div className="comparison-row">
-                <div className="comparison-cell">Real-time feedback</div>
-                <div className="comparison-cell">—</div>
-                <div className="comparison-cell highlight">Yes</div>
+                <div className="comparison-cell">Real-time AI feedback</div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell highlight"><CheckIcon /></div>
               </div>
               <div className="comparison-row">
                 <div className="comparison-cell">Evaluates communication</div>
-                <div className="comparison-cell">—</div>
-                <div className="comparison-cell highlight">Yes</div>
-              </div>
-              <div className="comparison-row">
-                <div className="comparison-cell">Asks follow-up questions</div>
-                <div className="comparison-cell">—</div>
-                <div className="comparison-cell highlight">Yes</div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><CheckIcon /></div>
+                <div className="comparison-cell"><CheckIcon /></div>
+                <div className="comparison-cell highlight"><CheckIcon /></div>
               </div>
               <div className="comparison-row">
                 <div className="comparison-cell">Company-specific rubrics</div>
-                <div className="comparison-cell">—</div>
-                <div className="comparison-cell highlight">13 companies</div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell highlight"><CheckIcon /></div>
               </div>
               <div className="comparison-row">
                 <div className="comparison-cell">Behavioral + System Design</div>
-                <div className="comparison-cell">—</div>
-                <div className="comparison-cell highlight">Yes</div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><CheckIcon /></div>
+                <div className="comparison-cell"><CheckIcon /></div>
+                <div className="comparison-cell highlight"><CheckIcon /></div>
               </div>
               <div className="comparison-row">
-                <div className="comparison-cell">Available 24/7</div>
-                <div className="comparison-cell">Yes</div>
-                <div className="comparison-cell highlight">Yes</div>
+                <div className="comparison-cell">Unlimited 24/7 practice</div>
+                <div className="comparison-cell"><CheckIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell highlight"><CheckIcon /></div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Tracks improvement</div>
+                <div className="comparison-cell"><CheckIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell highlight"><CheckIcon /></div>
+              </div>
+              <div className="comparison-row">
+                <div className="comparison-cell">Personalized feedback</div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><XIcon /></div>
+                <div className="comparison-cell"><CheckIcon /></div>
+                <div className="comparison-cell highlight"><CheckIcon /></div>
               </div>
               <div className="comparison-row">
                 <div className="comparison-cell">Cost</div>
+                <div className="comparison-cell">Free</div>
+                <div className="comparison-cell">Free</div>
                 <div className="comparison-cell">$200+/session</div>
                 <div className="comparison-cell highlight">$75/month</div>
               </div>
@@ -649,31 +750,6 @@ export default async function Home() {
                 <p>Mock phone screens, virtual onsites, and pair programming</p>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Covered Companies */}
-        <section className="section" id="companies">
-          <div className="container narrow">
-            <p className="eyebrow">Covered Companies</p>
-            <h2>We simulate interviews for top tech companies</h2>
-            <div className="company-categories">
-              <div className="company-category">
-                <h4>Big Tech</h4>
-                <p>Google • Apple • Amazon • Microsoft • Meta • Netflix • Oracle</p>
-              </div>
-              <div className="company-category">
-                <h4>AI & Innovation</h4>
-                <p>OpenAI • Anthropic • Perplexity • xAI</p>
-              </div>
-              <div className="company-category">
-                <h4>High-Growth</h4>
-                <p>TikTok • Uber</p>
-              </div>
-            </div>
-            <p className="subtle" style={{ marginTop: 32, textAlign: "center" }}>
-              More companies added every month
-            </p>
           </div>
         </section>
 

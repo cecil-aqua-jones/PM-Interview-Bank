@@ -14,6 +14,7 @@ type SuccessStory = {
   increase: string;
   quote: string;
   gridArea: string;
+  level?: "Junior SWE" | "Senior SWE";
 };
 
 const stories: SuccessStory[] = [
@@ -24,10 +25,11 @@ const stories: SuccessStory[] = [
     toCompany: "Google",
     toDomain: "google.com",
     prevTC: "$145k",
-    newTC: "$280k",
-    increase: "93",
-    quote: "Passed Google on my third attempt.",
+    newTC: "$205k",
+    increase: "41",
+    quote: "Passed Google L4 on my third attempt.",
     gridArea: "card1",
+    level: "Junior SWE",
   },
   {
     name: "Marcus T.",
@@ -35,11 +37,12 @@ const stories: SuccessStory[] = [
     fromDomain: "amazon.com",
     toCompany: "Meta",
     toDomain: "meta.com",
-    prevTC: "$165k",
-    newTC: "$310k",
-    increase: "88",
+    prevTC: "$340k",
+    newTC: "$465k",
+    increase: "37",
     quote: "Better feedback than my $200/hr interview coach. The AI caught mistakes I didn't even know I was making.",
     gridArea: "card2",
+    level: "Senior SWE",
   },
   {
     name: "Priya S.",
@@ -47,11 +50,12 @@ const stories: SuccessStory[] = [
     fromDomain: "microsoft.com",
     toCompany: "Amazon",
     toDomain: "amazon.com",
-    prevTC: "$125k",
-    newTC: "$245k",
-    increase: "96",
-    quote: "Finally understood what interviewers actually want. After 20 mock interviews, I went from nervous to confident. The system design feedback alone was worth it.",
+    prevTC: "$135k",
+    newTC: "$190k",
+    increase: "41",
+    quote: "Finally understood what interviewers actually want. After 20 mock interviews, I went from nervous to confident.",
     gridArea: "card3",
+    level: "Junior SWE",
   },
   {
     name: "David C.",
@@ -59,11 +63,12 @@ const stories: SuccessStory[] = [
     fromDomain: "google.com",
     toCompany: "OpenAI",
     toDomain: "openai.com",
-    prevTC: "$180k",
-    newTC: "$340k",
-    increase: "89",
+    prevTC: "$420k",
+    newTC: "$730k",
+    increase: "74",
     quote: "Follow-up questions were brutal—exactly what I needed.",
     gridArea: "card4",
+    level: "Senior SWE",
   },
   {
     name: "Aisha P.",
@@ -71,11 +76,12 @@ const stories: SuccessStory[] = [
     fromDomain: "meta.com",
     toCompany: "Anthropic",
     toDomain: "anthropic.com",
-    prevTC: "$155k",
-    newTC: "$295k",
-    increase: "90",
+    prevTC: "$390k",
+    newTC: "$485k",
+    increase: "24",
     quote: "Went from failing phone screens to landing Anthropic.",
     gridArea: "card5",
+    level: "Senior SWE",
   },
   {
     name: "Jake M.",
@@ -83,11 +89,12 @@ const stories: SuccessStory[] = [
     fromDomain: "apple.com",
     toCompany: "Netflix",
     toDomain: "netflix.com",
-    prevTC: "$140k",
-    newTC: "$260k",
-    increase: "86",
-    quote: "30 mock interviews here prepared me for the real thing. Landed Netflix with a 86% TC increase.",
+    prevTC: "$350k",
+    newTC: "$700k",
+    increase: "100",
+    quote: "30 mock interviews here prepared me for the real thing. Landed Netflix with a 100% TC increase.",
     gridArea: "card6",
+    level: "Senior SWE",
   },
 ];
 
@@ -113,6 +120,9 @@ export default function SocialProofCarousel() {
               className="bento-card"
               style={{ gridArea: story.gridArea }}
             >
+              {story.level && (
+                <span className="bento-level">{story.level}</span>
+              )}
               <div className="bento-logos">
                 {imageErrors.has(story.fromDomain) ? (
                   <div className="bento-logo-fallback">
@@ -146,17 +156,12 @@ export default function SocialProofCarousel() {
                   />
                 )}
               </div>
-              <p className="bento-quote">"{story.quote}"</p>
-              <div className="bento-footer">
-                <div className="bento-tc">
-                  <span className="bento-tc-change">
-                    {story.prevTC} → {story.newTC}
-                  </span>
-                </div>
-                <div className="bento-increase">
-                  <span className="bento-increase-value">+{story.increase}%</span>
-                </div>
+              <div className="bento-salary">
+                <span className="bento-tc-change">
+                  {story.prevTC} → {story.newTC}
+                </span>
               </div>
+              <p className="bento-quote">"{story.quote}"</p>
             </article>
           ))}
         </div>

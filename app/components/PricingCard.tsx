@@ -58,7 +58,7 @@ export default function PricingCards() {
 
           <ul className="pricing-features">
             <li>Unlimited mock interviews</li>
-            <li>All 13 company simulations</li>
+            <li>All company simulations</li>
             <li>Coding, system design, and behavioral</li>
             <li>Real-time AI feedback</li>
             <li>Performance analytics</li>

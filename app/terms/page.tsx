@@ -100,7 +100,7 @@ export default function TermsOfService() {
 
             <h3>Age Requirement</h3>
             <p>
-              You must be at least 13 years old to use the Service. By using 
+              You must be at least 18 years old to use the Service. By using 
               the Service, you represent that you meet this age requirement.
             </p>
           </section>

@@ -56,7 +56,7 @@ export const SubscriptionConfirmationEmail = ({
             description="Practice coding, system design, and behavioral interviews 24/7"
           />
           <FeatureItem
-            title="13 Company Simulations"
+            title="RealCompany Simulations"
             description="Google, Meta, Amazon, OpenAI, Anthropic, and more"
           />
           <FeatureItem

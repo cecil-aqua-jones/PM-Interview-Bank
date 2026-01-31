@@ -450,7 +450,7 @@
 .detailLogo {
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   object-fit: contain;
   background: var(--pearl);
   flex-shrink: 0;
@@ -459,7 +459,7 @@
 .detailLogoFallback {
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   background: linear-gradient(135deg, var(--pearl) 0%, var(--smoke) 100%);
   display: flex;
   align-items: center;
@@ -1845,13 +1845,15 @@
 }
 
 .startPracticeBtnReady {
-  background: #16a34a;
-  border-color: #16a34a;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
 }
 
 .startPracticeBtnReady:hover {
-  background: #15803d;
-  border-color: #15803d;
+  background: var(--accent);
+  border-color: var(--accent);
+  opacity: 0.9;
 }
 
 /* Loading spinner for preload state */
