@@ -80,23 +80,21 @@ export async function GET(req: NextRequest) {
       type: "magiclink",
       email: normalizedEmail,
       options: {
-        redirectTo: `${SITE_URL}/dashboard`,
+        redirectTo: `${SITE_URL}/auth/callback`,
       },
     });
 
-    if (signInError || !data?.properties?.hashed_token) {
+    if (signInError || !data?.properties?.action_link) {
       console.error("[Verify] Supabase sign-in error:", signInError);
       return redirectToLogin("Sign-in failed");
     }
 
-    // Redirect to Supabase's verify endpoint which will set the session
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const hashedToken = data.properties.hashed_token;
-    const verifyUrl = `${supabaseUrl}/auth/v1/verify?token=${hashedToken}&type=magiclink&redirect_to=${encodeURIComponent(`${SITE_URL}/auth/callback`)}`;
+    // Use Supabase's generated action_link which handles the complete auth flow
+    const actionLink = data.properties.action_link;
 
     console.log(`[Verify] Redirecting ${normalizedEmail} to complete sign-in`);
 
-    return NextResponse.redirect(verifyUrl);
+    return NextResponse.redirect(actionLink);
   } catch (error) {
     console.error("[Verify] Error:", error);
     return redirectToLogin("Something went wrong");
