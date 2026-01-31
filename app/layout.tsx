@@ -30,32 +30,41 @@ const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apexinterviewer.
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Apex Interviewer | Real Interview Questions from Google, Meta, Amazon & Top Tech",
+    default: "Apex Interviewer | AI Software Engineer Interview Coach - FAANG Prep",
     template: "%s | Apex Interviewer"
   },
   description:
-    "Practice with verified interview questions from actual Google, Meta, Amazon, and OpenAI interviews. Company-specific rubrics for coding, system design, and behavioral. Unlimited practice until you're ready.",
+    "AI-powered interview coaching for software engineers. Pass Google, Meta, Amazon, and FAANG interviews with real-time feedback on coding, system design, and behavioral questions. Stop failing technical interviews.",
   keywords: [
-    "real Google interview questions",
-    "verified tech interview questions",
-    "actual Amazon interview questions",
-    "authentic Meta interview prep",
-    "coding interview questions",
-    "top tech interview prep",
-    "Google coding interview",
-    "Meta coding interview",
-    "Amazon coding interview",
-    "OpenAI interview prep",
-    "Anthropic coding interview",
-    "TikTok coding interview",
-    "LeetCode alternatives",
-    "software engineer interview",
-    "technical interview preparation",
-    "algorithm interview questions",
-    "data structures interview",
-    "system design interview",
-    "company-specific rubrics",
-    "unlimited interview practice"
+    // Core product keywords
+    "ai interview coach software engineer",
+    "ai mock interview platform",
+    "software engineer interview simulator",
+    "technical interview practice tool",
+    // Problem-aware keywords (people searching for help)
+    "how to pass software engineer interviews",
+    "how to ace a technical interview",
+    "keep failing coding interviews",
+    "software engineer interview anxiety",
+    "how to get better at technical interviews",
+    "nervous during coding interviews",
+    // Skill-gap keywords
+    "how to communicate during coding interviews",
+    "coding interview soft skills",
+    "how to think out loud coding interview",
+    "how to handle interview pressure",
+    "interview confidence for engineers",
+    // Long-tail content keywords
+    "STAR method for software engineers",
+    "how to not freeze during coding interviews",
+    "biggest mistakes in software engineer interviews",
+    "what FAANG interviewers actually look for",
+    // Company variations
+    "Google coding interview prep",
+    "Meta software engineer interview",
+    "Amazon behavioral interview prep",
+    "system design interview practice",
+    "behavioral interview software engineer",
   ],
   authors: [{ name: "Apex Interviewer" }],
   creator: "Apex Interviewer",

@@ -49,9 +49,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/dashboard" className={styles.brand}>
             <AnimatedMascot size={32} />
             <span className={styles.brandName}>
-              <span className={styles.brandPrimary}>APEX</span>
+              <span className={styles.brandPrimary}>Apex</span>
               <span className={styles.brandSub}>|</span>
-              <span className={styles.brandSub}>&lt;interviewer/&gt;</span>
+              <span className={styles.brandInterviewer}>&lt;interviewer/&gt;</span>
             </span>
           </Link>
 
@@ -117,7 +117,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/dashboard" className={styles.brand} onClick={() => setMobileMenuOpen(false)}>
               <AnimatedMascot size={32} />
               <span className={styles.brandName}>
-                <span className={styles.brandPrimary}>APEX</span>
+                <span className={styles.brandPrimary}>Apex</span>
                 <span className={styles.brandSub}>|</span>
                 <span className={styles.brandSub}>&lt;interviewer/&gt;</span>
               </span>

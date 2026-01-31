@@ -184,7 +184,7 @@ a {
 .brand-primary {
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink);
   letter-spacing: -0.01em;
 }
@@ -194,6 +194,14 @@ a {
   font-size: 13px;
   font-weight: 300;
   color: var(--graphite);
+  letter-spacing: 0;
+}
+
+.brand-interviewer {
+  font-family: var(--font-code), monospace;
+  font-size: 13px;
+  font-weight: 300;
+  color: #ff5500;
   letter-spacing: 0;
 }
 
@@ -1820,6 +1828,40 @@ a {
   margin: 0;
 }
 
+/* Typing indicator animation */
+@keyframes typingBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-4px);
+  }
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+  align-items: center;
+  height: 20px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--graphite);
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
 /* ─── Landing Feedback Preview ───────────────────────────────────────────── */
 .landing-feedback-preview {
   background: var(--pearl);
@@ -1910,7 +1952,6 @@ a {
 .landing-feedback-dim-bar-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.3s ease;
   background: var(--accent);
 }
 
@@ -2040,9 +2081,311 @@ a {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--accent);
+  color: #ff5500;
   text-align: center;
   margin-bottom: 8px;
+}
+
+/* ─── Progress Showcase Section (Scroll Hijack) ─────────────────────────── */
+.progress-showcase {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  background: var(--pearl);
+  padding: 80px 0;
+  position: relative;
+}
+
+.progress-showcase-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 48px;
+  align-items: center;
+  width: 100%;
+}
+
+@media (min-width: 900px) {
+  .progress-showcase-content {
+    grid-template-columns: 1fr 1.2fr;
+    gap: 64px;
+  }
+}
+
+.progress-showcase-text {
+  max-width: 480px;
+}
+
+.progress-showcase-text h3 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 16px 0 24px;
+}
+
+.progress-showcase-description {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--graphite);
+  margin-bottom: 40px;
+}
+
+.progress-showcase-indicators {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-showcase-indicator {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  border: none;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+}
+
+.progress-showcase-indicator:hover {
+  background: var(--smoke);
+}
+
+.progress-showcase-indicator.active {
+  background: var(--smoke);
+}
+
+.progress-showcase-indicator-number {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--slate);
+  font-family: var(--font-code), monospace;
+  transition: color 0.3s ease;
+}
+
+.progress-showcase-indicator.active .progress-showcase-indicator-number {
+  color: #ff5500;
+}
+
+.progress-showcase-indicator.completed .progress-showcase-indicator-number {
+  color: var(--success);
+}
+
+.progress-showcase-indicator-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--graphite);
+  transition: color 0.3s ease;
+}
+
+.progress-showcase-indicator.active .progress-showcase-indicator-title {
+  color: var(--ink);
+}
+
+/* Panels */
+.progress-showcase-panels {
+  height: 420px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  border: 1px solid var(--smoke);
+}
+
+.progress-showcase-panels-track {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-showcase-panel {
+  height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* Scroll Hint */
+.progress-showcase-scroll-hint {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--slate);
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  40% {
+    transform: translateX(-50%) translateY(-8px);
+  }
+  60% {
+    transform: translateX(-50%) translateY(-4px);
+  }
+}
+
+/* ─── Landing Trend Chart ───────────────────────────────────────────────── */
+.landing-trend-container {
+  background: var(--pearl);
+  border-radius: var(--radius-md);
+  padding: 32px 16px 24px;
+  width: 100%;
+}
+
+.landing-trend-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #ff5500;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.landing-trend-legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.landing-trend-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.landing-trend-legend-line {
+  width: 16px;
+  height: 2px;
+}
+
+.landing-trend-legend-item span {
+  font-size: 11px;
+  color: var(--charcoal);
+  letter-spacing: 0.05em;
+}
+
+/* ─── Landing Strengths/Weaknesses ──────────────────────────────────────── */
+.landing-strengths-container {
+  background: var(--pearl);
+  border-radius: var(--radius-md);
+  padding: 32px 24px;
+  width: 100%;
+}
+
+.landing-strengths-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #ff5500;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.landing-strengths-grid {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  gap: 0;
+}
+
+.landing-strengths-column {
+  padding: 0 24px;
+}
+
+.landing-strengths-column:first-child {
+  padding-left: 0;
+}
+
+.landing-strengths-column:last-child {
+  padding-right: 0;
+}
+
+.landing-strengths-divider {
+  background: var(--smoke);
+}
+
+.landing-strengths-heading {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.landing-strengths-heading.strengths {
+  color: var(--success);
+}
+
+.landing-strengths-heading.weaknesses {
+  color: #ff5500;
+}
+
+.landing-strengths-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.landing-strengths-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: fadeSlideIn 0.4s ease-out both;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-strengths-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.landing-strengths-dimension {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.landing-strengths-category {
+  font-size: 10px;
+  color: var(--graphite);
+  letter-spacing: 0.05em;
+}
+
+.landing-strengths-score {
+  font-size: 16px;
+  font-weight: 300;
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+.landing-strengths-score.strengths {
+  color: var(--success);
+}
+
+.landing-strengths-score.weaknesses {
+  color: #ff5500;
 }
 
 /* ─── Testimonial Editorial Grid ─────────────────────────────────────────── */

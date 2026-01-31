@@ -9,9 +9,9 @@ export default function LandingHeader() {
         <div className="brand">
           <AnimatedMascot size={36} />
           <span className="brand-name">
-            <span className="brand-primary">APEX</span>
+            <span className="brand-primary">Apex</span>
             <span className="brand-sub">|</span>
-            <span className="brand-sub">&lt;interviewer/&gt;</span>
+            <span className="brand-interviewer">&lt;interviewer/&gt;</span>
           </span>
         </div>
         <nav className="nav-links">

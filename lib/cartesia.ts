@@ -597,11 +597,14 @@ export async function transcribeAudio(
       
       // Create form data with the audio file
       const formData = new FormData();
-      const blob = new Blob([buffer], { type: baseMime });
+      // The browser accepts ArrayBuffer and Uint8Array as BlobParts, but Node.js Buffer is not exactly the same.
+      // Convert Buffer to Uint8Array for broad compatibility
+      const uint8 = new Uint8Array(buffer);
+      const blob = new Blob([uint8], { type: baseMime });
       formData.append("file", blob, `audio.${ext}`);
       formData.append("model", BATCH_STT_CONFIG.model);
       formData.append("language", BATCH_STT_CONFIG.language);
-      
+
       const response = await fetch(CARTESIA_REST_URLS.STT_BATCH, {
         method: "POST",
         headers: {

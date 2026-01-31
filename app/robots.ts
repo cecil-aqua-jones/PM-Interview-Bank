@@ -1,6 +1,13 @@
 import { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/constants";
 
+/**
+ * Robots.txt Configuration
+ * ========================
+ * - sitemap.xml: Standard sitemap for search engines
+ * - llms.txt: AI-focused content file at /llms.txt (served from public/llms.txt)
+ *   This follows the emerging llms.txt standard for AI crawlers
+ */
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [

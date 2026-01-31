@@ -132,27 +132,27 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
           <Line
             type="monotone"
             dataKey="coding"
-            stroke="var(--ink)"
+            stroke="#3b82f6"
             strokeWidth={1.5}
-            dot={{ fill: "var(--ink)", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "#3b82f6", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
           <Line
             type="monotone"
             dataKey="behavioral"
-            stroke="var(--accent)"
+            stroke="#ff5500"
             strokeWidth={1.5}
-            dot={{ fill: "var(--accent)", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "#ff5500", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
           <Line
             type="monotone"
             dataKey="systemDesign"
-            stroke="var(--success)"
+            stroke="#22c55e"
             strokeWidth={1.5}
-            dot={{ fill: "var(--success)", strokeWidth: 0, r: 3 }}
+            dot={{ fill: "#22c55e", strokeWidth: 0, r: 3 }}
             activeDot={{ r: 5, strokeWidth: 0 }}
             connectNulls
           />
@@ -170,7 +170,7 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "var(--ink)",
+            backgroundColor: "#3b82f6",
           }} />
           <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>Coding</span>
         </div>
@@ -178,7 +178,7 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "var(--accent)",
+            backgroundColor: "#ff5500",
           }} />
           <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>Behavioral</span>
         </div>
@@ -186,7 +186,7 @@ export default function TrendChart({ weeklySnapshots }: TrendChartProps) {
           <div style={{
             width: "16px",
             height: "2px",
-            backgroundColor: "var(--success)",
+            backgroundColor: "#22c55e",
           }} />
           <span style={{ fontSize: "11px", color: "var(--charcoal)", letterSpacing: "0.05em" }}>System Design</span>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
 type CompanyPreview = {
@@ -21,15 +21,79 @@ function getLogoUrl(domain: string) {
 }
 
 export default function LandingCompanyGrid() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const [animatedCounts, setAnimatedCounts] = useState<number[]>(companies.map(() => 0));
+  const [isInView, setIsInView] = useState(false);
 
   const handleImageError = (domain: string) => {
     setImageErrors((prev) => new Set(prev).add(domain));
   };
 
+  // Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.3 }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Animation loop
+  useEffect(() => {
+    if (!isInView) return;
+
+    let animationFrame: number;
+    let timeoutId: NodeJS.Timeout;
+
+    const runAnimation = () => {
+      const duration = 1500; // 1.5s to count up
+      const startTime = performance.now();
+      const targets = companies.map((c) => c.questionCount);
+
+      const animate = (currentTime: number) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function for smooth animation
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        
+        setAnimatedCounts(targets.map((target) => Math.round(target * easeOut)));
+
+        if (progress < 1) {
+          animationFrame = requestAnimationFrame(animate);
+        } else {
+          // Hold at target for 3s, then reset and restart
+          timeoutId = setTimeout(() => {
+            setAnimatedCounts(companies.map(() => 0));
+            // Small pause before restart
+            setTimeout(runAnimation, 500);
+          }, 3000);
+        }
+      };
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    runAnimation();
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      clearTimeout(timeoutId);
+    };
+  }, [isInView]);
+
   return (
-    <div className="landing-company-grid">
-      {companies.map((company) => (
+    <div className="landing-company-grid" ref={containerRef}>
+      {companies.map((company, index) => (
         <div key={company.name} className="landing-company-card">
           {imageErrors.has(company.domain) ? (
             <div className="landing-company-logo-fallback">
@@ -51,7 +115,7 @@ export default function LandingCompanyGrid() {
             <p className="landing-company-type">Coding Questions</p>
           </div>
           <div className="landing-company-footer">
-            <span className="landing-company-count">{company.questionCount} questions</span>
+            <span className="landing-company-count">{animatedCounts[index]} questions</span>
             <span className="landing-company-arrow">→</span>
           </div>
         </div>

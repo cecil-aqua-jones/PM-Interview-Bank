@@ -9,7 +9,7 @@ export default function TermsOfService() {
         <div className="container">
           <div className="header-inner">
             <Link href="/" className="brand">
-              <span className="brand-primary">APEX</span>
+              <span className="brand-primary">Apex</span>
             </Link>
             <nav className="header-nav">
               <Link href="/login" className="btn btn-outline">

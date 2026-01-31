@@ -21,7 +21,7 @@ const weakHireData: DataPoint[] = [
   { dimension: "Correctness", score: 1.8, fullMark: 5 },
   { dimension: "Complexity", score: 1.5, fullMark: 5 },
   { dimension: "Code Quality", score: 1.7, fullMark: 5 },
-  { dimension: "STAR Structure", score: 1.4, fullMark: 5 },
+  { dimension: "Communication", score: 1.4, fullMark: 5 },
   { dimension: "Impact", score: 1.6, fullMark: 5 },
   { dimension: "Leadership", score: 1.2, fullMark: 5 },
   { dimension: "Architecture", score: 1.5, fullMark: 5 },
@@ -33,7 +33,7 @@ const moderateHireData: DataPoint[] = [
   { dimension: "Correctness", score: 3.2, fullMark: 5 },
   { dimension: "Complexity", score: 3.0, fullMark: 5 },
   { dimension: "Code Quality", score: 3.3, fullMark: 5 },
-  { dimension: "STAR Structure", score: 2.9, fullMark: 5 },
+  { dimension: "Communication", score: 2.9, fullMark: 5 },
   { dimension: "Impact", score: 3.1, fullMark: 5 },
   { dimension: "Leadership", score: 2.8, fullMark: 5 },
   { dimension: "Architecture", score: 3.0, fullMark: 5 },
@@ -45,7 +45,7 @@ const excellentHireData: DataPoint[] = [
   { dimension: "Correctness", score: 4.8, fullMark: 5 },
   { dimension: "Complexity", score: 4.5, fullMark: 5 },
   { dimension: "Code Quality", score: 4.7, fullMark: 5 },
-  { dimension: "STAR Structure", score: 4.6, fullMark: 5 },
+  { dimension: "Communication", score: 4.6, fullMark: 5 },
   { dimension: "Impact", score: 4.9, fullMark: 5 },
   { dimension: "Leadership", score: 4.4, fullMark: 5 },
   { dimension: "Architecture", score: 4.6, fullMark: 5 },
@@ -64,30 +64,14 @@ const stageConfig: Record<Stage, { data: DataPoint[]; label: string }> = {
 export default function LandingRadarChart() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [stage, setStage] = useState<Stage>("weak");
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const [isInView, setIsInView] = useState(false);
 
+  // Intersection Observer
   useEffect(() => {
-    if (hasAnimated) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (entry.isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
-          
-          // Start animation sequence
-          setStage("weak");
-          
-          // Transition to moderate after 2s
-          setTimeout(() => {
-            setStage("moderate");
-          }, 2000);
-          
-          // Transition to excellent after 4s
-          setTimeout(() => {
-            setStage("excellent");
-          }, 4000);
-        }
+        setIsInView(entry.isIntersecting);
       },
       { threshold: 0.3 }
     );
@@ -97,7 +81,43 @@ export default function LandingRadarChart() {
     }
 
     return () => observer.disconnect();
-  }, [hasAnimated]);
+  }, []);
+
+  // Animation loop
+  useEffect(() => {
+    if (!isInView) return;
+
+    let timeoutIds: NodeJS.Timeout[] = [];
+
+    const runAnimation = () => {
+      // Start with weak
+      setStage("weak");
+
+      // Transition to moderate after 2s
+      const t1 = setTimeout(() => {
+        setStage("moderate");
+      }, 2000);
+      timeoutIds.push(t1);
+
+      // Transition to excellent after 4s
+      const t2 = setTimeout(() => {
+        setStage("excellent");
+      }, 4000);
+      timeoutIds.push(t2);
+
+      // After holding excellent for 3s (7s total), pause 1s then restart
+      const t3 = setTimeout(() => {
+        runAnimation();
+      }, 8000);
+      timeoutIds.push(t3);
+    };
+
+    runAnimation();
+
+    return () => {
+      timeoutIds.forEach((id) => clearTimeout(id));
+    };
+  }, [isInView]);
 
   const { data, label } = stageConfig[stage];
 

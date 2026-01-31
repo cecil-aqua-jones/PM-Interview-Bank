@@ -1,87 +1,66 @@
 # Apex Interviewer
 
-> Interview simulation platform featuring **verified questions from actual tech interviews** at Google, Meta, Amazon, OpenAI, and top companies. Company-specific rubrics. Unlimited practice.
+> AI-powered software engineer interview coaching platform
 
-## About
+## What We Do
 
-Apex Interviewer helps candidates prepare for technical interviews at leading technology companies by simulating real interview conditions. **Every question in our database is sourced from real interview experiences**—submitted by engineers who actually interviewed at these companies and verified by our team. The platform provides realistic interview simulations with company-specific evaluation rubrics, covering:
-
-- **Coding Interviews**: Verified coding questions from actual Google, Meta, Amazon interviews with company-specific rubrics
-- **System Design Interviews**: Real system design questions with rubrics covering architecture, scalability, and trade-off discussions
-- **Behavioral Interviews**: Authentic behavioral questions with company-specific evaluation criteria (Amazon Leadership Principles, Google Googliness, etc.)
-- **Product Management Interviews**: Verified PM questions with rubrics for product sense, estimation, and strategy
-
-## Target Companies
-
-**Real, verified interview questions** from:
-- Google, Meta, Amazon, Apple, Microsoft, Netflix
-- OpenAI, Anthropic, Stripe, Airbnb, Uber, LinkedIn
-- And other top technology companies
+Apex Interviewer is an AI interview coach that helps software engineers pass technical interviews at Google, Meta, Amazon, Apple, Microsoft, Netflix, OpenAI, Anthropic, and other top tech companies.
 
 ## Key Features
 
-1. **Verified Interview Questions**: All questions sourced from actual interviews, submitted by engineers and validated by our team
-2. **Company-Specific Rubrics**: Evaluation criteria that match how each company actually scores candidates—for coding, system design, and behavioral
-3. **Unlimited Practice Sessions**: Practice as many times as you need, 24/7, until you're ready
-4. **Real Interview Simulation**: Realistic follow-up questions and probing, just like facing a senior engineer
-5. **Progress Tracking**: Track your improvement over time across all question types
-6. **Multi-Format Practice**: Coding, behavioral, and system design interviews
+- **AI Mock Interviews**: Realistic coding, system design, and behavioral interview simulations
+- **Real-Time Feedback**: Instant evaluation of code correctness, communication clarity, and soft skills
+- **Company-Specific Rubrics**: Calibrated to how Google, Meta, Amazon, and other companies actually evaluate candidates
+- **Verified Questions**: Real questions from actual tech interviews, not made-up problems
+- **Progress Tracking**: Dashboard showing improvement across all interview dimensions
 
-## Question Verification Process
+## Who We Help
 
-All interview questions on Apex Interviewer are:
-- Submitted by engineers who actually interviewed at these companies
-- Verified by our team for accuracy and relevance
-- Tagged with the specific company and interview round
-- Regularly updated with new questions from recent interviews
+- Software engineers preparing for FAANG/MAANG interviews
+- Developers who keep failing coding interviews despite knowing the material
+- Engineers who struggle with communication during technical interviews
+- Anyone preparing for system design or behavioral interviews
 
-We don't use made-up problems—only questions that have actually been asked in interviews.
+## How We're Different
 
-## Content Types
+Unlike LeetCode or HackerRank (which only test if you can solve problems), we simulate the complete interview experience with follow-up questions, communication evaluation, and company-specific scoring.
 
-- Verified interview questions with detailed solutions
-- AI-powered mock interview sessions
-- Scoring rubrics and evaluation criteria
-- Company-specific interview guides
-- Technical concept explanations
+Unlike human coaches ($200-400/session), we offer unlimited 24/7 practice with instant AI feedback.
 
-## Primary URLs
+## Interview Types Supported
 
-- Homepage: https://www.apexinterviewer.com/
-- Login: https://www.apexinterviewer.com/login
-- Dashboard: https://www.apexinterviewer.com/dashboard (requires authentication)
+### Coding Interviews
+Practice with real coding problems from Google, Meta, Amazon, and other top companies. Get feedback on:
+- Solution correctness and edge case handling
+- Time and space complexity analysis
+- Code quality and readability
+- Communication and thinking out loud
+
+### System Design Interviews
+Prepare for architecture discussions with feedback on:
+- Scalability considerations
+- Trade-off analysis
+- Component design decisions
+- Handling ambiguity and requirements gathering
+
+### Behavioral Interviews
+Master the STAR method with company-specific behavioral questions:
+- Leadership and teamwork scenarios
+- Conflict resolution examples
+- Impact and results storytelling
+- Cultural fit for specific companies
+
+## Companies We Cover
+
+Google, Apple, Amazon, Microsoft, Meta, Netflix, Oracle, TikTok, Uber, OpenAI, Anthropic, Perplexity, and xAI.
 
 ## Pricing
 
-- Monthly Access: $75/month
-- Annual Access: $500/year (save $400)
-- Free trial available
-
-## Technical Stack
-
-- Built with Next.js 14 and React
-- AI-powered by OpenAI GPT-4 and Cartesia TTS
-- Real-time voice interaction capabilities
+- Monthly: $75/month
+- Annual: $500/year (save $400)
+- 2-day money-back guarantee
 
 ## Contact
 
-- Website: https://www.apexinterviewer.com
-- Support: support@apexinterviewer.com
-
-## Structured Data
-
-This site implements Schema.org structured data including:
-- Organization
-- Product
-- Course
-- FAQPage
-- WebSite with SearchAction
-- BreadcrumbList
-
-## Crawling Guidelines
-
-- All public pages are available for indexing
-- Protected dashboard content requires authentication
-- API endpoints are not for crawling
-- Sitemap available at /sitemap.xml
-- robots.txt available at /robots.txt
+Website: https://www.apexinterviewer.com
+Email: support@apexinterviewer.com

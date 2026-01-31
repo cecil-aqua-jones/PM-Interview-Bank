@@ -6,8 +6,9 @@ import LandingHeader from "./components/LandingHeader";
 import PricingCards from "./components/PricingCard";
 import CTAButton from "./components/CTAButton";
 import SocialProofCarousel from "./components/SocialProofCarousel";
-import ExitIntentPopup from "./components/ExitIntentPopup";
+// import ExitIntentPopup from "./components/ExitIntentPopup";
 import LandingRadarChart from "./components/LandingRadarChart";
+// import ProgressShowcaseSection from "./components/ProgressShowcaseSection";
 import LandingCompanyGrid from "./components/LandingCompanyGrid";
 import LandingInterviewPreview from "./components/LandingInterviewPreview";
 import LandingFeedbackPreview from "./components/LandingFeedbackPreview";
@@ -20,38 +21,53 @@ export const maxDuration = 30;
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const metadata: Metadata = {
-  title: "Apex Interviewer | Real Interview Questions from Google, Meta, Amazon & Top Tech",
+  title: "Apex Interviewer | AI Software Engineer Interview Coach - Google, Meta, Amazon Prep",
   description:
-    "Practice with verified interview questions from actual Google, Meta, Amazon, and OpenAI interviews. Company-specific rubrics for coding, system design, and behavioral. Unlimited practice sessions.",
+    "The AI-powered interview coach that helps software engineers pass Google, Meta, Amazon, and FAANG interviews. Real-time feedback on coding, system design, and behavioral interviews. Stop failing technical interviews—practice with AI that evaluates like a real interviewer.",
   keywords: [
-    "real Google interview questions",
-    "verified tech interview questions",
-    "actual Amazon interview questions",
-    "authentic Meta interview prep",
-    "mock interview practice",
-    "coding interview practice",
-    "tech interview prep",
-    "Google interview questions",
-    "Meta interview prep",
-    "Amazon coding interview",
-    "system design interview",
-    "behavioral interview practice",
-    "software engineer interview",
-    "OpenAI interview prep",
-    "Anthropic coding interview",
-    "LeetCode alternative",
-    "interview simulator",
-    "coding interview feedback",
-    "company-specific rubrics",
-    "unlimited interview practice",
+    // Niche-defining (own the category)
+    "ai swe interview coach",
+    "ai software engineer interview coaching",
+    "ai coding interview coach",
+    "ai technical interview coach",
+    "ai mock interview software engineer",
+    "ai interview trainer for developers",
+    "software engineer interview coaching tool",
+    // High-intent (ready to buy)
+    "best ai mock interview tool for software engineers",
+    "software engineer interview prep tool",
+    "swe interview simulator",
+    "ai interview feedback software engineer",
+    "mock technical interview online",
+    "practice software engineering interview with ai",
+    "online mock coding interview with feedback",
+    // Company-specific (high volume)
+    "google software engineer interview prep",
+    "meta swe interview questions",
+    "amazon software engineer behavioral interview",
+    "FAANG interview preparation",
+    "MAANG interview coaching",
+    "openai interview prep software engineer",
+    "apple software engineer interview tips",
+    // Interview types
+    "system design interview prep",
+    "behavioral interview prep software engineer",
+    "coding interview communication tips",
+    "technical phone screen tips",
+    // Comparison (steal traffic)
+    "interviewing.io alternative",
+    "pramp alternative 2025",
+    "better than leetcode for interview prep",
+    "human interview coach vs ai interview coach",
+    "leetcode not enough for interviews",
   ],
   alternates: {
     canonical: SITE_URL,
   },
   openGraph: {
-    title: "Apex Interviewer | Real Interview Questions from Top Tech Companies",
+    title: "Apex Interviewer | AI Software Engineer Interview Coach",
     description:
-      "Verified questions from actual tech interviews. Company-specific rubrics for coding, system design, and behavioral. Practice as many times as you need.",
+      "AI-powered mock interviews for Google, Meta, Amazon, and FAANG. Real-time feedback on coding, system design, and behavioral interviews. Stop failing—practice with AI that evaluates like a real interviewer.",
     url: SITE_URL,
     type: "website",
   },
@@ -228,6 +244,72 @@ function JsonLd() {
         acceptedAnswer: {
           "@type": "Answer",
           text: "We've analyzed hundreds of real interview evaluations and debriefs from each company to understand exactly what they look for. Combined with our verified question database from actual interviews, our rubrics reflect the real criteria senior engineers use when deciding to hire.",
+        },
+      },
+      // Problem-aware questions (SEO: mid-funnel)
+      {
+        "@type": "Question",
+        name: "Why do I keep failing coding interviews?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Most engineers fail interviews not because they can't code, but because they don't communicate their thinking clearly. Real interviewers want to hear your reasoning process, trade-off analysis, and how you handle ambiguity. Apex Interviewer's AI evaluates exactly these soft skills and gives you specific feedback on where your communication breaks down.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How do I stop freezing during coding interviews?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Interview anxiety comes from uncertainty. The more you practice under realistic conditions, the more confident you become. Our AI asks follow-up questions and challenges your solutions just like a real interviewer, so you build the muscle memory to stay calm under pressure.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Is LeetCode enough to pass FAANG interviews?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "LeetCode tests if you can solve problems, but FAANG interviews evaluate much more: communication, trade-off analysis, system design thinking, and behavioral competencies. Many engineers grind 500+ LeetCode problems and still fail because they never practiced the interview skills that actually matter.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How is an AI interview coach different from a human coach?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Human coaches cost $200-400 per session and have limited availability. Apex Interviewer provides unlimited 24/7 practice at a fraction of the cost, with instant feedback after every response. Our AI is trained on thousands of real tech interviews and evaluates you on the same criteria used by actual FAANG interviewers.",
+        },
+      },
+      // Skill-gap questions (SEO: problem-aware)
+      {
+        "@type": "Question",
+        name: "How do I think out loud during a coding interview?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Thinking out loud means narrating your problem-solving process: state your assumptions, explain why you're choosing a particular approach, discuss time/space complexity trade-offs, and flag edge cases as you encounter them. Our AI gives you real-time feedback on your communication clarity so you can develop this skill.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How do I answer 'tell me about yourself' as a software engineer?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Structure your answer around: your current role and key accomplishments, why you're interested in this company/role, and what unique value you bring. Keep it under 2 minutes and focus on technical impact. Our behavioral interview mode helps you craft and practice compelling stories using the STAR method.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What do FAANG interviewers actually look for?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Beyond correct solutions, FAANG interviewers evaluate: problem-solving approach, code quality, communication clarity, handling of edge cases, complexity analysis, and cultural fit. Each company has specific rubrics—Google emphasizes 'Googleyness,' Amazon focuses on Leadership Principles. Our company-specific modes are calibrated to these exact criteria.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How many mock interviews should I do before a real interview?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Research suggests 15-20 realistic mock interviews build significant confidence. The key is quality over quantity—each practice session should include feedback on your specific weaknesses. With unlimited Apex Interviewer sessions, you can practice until you consistently perform at your target level.",
         },
       },
     ],
@@ -450,7 +532,7 @@ export default async function Home() {
   return (
     <>
       <JsonLd />
-      <ExitIntentPopup />
+      {/* <ExitIntentPopup /> */}
       <LandingHeader />
 
       <main>
